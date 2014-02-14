@@ -48,12 +48,12 @@ if sys.version_info[0] > 2:
 # Uncomment the next line for debugging output
 # debug.DEBUG=1
 
-setup(name="pytools4caom2",
-      version='1.1.0',
+setup(name="tools4caom2",
+      version='1.1.1',
       description='Python tools to assist ingestions into CAOM-2, ' + \
                   'especially when using fits2caom2',
       author='Russell Redman',
-      author_email='Russell.Redman@nrc-cnrc.gc.ca',
+      author_email='russell.o.redman@gmail.com',
       provides=['tools4caom2'],
       packages=find_packages(exclude=['*.test']),
       test_suite='tools4caom2.test',

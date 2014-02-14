@@ -894,7 +894,7 @@ class testIngest2caom2(unittest.TestCase):
         self.assertEqual(self.testingest.outdir,
                          os.path.join(self.testdir, 'MYOUTDIR'))
         self.assertEqual(self.testingest.test, True)
-        self.assertEqual(self.testingest.loglevel, logging.ERROR)
+        self.assertEqual(self.testingest.loglevel, logging.WARN)
 
         # Some particular tests
         sys.argv = ['TestIngest.py',
@@ -903,7 +903,7 @@ class testIngest2caom2(unittest.TestCase):
                     os.path.join(self.testdir, 'file1.fits')]
         self.testingest.defineCommandLineSwitches()
         self.testingest.processCommandLineSwitches()
-        self.assertEqual(self.testingest.loglevel, logging.INFO)
+        self.assertEqual(self.testingest.loglevel, logging.DEBUG)
 
         # Restore quiet logging
         sys.argv = ['TestIngest.py',
@@ -912,60 +912,7 @@ class testIngest2caom2(unittest.TestCase):
                     os.path.join(self.testdir, 'file1.fits')]
         self.testingest.defineCommandLineSwitches()
         self.testingest.processCommandLineSwitches()
-        self.assertEqual(self.testingest.loglevel, logging.ERROR)
-
-    def test170_TestIngest_logCommandLineSwitches(self):
-        """
-        Verify that logCommandLineSwitches produces sensible output
-        """
-        sys.argv = ['TestIngest.py',
-                    '--qsub',
-                    '--archive=MYTEST',
-                    '--stream=MYSTREAM',
-                    '--adput',
-                    '--database=MYDATABASE',
-                    '--schema=MYSCHEMA',
-                    '--config=MYCONFIG',
-                    '--default=MYDEFAULT',
-                    '--outdir=' + os.path.join(self.testdir, 'MYOUTDIR'),
-                    '--test',
-                    '--log=MYLOG',
-                    '--quiet',
-                    os.path.join(self.testdir, 'file1.fits'),
-                    os.path.join(self.testdir, 'file2.fits'),
-                    os.path.join(self.testdir, 'file5.tar.gz')]
-        self.testingest.defineCommandLineSwitches()
-        self.testingest.processCommandLineSwitches()
-        self.testingest.logCommandLineSwitches()
-        text = self.testingest.log.get_text()
-
-        self.assertTrue(re.search(r'version        = ', text))
-        self.assertTrue(re.search(r'configpath     = ', text))
-        self.assertTrue(re.search(r'qsub           = True', text))
-        self.assertTrue(re.search(r'archive        = ' +
-                                  self.testingest.archive, text))
-        self.assertTrue(re.search(r'stream         = ' +
-                                  self.testingest.stream, text))
-        self.assertTrue(re.search(r'adput          = True', text))
-        self.assertTrue(re.search(r'server         = ' +
-                                  self.testingest.server, text))
-        self.assertTrue(re.search(r'database       = ' +
-                                  self.testingest.database, text))
-        self.assertTrue(re.search(r'schema         = ' +
-                                  self.testingest.schema, text))
-        self.assertTrue(re.search(r'config         = ' +
-                                  re.escape(self.testingest.config), text))
-        self.assertTrue(re.search(r'default        = ' +
-                                  re.escape(self.testingest.default), text))
-        self.assertTrue(re.search(r'outdir         = ' +
-                                  re.escape(self.testingest.outdir), text))
-        self.assertTrue(re.search(r'logfile        = ' +
-                                  re.escape(self.testingest.logfile), text))
-        self.assertTrue(re.search(r'test           = True', text))
-        self.assertEqual(set(self.testingest.inputlist), 
-                         set([os.path.join(self.testdir, 'file1.fits'),
-                              os.path.join(self.testdir, 'file2.fits'),
-                              os.path.join(self.testdir, 'file5.tar.gz')]))
+        self.assertEqual(self.testingest.loglevel, logging.WARN)
 
     @unittest.skipIf(not adput_available, 'adPut is not available on this system')
     def test180_TestIngest_verifyFileInAD(self):
@@ -1480,63 +1427,6 @@ class testIngest2caom2(unittest.TestCase):
              'key2                           = value2',
              'key4                           = value4'])
 
-    def test280_testIngest_runFits2caom2(self):
-        """
-        verify that the fits2caom2 command is generated as expected
-        """
-        uristring = 'ad:TEST/file1,ad:TEST/file2'
-        localstring = 'file1.fits,file2.fits'
-        self.testingest.log.set_text()
-        self.testingest.runFits2caom2('TEST',
-                                      'obs1',
-                                      'C',
-                                      'obs.xml',
-                                      'sample.override',
-                                      uristring,
-                                      '',
-                                      '--myargs')
-        text = self.testingest.log.get_text()
-        text = re.sub(r".*?fits2caom2Interface: cmd = '([^']+)'.*",
-                      r'\1', text)
-        self.assertEqual(text,
-            'fits2caom2 '
-            ' --collection="TEST"'
-            ' --observationID="obs1"'
-            ' --productID="C"'
-            ' --out="obs.xml"'
-            ' --config="' + self.testingest.config + '"' +
-            ' --default="' + self.testingest.default + '"' +
-            ' --override="sample.override"'
-            ' --uri="' + uristring + '"' +
-            ' --log="' + self.testingest.logfile + '"' +
-            ' --myargs\n')
-
-        self.testingest.log.set_text()
-        self.testingest.runFits2caom2('TEST',
-                                      'obs1',
-                                      'C',
-                                      'obs.xml',
-                                      'sample.override',
-                                      uristring,
-                                      localstring,
-                                      '--myargs')
-        text = self.testingest.log.get_text()
-        text = re.sub(r".*?fits2caom2Interface: cmd = '([^']+)'.*",
-                      r'\1', text)
-        self.assertEqual(text,
-            'fits2caom2 '
-            ' --collection="TEST"'
-            ' --observationID="obs1"'
-            ' --productID="C"'
-            ' --out="obs.xml"'
-            ' --config="' + self.testingest.config + '"' +
-            ' --default="' + self.testingest.default + '"' +
-            ' --override="sample.override"'
-            ' --uri="' + uristring + '"' +
-            ' --local="' + localstring + '"' +
-            ' --log="' + self.testingest.logfile + '"' +
-            ' --myargs\n')
-        
     def test340_ignore_artifact(self):
         """
         Verify that calling ignore_artifact empties the plane_dict and

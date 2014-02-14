@@ -173,7 +173,7 @@ class logger(object):
             'handlers': {
                 'consolehandler': {
                     'class': 'logging.StreamHandler',
-                    'stream': 'ext://sys.stdout',
+                    'stream': 'ext://sys.stderr',
                     'formatter': 'consoleformat'
                 },
                 'filehandler': {
@@ -311,7 +311,7 @@ class logger(object):
             padded_message += '\nERROR: '
             padded_message += message
 
-        if self.text != None:
+        if self.text is not None:
             self.text += (padded_message + "\n")
 
         # send the message to the requested logger
@@ -346,7 +346,7 @@ class logger(object):
             padded_message += '\nERROR: '
             padded_message += message
 
-        if self.text != None:
+        if self.text is not None:
             self.text += (padded_message + "\n")
 
         # Console messages are nominally logged to stderr.  If this is not an

@@ -1,51 +1,4 @@
-#!/usr/bin/env python
-#/*+
-#************************************************************************
-#****  C A N A D I A N   A S T R O N O M Y   D A T A   C E N T R E  *****
-#*
-#* (c) 2011  .                      (c) 2011
-#* National Research Council        Conseil national de recherches
-#* Ottawa, Canada, K1A 0R6          Ottawa, Canada, K1A 0R6
-#* All rights reserved              Tous droits reserves
-#*
-#* NRC disclaims any warranties,    Le CNRC denie toute garantie
-#* expressed, implied, or statu-    enoncee, implicite ou legale,
-#* tory, of any kind with respect   de quelque nature que se soit,
-#* to the software, including       concernant le logiciel, y com-
-#* without limitation any war-      pris sans restriction toute
-#* ranty of merchantability or      garantie de valeur marchande
-#* fitness for a particular pur-    ou de pertinence pour un usage
-#* pose.  NRC shall not be liable   particulier.  Le CNRC ne
-#* in any event for any damages,    pourra en aucun cas etre tenu
-#* whether direct or indirect,      responsable de tout dommage,
-#* special or general, consequen-   direct ou indirect, particul-
-#* tial or incidental, arising      ier ou general, accessoire ou
-#* from the use of the software.    fortuit, resultant de l'utili-
-#*                                  sation du logiciel.
-#*
-#************************************************************************
-#*
-#*   Script Name:    testLogger.py
-#*
-#*   Purpose:
-#+    Unittest module for the class logger.
-#*
-#*   Classes:
-#+    TestLogger         
-#*
-#*   Functions:
-#*
-#*   Field
-#*    $Revision: 155 $
-#*    $Date: 2012-09-12 16:53:24 -0700 (Wed, 12 Sep 2012) $
-#*    $Author: redman $
-#*
-#*
-#*   Modification History:
-#*
-#****  C A N A D I A N   A S T R O N O M Y   D A T A   C E N T R E  *****
-#************************************************************************
-#-*/
+#!/usr/bin/env python2.7
 """
 testlogger module, a unittest module that checks whether the tools4caom2.logger 
 module, compiles, logs to a disk file, logs to a console file and sends e-mail.
@@ -54,6 +7,7 @@ import commands
 import os
 import os.path
 import re
+import subprocess
 import string
 import sys
 import tempfile
@@ -123,7 +77,104 @@ class TestLogger(unittest.TestCase):
             self.assertTrue(re.match(m + r'\n.*test message', mafter),
                             'text buffer does not begin with "' + m +
                             '" and end with "test message":"' + mafter + '"')
+
+    def test040_stderr(self):
+        """
+        Run the clientLogger.py program to verify that all commands are written
+        to the standard error stream and that setting the logevel filters the
+        correct set of messages.
+        """
+        clientpath = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
+                                  'clientLogger.py')
         
+        clientCmd = clientpath + ' --log=' + self.logfile
+        po = subprocess.Popen(clientCmd, 
+                              shell=True,
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE)
+        (stdo, stde) = po.communicate()
+        self.assertTrue(len(stdo) == 0,
+                        'stdoutput should be empty by held "' + stdo + '"')
+        self.assertTrue(re.search('MESSAGE1', stde),
+                        'Running "' + clientCmd + '", '
+                        'MESSAGE1 was not found in stderr')
+        self.assertFalse(re.search('DEBUG1', stde),
+                        'Running "' + clientCmd + '", '
+                        'DEBUG1 was found in stderr')
+        self.assertTrue(re.search('INFO1', stde),
+                        'Running "' + clientCmd + '", '
+                        'INFO1 was not found in stderr')
+        self.assertTrue(re.search('WARNING1', stde),
+                        'Running "' + clientCmd + '", '
+                        'WARNING1 was not found in stderr')
+                
+        clientCmd = (clientpath + ' --log=' + self.logfile
+                    + ' --console_output=False')
+        po = subprocess.Popen(clientCmd, 
+                              shell=True,
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE)
+        (stdo, stde) = po.communicate()
+        self.assertTrue(len(stdo) == 0,
+                        'stdoutput should be empty by held "' + stdo + '"')
+        self.assertFalse(re.search('MESSAGE1', stde),
+                         'Running "' + clientCmd + '", '
+                         'MESSAGE1 was found in stderr')
+        self.assertFalse(re.search('DEBUG1', stde),
+                         'Running "' + clientCmd + '", '
+                         'DEBUG1 was found in stderr')
+        self.assertFalse(re.search('INFO1', stde),
+                         'Running "' + clientCmd + '", '
+                         'INFO1 was found in stderr')
+        self.assertFalse(re.search('WARNING1', stde),
+                         'Running "' + clientCmd + '", '
+                         'WARNING1 was found in stderr')
+
+        clientCmd = (clientpath + ' --log=' + self.logfile
+                     + ' --loglevel=debug')
+        po = subprocess.Popen(clientCmd, 
+                              shell=True,
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE)
+        (stdo, stde) = po.communicate()
+        self.assertTrue(len(stdo) == 0,
+                        'stdoutput should be empty by held "' + stdo + '"')
+        self.assertTrue(re.search('MESSAGE1', stde),
+                        'Running "' + clientCmd + '", '
+                        'MESSAGE1 was not found in stderr')
+        self.assertTrue(re.search('DEBUG1', stde),
+                       'Running "' + clientCmd + '", '
+                       'DEBUG1 was not found in stderr')
+        self.assertTrue(re.search('INFO1', stde),
+                        'Running "' + clientCmd + '", '
+                        'INFO1 was not found in stderr')
+        self.assertTrue(re.search('WARNING1', stde),
+                        'Running "' + clientCmd + '", '
+                        'WARNING1 was not found in stderr')
+                
+        clientCmd = (clientpath + ' --log=' + self.logfile
+                     + ' --loglevel=warn')
+        po = subprocess.Popen(clientCmd, 
+                              shell=True,
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE)
+        (stdo, stde) = po.communicate()
+        self.assertTrue(len(stdo) == 0,
+                        'stdoutput should be empty by held "' + stdo + '"')
+        self.assertFalse(re.search('MESSAGE1', stde),
+                         'Running "' + clientCmd + '", '
+                         'MESSAGE1 was found in stderr')
+        self.assertFalse(re.search('DEBUG1', stde),
+                        'Running "' + clientCmd + '", '
+                        'DEBUG1 was found in stderr')
+        self.assertFalse(re.search('INFO1', stde),
+                         'Running "' + clientCmd + '", '
+                         'INFO1 was found in stderr')
+        self.assertTrue(re.search('WARNING1', stde),
+                        'Running "' + clientCmd + '", '
+                        'WARNING1 was not found in stderr')
+                
+                
 if __name__ == '__main__':
     unittest.main()    
 
