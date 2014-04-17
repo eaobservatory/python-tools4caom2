@@ -3,9 +3,11 @@ __author__ = "Russell O. Redman"
 
 """
 A simple config file manager, where the config file is maintained as a text
-file that can be encoded and decoded to obfuscate the contents. 
+file that can be encoded to obfuscate the contents or decoded to allow editting
+with a normal editor. 
 """
 
+import argparse
 import base64
 import getpass
 import logging
@@ -18,27 +20,29 @@ class config(object):
     Manage user configuration.  This class creates a user configuration file
     at a specified path, sets permissions appropriately to keep it private 
     to the individual user, encyphers the file to obfuscate the contents,
-    and reads the file.
-    
-    The config file is a set of key = value pairs.  
+    and reads the file.  The config file contains a set of key = value pairs.  
     Comments start with the # character.
     
-    Each file is associated with an object.  If a key matches the name of an 
-    attribute in the managed object, the representation of the attribute value
-    is stored as the value in the configuration file.  When the file is
-    read, the stored representation is evaluated and the attribute is set
-    to that value again. 
+    The values recorded for each key will be evaluated to set the value
+    in the dictionary, and should follow the conventions for repr(value):
+    Numbers should be in decimal: 123.456
+    Strings should be enclosed in quote marks: "This is a line of text."
+    Booleans have True or False values.
+    More complicated structures are possible if a line like
+        x = eval(repr(x))
+    would leave the value of x unchanged.  The representation given by repr(x)
+    should be used in the config file.
     
-    Keys can be defined that do not match attributes in the managed object.
-    These are stored in a dictionary in the config object and can be access
-    using a dictionary-like mechanism.
-    
-    A config object emulates a dictionary by delegating the dictionary
-    methods to the userconfig attribute.
+    Within the code, the user configuration looks like a dictionary.  Creating 
+    a config object records the file path and creates an internal dictionary
+    but does not read the file.  This allows the user to preload the config
+    with default values, then read the actual config to override values set
+    in the file and create new entries.
     """
+    
     firstline = '# config - do not change this line\n'
 
-    def __init__(self, filepath):
+    def __init__(self, filepath, log):
         """
         Initialize the config structure but do not read or write the file, 
         which will be specified dynamically in a later step.
@@ -49,13 +53,19 @@ class config(object):
                 configuration
         """
         self.userconfig = {}
+        self.log = log
         self.filepath = os.path.expanduser(os.path.expandvars(filepath))
-
+        self.config_exists = os.path.exists(self.filepath)
+        if not self.config_exists:
+            self.log.file('user config file does not exist:' + self.filepath,
+                          logging.WARN)
         
     def create_if_not_present(self):
         """
         If the user configuration file does not exist, create it and set
-        appropriate permissions on all new directories in the path.
+        appropriate permissions on all new directories in the path.  The file
+        will be left in plain text to allow the user to edit it before encoding
+        its value.
         
         Arguments:
         filepath: the path to the user configuration file
@@ -78,62 +88,86 @@ class config(object):
                     else:
                         F.write('# %s = %s\n' % (key, 
                                                  repr(self.userconfig[key])))
-        self.toggle_view('encode')
         os.chmod(self.filepath, 0600)
+        self.config_exists = True
 
     def toggle_view(self, state):
         """
-        base64-encode the contents of the file
+        Base64-encode the contents of the file
         
         Arguments:
         state: if state=="encode' then ensure the file is encoded
                if state=='decode' then ensure the file is decoded
         """
-        with open(self.filepath, 'r') as F:
-            s = F.read()
+        if self.config_exists:
+            with open(self.filepath, 'r') as F:
+                s = F.read()
 
-        with open(self.filepath, 'w') as F:
-            if re.match(r'^' + config.firstline + '.*', s):
-                if state != 'decode':
-                    F.write(base64.b64encode(s))
-            else:
-                if state != 'encode':
-                    F.write(base64.b64decode(s))
-        os.chmod(self.filepath, 0600)
+            with open(self.filepath, 'w') as F:
+                if re.match(r'^' + config.firstline + '.*', s):
+                    if state != 'decode':
+                        F.write(base64.b64encode(s))
+                else:
+                    if state != 'encode':
+                        F.write(base64.b64decode(s))
+            os.chmod(self.filepath, 0600)
 
     def read(self):
         """
-        Reads the file and returns a dictionary containing the key/value pairs
+        Reads the file into the internal dictionary
         
         Arguments:
         <none>
         """
-        s = ''
-        with open(self.filepath, 'r') as F:
-            s = F.read()
-            if re.match(r'^' + config.firstline + '.*', s):
-                raise RuntimeError('For security the config file ' +
-                                   self.path + ' must be encyphered',
-                                   logging.ERROR)
-            c = base64.b64decode(s)
-        
-        mydict = {}
-        if c:
-            for line in re.split(r'\n', c):
-                # Strip off comments
-                line = re.sub(r'#.*$', '', line)
-                line.strip()
-                
-                if line:
-                    # if anything remains and matches r'^key = value .*'
-                    parts = re.split(r'\s*=\s*', line)
-                    if len(parts) >= 2:
-                        key = parts[0].strip()
-                        value = parts[1].strip()
-                        mydict[key] = eval(value)
-        
-            self.userconfig.update(mydict)
+        if self.config_exists:
+            s = ''
+            with open(self.filepath, 'r') as F:
+                s = F.read()
+                if re.match(r'^' + config.firstline + '.*', s):
+                    raise RuntimeError('For security the config file ' +
+                                       self.path + ' must be encoded',
+                                       logging.ERROR)
+                c = base64.b64decode(s)
+            
+            mydict = {}
+            if c:
+                for line in re.split(r'\n', c):
+                    # Strip off comments
+                    line = re.sub(r'#.*$', '', line)
+                    line.strip()
+                    
+                    if line:
+                        # if anything remains and matches r'^key = value .*'
+                        parts = re.split(r'\s*=\s*', line)
+                        if len(parts) >= 2:
+                            key = parts[0].strip()
+                            value = parts[1].strip()
+                            mydict[key] = eval(value)
+            
+                self.userconfig.update(mydict)
     
+    @staticmethod
+    def run(defaultpath, defaultdict={}):
+        """
+        A utility method that can be used to setup user configuration files for
+        specific needs.
+        """
+        ap = argparse.ArgumentParser()
+        ap.add_argument('-p', '--path',
+                        default=defaultpath,
+                        help='path to config file (default = ' + 
+                        defaultpath + ')'
+        args = ap.parse_args()
+        
+        myconfig = config(args.path)
+        
+        if os.path.exists(mypath):
+            myconfig.toggle_view()
+        else:
+            for key in defaultdict:
+                myconfig[key] = defaultdict[key]
+            myconfig.create_if_not_present()
+        
     # The dictionary is implemented by delegating the operations to
     # the userconfig attribute.
     def __len__(self):

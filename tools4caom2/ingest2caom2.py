@@ -367,6 +367,28 @@ class ingest2caom2(object):
         # FITS header in the file/extension.
 
     #************************************************************************
+    # Optionally read user configuration 
+    #************************************************************************
+    def read_user_config(self, userconfigpath):
+        """
+        If a user configuration file has been specified, read it and
+        copy the configuration into the appropriate files in self.
+        
+        Arguments:
+        userconfigpath
+        """
+        self.userconfig = config(userconfigpath)
+        # Pre-load the userconfig dictionary with default values
+        # self.userconfig[key] = value
+        
+        # Read the user configuration, which can override default values
+        # and make new entries in teh dictionary
+        self.userconfig.read()
+        
+        # Store configuration values as required
+        # self.value = self.userconfig[key]
+
+    #************************************************************************
     # Apply archive-specific changes to a plane in an observation xml
     #************************************************************************
     def build_observation_custom(self, 
@@ -599,6 +621,11 @@ class ingest2caom2(object):
         self.plane_dict = OrderedDict()
         self.fitsuri_dict = OrderedDict()
         self.override_items = 0
+        
+        # config object optionally contains a user configuration object
+        # this can be left undefined at the CADC, but is needed at other sites
+        self.userconfig = None
+        self.userconfigpath = None
 
         # local sets to be accumulated in a plane
         self.memberset = set([])
@@ -1026,6 +1053,13 @@ class ingest2caom2(object):
 
         # Command line options
         self.arg = argparse.ArgumentParser('ingest2caom2')
+        # Optional user configuration
+        if self.userconfigpath:
+            self.arg.add_argument('--userconfig',
+                                  default=self.userconfigpath,
+                                  help='Optional user configuration file '
+                                  '(default=' + self.userconfigpath + ')')
+
         # Grid Engine options
         self.arg.add_argument('--qsub',
             action='store_true',
@@ -1112,6 +1146,10 @@ class ingest2caom2(object):
 
         self.switches = self.arg.parse_args()
 
+        # Read the user configuration file if one has been supplied
+        if self.switches.userconfig:
+            self.read_user_config(self.switches.userconfig)
+            
         # Save the values in self
         # A value on the command line overrides a default set in code.
         # Options with defaults are always defined by the command line.
