@@ -121,9 +121,7 @@ class gridengine(object):
             print >>CSH, line
         print >>CSH, 'echo SCRIPT = ' + cshfile
         print >>CSH, 'echo LOGFILE = ' + logfile
-        print >>CSH, 'echo HOSTNAME = $HOSTNAME'
-        print >>CSH, 'echo HOSTTYPE = $HOSTTYPE'
-        print >>CSH, 'which java'
+        
         if 'PYTHONPATH' in os.environ:
             print >>CSH, 'setenv PYTHONPATH ' + os.environ['PYTHONPATH']
         if 'CADC_ROOT' in os.environ:
