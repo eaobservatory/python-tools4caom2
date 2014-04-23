@@ -116,7 +116,7 @@ class database(object):
         def __init__(self, value):
             self.value = value
 
-    def __init__(self, server, database_name, log):
+    def __init__(self, userconfig, log):
         """
         Create a new connection to the Sybase server
         
@@ -132,14 +132,13 @@ class database(object):
 
         It is legitimate to customize the pause_queue for each connection.
         """
-        self.server = server
-        self.database_name = database_name
+        self.userconfig = userconfig
         self.pause_queue = [1.0, 2.0, 3.0]
         self.log = log
 
     def get_credentials(self):
         """
-        Read the users .dbrc file to get credentials
+        Read the users .dbrc file to get credentials, if dbrc_get is defined
         
         Arguments:
         <None>
@@ -158,14 +157,12 @@ class database(object):
                                  ' should contain username, password',
                                  logging.ERROR)
 
-            user_name = cred[0]
-            user_password = cred[1]
+            self.userconfig['credid'] = cred[0]
+            self.userconfig['credcode'] = cred[1]
         except subprocess.CalledProcessError as e:
             self.log.console('errno.' + errno.errorcode(e.returnvalue) +
                              ': ' + credentials,
                              logging.ERROR)
-        
-        return (user_name, user_password)
         
     def get_read_connection(self):
         """
@@ -178,22 +175,34 @@ class database(object):
         """
         if sybase_defined:
             if not database.read_connection:
-                user_name, user_password = self.get_credentials()
-                database.read_connection = \
-                    Sybase.connect(self.server,
-                                   user_name,
-                                   user_password,
-                                   database=self.database_name,
-                                   auto_commit=1,
-                                   datetime='python')
-            if not database.read_connection:
-                self.log.console('Could not connect to SYBASE:jcmtmd with ' +
-                                 user_name + '  and ' + user_password,
-                                 logging.ERROR)
+                self.get_credentials()
+                # Check that credentials exist
+                if ('credid' not in self.userconfig or
+                    not self.userconfig['credid'] or
+                    'credcode' not in self.userconfig or
+                    not self.userconfig['credcode']):
+                    
+                    self.log.file('No user credentials in userconfig, so omit '
+                                  'opening connection to database')
+                else:
+                    database.read_connection = \
+                        Sybase.connect(self.userconfig['server'],
+                                       self.userconfig['credid'],
+                                       self.userconfig['credcode'],
+                                       database=self.userconfig['caom_db'],
+                                       auto_commit=1,
+                                       datetime='python')
+                    if not database.read_connection:
+                        self.log.console('Could not connect to ' + 
+                                         self.userconfig['server'] + ':' +
+                                         self.userconfig['caom_db'] + 
+                                         ' with ' +
+                                         self.userconfig['credid'] + '  and ' + 
+                                         self.userconfig['credcode'],
+                                         logging.ERROR)
         else:
-            self.log.console('cannot open a read_connection because '
-                             'Sybase is not available',
-                             logging.ERROR)
+            self.log.file('cannot open a read_connection to a database '
+                          'because Sybase is not available')
             
     def get_write_connection(self):
         """
@@ -206,24 +215,34 @@ class database(object):
         """
         if sybase_defined:
             if not database.write_connection:
-                user_name, user_password = self.get_credentials()
-
-                database.write_mutex.acquire() 
-                database.write_connection = \
-                    Sybase.connect(self.server,
-                                   user_name,
-                                   user_password,
-                                   database=self.database_name,
-                                   auto_commit=0,
-                                   datetime='python')
-            if not database.write_connection:
-                self.log.console('Could not connect to SYBASE:jcmtmd with ' +
-                                 user_name + '  and ' + user_password,
-                                 logging.ERROR)
+                self.get_credentials()
+                # Check that credentials exist
+                if ('credid' not in self.userconfig or
+                    not self.userconfig['credid'] or
+                    'credcode' not in self.userconfig or
+                    not self.userconfig['credcode']):
+                    
+                    self.log.file('No user credentials in userconfig, so omit '
+                                  'opening connection to database')
+                else:
+                    database.write_connection = \
+                        Sybase.connect(self.userconfig['server'],
+                                       self.userconfig['credid'],
+                                       self.userconfig['credcode'],
+                                       database=self.userconfig['caom_db'],
+                                       auto_commit=0,
+                                       datetime='python')
+                    if not database.write_connection:
+                        self.log.console('Could not connect to ' + 
+                                         self.userconfig['server'] + ':' +
+                                         self.userconfig['caom_db'] + 
+                                         ' with ' +
+                                         self.userconfig['credid'] + '  and ' + 
+                                         self.userconfig['credcode'],
+                                         logging.ERROR)
         else:
-            self.log.console('cannot open a write_connection because '
-                             'Sybase is not available',
-                             logging.ERROR)
+            self.log.file('Could not open a write_connection to a database '
+                           'because Sybase is not available')
 
     def read(self, query, params={}):
         """

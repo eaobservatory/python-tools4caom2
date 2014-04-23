@@ -1146,9 +1146,10 @@ class ingest2caom2(object):
 
         self.switches = self.arg.parse_args()
 
-        # Read the user configuration file if one has been supplied
-        if self.switches.userconfig:
-            self.read_user_config(self.switches.userconfig)
+        # If the user configuration file exists, read it
+        # Regardless of whether the file exists, after this point
+        # the self.userconfig dictionary exists.
+        self.read_user_config(self.switches.userconfig)
             
         # Save the values in self
         # A value on the command line overrides a default set in code.
@@ -1163,8 +1164,9 @@ class ingest2caom2(object):
             self.stream = self.switches.stream
         self.adput = self.switches.adput
 
-        self.server = self.switches.server
+        self.userconfig['server'] = self.switches.server
         if self.switches.database:
+            self.userconfig['caom_db'] = self.switches.database
             self.database = self.switches.database
         self.schema = self.switches.schema
 

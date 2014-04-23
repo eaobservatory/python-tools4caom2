@@ -57,7 +57,7 @@ class gridengine(object):
     A class to help submit jobs to gridengine
     """
     
-    def __init__(self, log, options=None, preamble=None):
+    def __init__(self, log, queue='cadcproc', options=None, preamble=None):
         """
         Initialize a gridengine submission object
         
@@ -69,15 +69,15 @@ class gridengine(object):
                   preamble for the submitted job
         """
         self.log = log
-        self.options = ''
+        self.options = ' -q ' + queue
         if options:
-            if isinstnce(options, str):
-                self.options = options
+            if isinstance(options, str):
+                self.options += (' ' + options)
             else:
                 self.log.console('options must be a string:' + type(options),
                              logging.ERROR)
         else:
-            '-q cadcproc -cwd -j yes'
+            self.options += ' -cwd -j yes'
         
         self.preamble = []
         if preamble:
