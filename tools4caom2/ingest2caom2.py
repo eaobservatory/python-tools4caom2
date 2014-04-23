@@ -90,8 +90,10 @@ from caom2.caom2_observation_uri import ObservationURI
 from caom2.caom2_plane_uri import PlaneURI
 
 from tools4caom2 import __version__
+from tools4caom2.config import config
 from tools4caom2.database import database
 from tools4caom2.database import connection
+from tools4caom2.gridengine import gridengine
 from tools4caom2.logger import logger
 from tools4caom2.caom2repo_wrapper import Repository
 from tools4caom2.adfile_container import adfile_container
@@ -380,6 +382,8 @@ class ingest2caom2(object):
         self.userconfig = config(userconfigpath)
         # Pre-load the userconfig dictionary with default values
         # self.userconfig[key] = value
+        self.userconfig['server'] = self.server
+        self.userconfig['caom_db'] = self.database
         
         # Read the user configuration, which can override default values
         # and make new entries in teh dictionary
@@ -529,15 +533,21 @@ class ingest2caom2(object):
         # to the executable.
         self.configpath = os.path.abspath(os.path.dirname(sys.argv[0]) +
                                           '/../config')
+        # config object optionally contains a user configuration object
+        # this can be left undefined at the CADC, but is needed at other sites
+        self.userconfig = None
+        self.userconfigpath = None
+
         # -------------------------------------------
         # placeholders for command line switch values
         # -------------------------------------------
-        self.arg = None
+        # Command line options
+        self.arg = argparse.ArgumentParser('ingest2caom2')
         self.switches = None
-        self.defineCommandLineSwitches()
         
         # If true, gather metadata and resubmit as a set of gridengine jobs
         self.qsub = None
+        self.queue = 'cadcproc'
 
         # Current container
         self.container = None
@@ -622,11 +632,6 @@ class ingest2caom2(object):
         self.fitsuri_dict = OrderedDict()
         self.override_items = 0
         
-        # config object optionally contains a user configuration object
-        # this can be left undefined at the CADC, but is needed at other sites
-        self.userconfig = None
-        self.userconfigpath = None
-
         # local sets to be accumulated in a plane
         self.memberset = set([])
         self.inputset = set([])
@@ -995,6 +1000,7 @@ class ingest2caom2(object):
 
         # gridengine switch
         --qsub     :  (optional) submit to gridengine (see below)
+        --queue    : (optional) gridengine queue for jobs
 
         # archive and database switches
         --archive   : default normally set in __init__
@@ -1051,8 +1057,6 @@ class ingest2caom2(object):
         current ingestion.
         """
 
-        # Command line options
-        self.arg = argparse.ArgumentParser('ingest2caom2')
         # Optional user configuration
         if self.userconfigpath:
             self.arg.add_argument('--userconfig',
@@ -1064,6 +1068,9 @@ class ingest2caom2(object):
         self.arg.add_argument('--qsub',
             action='store_true',
             help='(optional) submit to gridengine')
+        self.arg.add_argument('--queue',
+            default='cadcproc',
+            help='gridengine queue to use if --qsub is set')
 
         # Basic fits2caom2 options
         # --archive and --stream will normally be assigned default values
@@ -1411,6 +1418,7 @@ class ingest2caom2(object):
         self.log.file('tools4caom2version = ' + __version__.version)
         self.log.file('configpath         = ' + str(self.configpath))
         self.log.file('qsub               = ' + str(self.qsub))
+        self.log.file('queue              = ' + self.queue)
         self.log.file('')
         self.log.file('archive            = ' + str(self.archive))
         self.log.file('stream             = ' + str(self.stream))
@@ -1447,6 +1455,9 @@ class ingest2caom2(object):
         # file name.  Pad these names with the current UTC time.
         # Note that a new file is generated each time and for each container
         # Delete them when no longer needed.
+        if not self.gridengine:
+            self.gridengine = gridengine(self.log, queue=self.queue)
+
         cshdir = os.path.abspath(os.path.dirname(self.logfile))
         suffix = re.sub(r':', '-','_' + datetime.datetime.utcnow().isoformat())
         # containerfile = os.path.basename(cshfile[1]) + '.pickle'
@@ -1516,38 +1527,12 @@ class ingest2caom2(object):
 
         cmd += ' ' + (containerpath)
 
-        # write the csh script that will be submitted to gridengine
-        CSH = open(cshfile, 'w')
-        print >>CSH, '\n'.join([
-            '#!/bin/csh',
-            'echo SCRIPT = ' + cshfile,
-            'echo HOSTNAME = $HOSTNAME',
-            'echo HOSTTYPE = $HOSTTYPE',
-            'which java'])
-        if 'PYTHONPATH' in os.environ:
-            print >>CSH, 'setenv PYTHONPATH ' + os.environ['PYTHONPATH']
-        if 'CADC_ROOT' in os.environ:
-            print >>CSH, 'setenv CADC_ROOT ' + os.environ["CADC_ROOT"]
-        print >>CSH, 'setenv DEFAULT_CONFIG_DIR $CADC_ROOT/config'
-
-        print >>CSH, cmd
-        CSH.close()
-        os.chmod(cshfile,
-                 stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
-
-        # submit the script to gridengine
-        qsub_cmd = 'qsub -q cadcproc -cwd -j yes -o ' +\
-                   self.logfile + ' ' + cshfile
-        self.log.console('PROGRESS: ' + qsub_cmd)
         if self.test:
             status = 0
             output = ''
         else:
-            status, output = commands.getstatusoutput(qsub_cmd)
-        if status:
-            self.log.console('could not submit to gridengine:\n' +\
-                              output,
-                              logging.ERROR)
+            self.gridengine(cmd, cshfile, containerlog)
+
         # these file names can be discarded, but are useful for test purposes
         return (cshfile, containerpath)
 
@@ -2170,6 +2155,7 @@ class ingest2caom2(object):
         # files by observation, plane and file, and holding all the relevant
         # metadata in a set of nested dictionaries.
         self.metadict = {}
+        self.defineCommandLineSwitches()
 
         self.processCommandLineSwitches()
         with logger(self.logfile,
@@ -2182,8 +2168,7 @@ class ingest2caom2(object):
                 # is not going to be used, since the actual connections use
                 # lazy initialization and are not opened until a call to read 
                 # or write is made.
-                with connection(self.server,
-                                self.database,
+                with connection(self.userconfig,
                                 self.log) as self.conn:
                     self.commandLineContainers()
                     for c in self.containerlist:

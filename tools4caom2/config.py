@@ -42,7 +42,7 @@ class config(object):
     
     firstline = '# config - do not change this line\n'
 
-    def __init__(self, filepath, log):
+    def __init__(self, filepath):
         """
         Initialize the config structure but do not read or write the file, 
         which will be specified dynamically in a later step.
@@ -53,12 +53,8 @@ class config(object):
                 configuration
         """
         self.userconfig = {}
-        self.log = log
         self.filepath = os.path.expanduser(os.path.expandvars(filepath))
         self.config_exists = os.path.exists(self.filepath)
-        if not self.config_exists:
-            self.log.file('user config file does not exist:' + self.filepath,
-                          logging.WARN)
         
     def create_if_not_present(self):
         """
@@ -156,7 +152,7 @@ class config(object):
         ap.add_argument('-p', '--path',
                         default=defaultpath,
                         help='path to config file (default = ' + 
-                        defaultpath + ')'
+                        defaultpath + ')')
         args = ap.parse_args()
         
         myconfig = config(args.path)

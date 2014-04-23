@@ -145,8 +145,8 @@ class database(object):
         """
         try:
             credcmd = ' '.join(['dbrc_get', 
-                                self.server, 
-                                self.database_name])
+                                self.userconfig['server'], 
+                                self.userconfig['caom_db']])
             credentials = subprocess.check_output(credcmd,
                                                   shell=True,
                                                   stderr=subprocess.STDOUT)
@@ -382,7 +382,7 @@ class database(object):
             database.write_connection = None
 
 @contextmanager
-def connection(server, database_name, log):
+def connection(userconfig, log):
     """
     Context manager that creates and yields a database object that
     can be used to create read and write connections, then closes the 
@@ -394,6 +394,6 @@ def connection(server, database_name, log):
     log: the instance of tools4caom2.logger.logger to use
     """
     try:
-        yield database(server, database_name, log)
+        yield database(userconfig, log)
     finally:
         database.close()
