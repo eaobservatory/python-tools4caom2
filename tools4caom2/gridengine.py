@@ -116,6 +116,7 @@ class gridengine(object):
         logfile: path to the log file for the gridengine job
         """
         # write the csh script that will be submitted to gridengine
+        self.log.file('CSHFILE: ' + cshfile)
         CSH = open(cshfile, 'w')
         for line in self.preamble:
             print >>CSH, line
@@ -133,11 +134,12 @@ class gridengine(object):
         else:
             # assume this is an iterable
             for cmd in processing_commands:
+                self.log.file('CSH: ' + cmd)
                 if isinstance(cmd, str):
                     print >>CSH,'echo %s\n%s' % (cmd, cmd)
                 else:
-                    self.log.console('command in processing_commands is not a string: ' +
-                                type(cmd))
+                    self.log.console('command in processing_commands is not '
+                                     'a string: ' + type(cmd))
         
         CSH.close()
         os.chmod(cshfile, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)

@@ -1110,6 +1110,8 @@ class ingest2caom2(object):
         self.arg.add_argument('--test',
             action='store_true',
             help='(optional) simulate operation of fits2caom2')
+        self.arg.add_argument('--logdir',
+                        help='(optional) directory to hold log file')
         self.arg.add_argument('--log',
                         help='(optional) name of the log file')
         self.arg.add_argument('--quiet',
@@ -1185,6 +1187,13 @@ class ingest2caom2(object):
         self.outdir = os.path.abspath(
                          os.path.expandvars(
                              os.path.expanduser(self.switches.outdir)))
+        
+        if self.switches.logdir:
+            self.logdir = os.path.abspath(
+                            os.path.expandvars(
+                                os.path.expanduser(self.switches.logdir)))
+        else:
+            self.logdir = self.outdir
 
         self.test = self.switches.test
 
@@ -1210,7 +1219,7 @@ class ingest2caom2(object):
         # is created for this program on successful exit.
         if self.switches.log:
             if os.path.dirname(self.switches.log) == '':
-                self.logfile = os.path.join(self.outdir, self.switches.log)
+                self.logfile = os.path.join(self.logdir, self.switches.log)
             else:
                 self.logfile = os.path.abspath(self.switches.log)
         
@@ -1220,7 +1229,7 @@ class ingest2caom2(object):
                 self.keeplog = True
         else:
             # make a log file that is temporary unless the ingestion fails
-            f = tempfile.NamedTemporaryFile(dir=self.outdir,
+            f = tempfile.NamedTemporaryFile(dir=self.logdir,
                                             prefix=logbase,
                                             suffix='.log',
                                             delete=False)
