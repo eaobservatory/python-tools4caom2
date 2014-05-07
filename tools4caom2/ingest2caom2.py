@@ -548,6 +548,7 @@ class ingest2caom2(object):
         # If true, gather metadata and resubmit as a set of gridengine jobs
         self.qsub = None
         self.queue = 'cadcproc'
+        self.big = False
 
         # Current container
         self.container = None
@@ -1098,6 +1099,11 @@ class ingest2caom2(object):
         self.arg.add_argument('--default',
             help='(optional) path to fits2caom2 default file')
 
+        # Big jobs require extra memory
+        self.arg.add_argument('--big',
+            action='store_true',
+            help='(optional) request extra heap space and RAM')
+        
         # output directory
         self.arg.add_argument('--outdir',
             default='.',
@@ -1179,6 +1185,9 @@ class ingest2caom2(object):
             self.database = self.switches.database
         self.schema = self.switches.schema
 
+        if self.switches.big:
+            self.big = self.switches.big
+        
         if self.switches.config:
             self.config = os.path.abspath(self.switches.config)
         if self.switches.default:
@@ -1428,6 +1437,7 @@ class ingest2caom2(object):
         self.log.file('configpath         = ' + str(self.configpath))
         self.log.file('qsub               = ' + str(self.qsub))
         self.log.file('queue              = ' + self.queue)
+        self.log.file('big                = ' + str(self.big))
         self.log.file('')
         self.log.file('archive            = ' + str(self.archive))
         self.log.file('stream             = ' + str(self.stream))
@@ -1465,10 +1475,20 @@ class ingest2caom2(object):
         # Note that a new file is generated each time and for each container
         # Delete them when no longer needed.
         if not self.gridengine:
-            self.gridengine = gridengine(self.log, queue=self.queue)
+            if self.big:
+                self.gridengine = gridengine(
+                                   self.log,
+                                   queue=self.queue,
+                                   options='-cwd -j yes -l cmem=32')
+            else:
+                self.gridengine = gridengine(self.log, 
+                                         queue=self.queue)
+
 
         cshdir = os.path.abspath(os.path.dirname(self.logfile))
-        suffix = re.sub(r':', '-','_' + datetime.datetime.utcnow().isoformat())
+        suffix = re.sub(r':', 
+                        '-',
+                        '_' + datetime.datetime.utcnow().isoformat())
         # containerfile = os.path.basename(cshfile[1]) + '.pickle'
         
         if isinstance(container, str):
@@ -1924,7 +1944,12 @@ class ingest2caom2(object):
 
         # build the fits2caom2 command
 
-        cmd = 'fits2caom2 ' + self.local_args
+        if self.big:
+            cmd = ('java -Xmx512m -jar ${CADC_ROOT}/lib/fits2caom2.jar ' + 
+                   self.local_args)
+        else:
+            cmd = ('java -Xmx128m -jar ${CADC_ROOT}/lib/fits2caom2.jar ' + 
+                   self.local_args)
 
         cmd += ' --collection="' + collection + '"'
         cmd += ' --observationID="' + observationID + '"'
