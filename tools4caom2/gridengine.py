@@ -77,7 +77,7 @@ class gridengine(object):
                 self.log.console('options must be a string:' + type(options),
                              logging.ERROR)
         else:
-            self.options += '-cwd -j yes'
+            self.options += ' -cwd -j yes'
         
         self.preamble = []
         if preamble:
