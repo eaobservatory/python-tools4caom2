@@ -71,21 +71,36 @@ Version: """ + __version__.version
 class database(object):
     """
     Manage connection to Sybase.
-    Credentials are read from the operator's .dbrc file.
+    Credentials are read from the operator's .dbrc file or from the userconfig
+    dictionary.
+    
+    The userconfig dictionary can contain definitions for:
+    'server': Sybase server
+    
+    'cred_db': at the CADC, database for which credentials will be found
+    or
+    'cred_id': database user_id
+    'cred_key': database password
+    
+    'read_db': database to read by default ('cred_db' if absent)
+    'write_db': database to write by default ('cred_db' if absent)
+    
+    It is legitimate to omit all of these if no connection is needed.
     
     Usage:
-    from pytools4caom2.logger import logger
-    mylog = logger('myrecord.log')
+    userconfig['server'] = 'SYBASE'
+    userconfig['cred_db'] = 'jcmt'
+    mylog = tools4caom2.logger("mylogfile.log")
     
-    connection = database('SYBASE', 'jcmt', mylog)
-    cmd = 'SELECT max(utdate) from jcmtmd.dbo.COMMON'
-    max_utdate = connection.read(cmd)[0][0]
+    with database(userconfig, mylog) as db:
+        cmd = 'SELECT max(utdate) from jcmtmd.dbo.COMMON'
+        max_utdate = db.read(cmd)[0][0]
     
-    upodate_cmd = '''UPDATE state = "W"
-                     FROM jcmt_discovery
-                     WHERE discovery_id = ''' % (IDVALUE,)
-    with connection.transaction():
-        connection.write(update_cmd)
+        upodate_cmd = '''UPDATE state = "W"
+                         FROM jcmt_discovery
+                         WHERE discovery_id = ''' % (IDVALUE,)
+        with db.transaction():
+            db.write(update_cmd)
     
     This class creates a singleton connection and uses a mutex to control 
     access to the connection, so should be thread-safe.
@@ -121,8 +136,7 @@ class database(object):
         Create a new connection to the Sybase server
         
         Arguments:
-        server: one of "DEVSYBASE" or "SYBASE"
-        database: database to use for credentials
+        userconfig: user configuration dictionary
         log: the instance of tools4caom2.logger.logger to use
         
         Exceptions:
@@ -132,7 +146,38 @@ class database(object):
 
         It is legitimate to customize the pause_queue for each connection.
         """
-        self.userconfig = userconfig
+        self.server = None
+        if 'server' in userconfig:
+            self.server = userconfig['server']
+        
+        self.cred_db = None
+        if 'cred_db' in userconfig:
+            self.cred_db = userconfig['cred_db']
+        elif 'read_db' in userconfig:
+            self.cred_db = userconfig['read_db']
+        
+        self.read_db = None
+        if 'read_db' in userconfig:
+            self.read_db = userconfig['read_db']
+        elif 'cred_db' in userconfig:
+            self.read_db = userconfig['cred_db']
+        
+        self.write_db = None
+        if 'write_db' in userconfig:
+            self.write_db = userconfig['write_db']
+        elif 'cred_db' in userconfig:
+            self.write_db = userconfig['cred_db']
+        elif 'read_db' in userconfig:
+            self.write_db = userconfig['read_db']
+        
+        self.cred_id = None
+        if 'cred_id' in userconfig:
+            self.cred_id = userconfig['cred_id']
+
+        self.cred_key = None
+        if 'cred_key' in userconfig:
+            self.cred_key = userconfig['cred_key']
+
         self.pause_queue = [1.0, 2.0, 3.0]
         self.log = log
 
@@ -143,26 +188,24 @@ class database(object):
         Arguments:
         <None>
         """
-        try:
-            credcmd = ' '.join(['dbrc_get', 
-                                self.userconfig['server'], 
-                                self.userconfig['caom_db']])
-            credentials = subprocess.check_output(credcmd,
-                                                  shell=True,
-                                                  stderr=subprocess.STDOUT)
+        if not (self.cred_id and self.cred_key):
+            try:
+                credcmd = ['dbrc_get', self.server,  self.cred_db]
+                credentials = subprocess.check_output(credcmd,
+                                                stderr=subprocess.STDOUT)
 
-            cred = re.split(r'\s+', credentials)
-            if len(cred) < 2:
-                self.log.console('cred = ' + repr(cred) +
-                                 ' should contain username, password',
+                cred = re.split(r'\s+', credentials)
+                if len(cred) < 2:
+                    self.log.console('cred = ' + repr(cred) +
+                                     ' should contain username, password',
+                                     logging.ERROR)
+
+                self.cred_id = cred[0]
+                self.cred_key = cred[1]
+            except subprocess.CalledProcessError as e:
+                self.log.console('errno.' + errno.errorcode(e.returnvalue) +
+                                 ': ' + credentials,
                                  logging.ERROR)
-
-            self.userconfig['credid'] = cred[0]
-            self.userconfig['credcode'] = cred[1]
-        except subprocess.CalledProcessError as e:
-            self.log.console('errno.' + errno.errorcode(e.returnvalue) +
-                             ': ' + credentials,
-                             logging.ERROR)
         
     def get_read_connection(self):
         """
@@ -177,34 +220,30 @@ class database(object):
             if not database.read_connection:
                 self.get_credentials()
                 # Check that credentials exist
-                if ('credid' not in self.userconfig or
-                    not self.userconfig['credid'] or
-                    'credcode' not in self.userconfig or
-                    not self.userconfig['credcode']):
+                if not (self.cred_id and self.cred_key):
                     
-                    self.log.file('No user credentials in userconfig, so omit '
+                    self.log.file('No user credentials, so omit '
                                   'opening connection to database')
                 else:
                     database.read_connection = \
-                        Sybase.connect(self.userconfig['server'],
-                                       self.userconfig['credid'],
-                                       self.userconfig['credcode'],
-                                       database=self.userconfig['caom_db'],
+                        Sybase.connect(self.server,
+                                       self.cred_id,
+                                       self.cred_key,
+                                       database=self.read_db,
                                        auto_commit=1,
                                        datetime='python')
                     if not database.read_connection:
                         self.log.console('Could not connect to ' + 
-                                         self.userconfig['server'] + ':' +
-                                         self.userconfig['caom_db'] + 
-                                         ' with ' +
-                                         self.userconfig['credid'] + '  and ' + 
-                                         self.userconfig['credcode'],
+                                         self.server + ':' +
+                                         self.read_db + ' with ' +
+                                         self.cred_id + ' and ' + 
+                                         self.cred_key,
                                          logging.ERROR)
         else:
             self.log.file('cannot open a read_connection to a database '
                           'because Sybase is not available')
             
-    def get_write_connection(self):
+    def get_write_connection(self, write_db):
         """
         Create a singleton write connection if necessary
         Only called from inside the write() method, this is protected by
@@ -217,28 +256,24 @@ class database(object):
             if not database.write_connection:
                 self.get_credentials()
                 # Check that credentials exist
-                if ('credid' not in self.userconfig or
-                    not self.userconfig['credid'] or
-                    'credcode' not in self.userconfig or
-                    not self.userconfig['credcode']):
+                if not (self.cred_id and self.cred_key):
                     
-                    self.log.file('No user credentials in userconfig, so omit '
+                    self.log.file('No user credentials, so omit '
                                   'opening connection to database')
                 else:
                     database.write_connection = \
-                        Sybase.connect(self.userconfig['server'],
-                                       self.userconfig['credid'],
-                                       self.userconfig['credcode'],
-                                       database=self.userconfig['caom_db'],
+                        Sybase.connect(self.server,
+                                       self.cred_id,
+                                       self.cred_key,
+                                       database=self.write_db,
                                        auto_commit=0,
                                        datetime='python')
                     if not database.write_connection:
                         self.log.console('Could not connect to ' + 
-                                         self.userconfig['server'] + ':' +
-                                         self.userconfig['caom_db'] + 
-                                         ' with ' +
-                                         self.userconfig['credid'] + '  and ' + 
-                                         self.userconfig['credcode'],
+                                         self.server + ':' +
+                                         self.write_db + ' with ' +
+                                         self.cred_id + ' and ' + 
+                                         self.cred_key,
                                          logging.ERROR)
         else:
             self.log.file('Could not open a write_connection to a database '

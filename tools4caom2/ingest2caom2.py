@@ -59,8 +59,8 @@
 __author__ = "Russell O. Redman"
 
 import argparse
-import cPickle
 import commands
+from ConfigParser import SafeConfigParser
 from contextlib import contextmanager
 from collections import OrderedDict
 import datetime
@@ -90,7 +90,6 @@ from caom2.caom2_observation_uri import ObservationURI
 from caom2.caom2_plane_uri import PlaneURI
 
 from tools4caom2 import __version__
-from tools4caom2.config import config
 from tools4caom2.database import database
 from tools4caom2.database import connection
 from tools4caom2.gridengine import gridengine
@@ -100,6 +99,8 @@ from tools4caom2.adfile_container import adfile_container
 from tools4caom2.dataproc_container import dataproc_container
 from tools4caom2.filelist_container import filelist_container
 from tools4caom2.tarfile_container import tarfile_container
+
+from jcmt2caom2.jsa.utdate_string import utdate_string
 
 __doc__ = """
 The ingest2caom2 base class supplies a generic wrapper for fits2caom2.
@@ -377,20 +378,17 @@ class ingest2caom2(object):
         copy the configuration into the appropriate files in self.
         
         Arguments:
-        userconfigpath
+        userconfigpath: path to user configuration file
         """
-        self.userconfig = config(userconfigpath)
-        # Pre-load the userconfig dictionary with default values
-        # self.userconfig[key] = value
-        self.userconfig['server'] = self.server
-        self.userconfig['caom_db'] = self.database
+        if os.path.isfile(userconfigpath):
+            config_parser = SafeConfigParser()
+            with open(userconfigpath) as UC:
+                config_parser.readfp(UC)
         
-        # Read the user configuration, which can override default values
-        # and make new entries in teh dictionary
-        self.userconfig.read()
-        
-        # Store configuration values as required
-        # self.value = self.userconfig[key]
+            if config_parser.has_section('database'):
+                for option in config_parser.options('database'):
+                    self.userconfig[option] = config_parser.get('database', 
+                                                                option)
 
     #************************************************************************
     # Apply archive-specific changes to a plane in an observation xml
@@ -535,7 +533,7 @@ class ingest2caom2(object):
                                           '/../config')
         # config object optionally contains a user configuration object
         # this can be left undefined at the CADC, but is needed at other sites
-        self.userconfig = None
+        self.userconfig = {}
         self.userconfigpath = None
 
         # -------------------------------------------
@@ -1164,8 +1162,22 @@ class ingest2caom2(object):
         # If the user configuration file exists, read it
         # Regardless of whether the file exists, after this point
         # the self.userconfig dictionary exists.
-        self.read_user_config(self.switches.userconfig)
+        if 'userconfig' in self.switches:
+            self.userconfigpath = os.path.abspath(
+                                    os.path.expanduser(
+                                        os.path.expandvars(
+                                            self.switches.userconfig)))
+        if self.userconfigpath:
+            self.read_user_config(self.userconfigpath)
             
+        self.userconfig['server'] = self.switches.server
+
+        # For finer control, set values for database tables in the 
+        # user configuration file
+        if self.switches.database:
+            self.database = self.switches.database
+            self.userconfig['cred_db'] = self.database
+
         # Save the values in self
         # A value on the command line overrides a default set in code.
         # Options with defaults are always defined by the command line.
@@ -1179,10 +1191,6 @@ class ingest2caom2(object):
             self.stream = self.switches.stream
         self.adput = self.switches.adput
 
-        self.userconfig['server'] = self.switches.server
-        if self.switches.database:
-            self.userconfig['caom_db'] = self.switches.database
-            self.database = self.switches.database
         self.schema = self.switches.schema
 
         if self.switches.big:
@@ -1238,12 +1246,9 @@ class ingest2caom2(object):
                 self.keeplog = True
         else:
             # make a log file that is temporary unless the ingestion fails
-            f = tempfile.NamedTemporaryFile(dir=self.logdir,
-                                            prefix=logbase,
-                                            suffix='.log',
-                                            delete=False)
-            f.close()
-            self.logfile = f.name
+            self.logfile = os.path.join(self.logdir,
+                                        logbase + '_' + utdate_string() + 
+                                        '.log')
         
         # check for consistency and correctness of switches
         if not self.archive:
@@ -1314,9 +1319,6 @@ class ingest2caom2(object):
         # Find the lists of containers and files to ingest.
         # If a container has been specified, other files are ignored
         self.containerlist = []
-        # if self.container:
-        #     with open(self.container, 'r') as PKL:
-        #         self.containerlist.append(cPickle.load(PKL))
         if not self.inputlist:
             self.log.console('No files or directories were supplied'
                              ' as inputs', 
@@ -1514,10 +1516,6 @@ class ingest2caom2(object):
 
         cshfile = os.path.join(cshdir, containername + suffix + '.csh')
         containerlog = os.path.join(cshdir, containername + suffix + '.log')
-
-        # pickle the container
-        # with open(containerfile, 'w') as PKL:
-        #     cPickle.dump(container, PKL)
 
         cmd = os.path.abspath(sys.argv[0])
 
@@ -2213,6 +2211,8 @@ class ingest2caom2(object):
                         except:
                             self.rescue_xml()
                             raise
+            # if no errors, declare we are DONR
+            self.log.console('DONE')
         
         # if execution reaches here, the ingestion was successful, 
         # so, if not in debug mode, delete the log file
