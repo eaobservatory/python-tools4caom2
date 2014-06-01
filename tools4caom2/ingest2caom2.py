@@ -1499,7 +1499,7 @@ class ingest2caom2(object):
                 service, identifier = re.split(r':', container)
                 
                 if service == 'dp':
-                    containername = 'dp_' + identifier
+                    containername = 'dp-' + identifier
                 else:
                     containername = os.path.splitext(
                         os.path.basename(identifier))[0]
