@@ -418,6 +418,7 @@ class testIngest2caom2(unittest.TestCase):
 
         # Create an instance of TestIngest and add "command line switches"
         self.testingest = testIngest2caom2.TestIngest()
+        self.testingest.defineCommandLineSwitches()
         self.testingest.qsub = False
 
         self.testingest.archive = 'TEST'
@@ -877,7 +878,7 @@ class testIngest2caom2(unittest.TestCase):
                     os.path.join(self.testdir, 'file2.fits'),
                     os.path.join(self.testdir, 'file5.tar.gz'),
                     os.path.abspath('.')]
-        self.testingest.defineCommandLineSwitches()
+        # self.testingest.defineCommandLineSwitches()
         self.testingest.processCommandLineSwitches()
 
         # Verify that the switches are set as requested
@@ -901,7 +902,7 @@ class testIngest2caom2(unittest.TestCase):
                     '--test',
                     '--verbose',
                     os.path.join(self.testdir, 'file1.fits')]
-        self.testingest.defineCommandLineSwitches()
+        # self.testingest.defineCommandLineSwitches()
         self.testingest.processCommandLineSwitches()
         self.assertEqual(self.testingest.loglevel, logging.DEBUG)
 
@@ -910,7 +911,7 @@ class testIngest2caom2(unittest.TestCase):
                     '--test',
                     '--quiet',
                     os.path.join(self.testdir, 'file1.fits')]
-        self.testingest.defineCommandLineSwitches()
+        # self.testingest.defineCommandLineSwitches()
         self.testingest.processCommandLineSwitches()
         self.assertEqual(self.testingest.loglevel, logging.WARN)
 
@@ -1003,7 +1004,7 @@ class testIngest2caom2(unittest.TestCase):
                     os.path.join(self.testdir, 'file1.fits'),
                     os.path.join(self.testdir, 'file2.fits'),
                     os.path.join(self.testdir, 'file5.tar.gz')]
-        self.testingest.defineCommandLineSwitches()
+        # self.testingest.defineCommandLineSwitches()
         self.testingest.processCommandLineSwitches()
         self.testingest.commandLineContainers()
         dir = os.path.dirname(self.testingest.logfile)
@@ -1153,7 +1154,7 @@ class testIngest2caom2(unittest.TestCase):
         # For this test there should be no filtering or sorting of files
         self.testingest.filterfunc = nofilter
 
-        self.testingest.defineCommandLineSwitches()
+        # self.testingest.defineCommandLineSwitches()
         self.testingest.processCommandLineSwitches()
         self.testingest.commandLineContainers()
 
@@ -1226,7 +1227,7 @@ class testIngest2caom2(unittest.TestCase):
                     '--quiet',
                     os.path.join(self.testdir, 'file5.tar.gz')]
         self.testingest.metadict = {}
-        self.testingest.defineCommandLineSwitches()
+        # self.testingest.defineCommandLineSwitches()
         self.testingest.processCommandLineSwitches()
         self.testingest.commandLineContainers()
 
@@ -1285,7 +1286,7 @@ class testIngest2caom2(unittest.TestCase):
                     '--quiet',
                     'ad:' + os.path.join(self.testdir, 'file6.ad')]
         self.testingest.metadict = {}
-        self.testingest.defineCommandLineSwitches()
+        # self.testingest.defineCommandLineSwitches()
         self.testingest.processCommandLineSwitches()
         self.testingest.commandLineContainers()
 
@@ -1365,7 +1366,7 @@ class testIngest2caom2(unittest.TestCase):
         sys.argv = ['TestIngest.py',
                     '--quiet'] + file_list
         self.testingest.metadict = {}
-        self.testingest.defineCommandLineSwitches()
+        # self.testingest.defineCommandLineSwitches()
         self.testingest.processCommandLineSwitches()
         self.testingest.commandLineContainers()
         self.testingest.fillMetadict(self.testingest.containerlist[0])

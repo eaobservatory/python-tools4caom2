@@ -81,6 +81,7 @@ import sys
 import tarfile
 import tempfile
 import time
+import traceback
 
 from caom2.xml.caom2_observation_reader import ObservationReader
 from caom2.xml.caom2_observation_writer import ObservationWriter
@@ -547,6 +548,7 @@ class ingest2caom2(object):
         self.qsub = None
         self.queue = 'cadcproc'
         self.big = False
+        self.gridengine = None
 
         # Current container
         self.container = None
@@ -1411,7 +1413,8 @@ class ingest2caom2(object):
                                                self.filterfunc,
                                                self.make_file_id))
             except Exception as e:
-                self.log.console(str(e),
+                msg = '\n'.join([traceback.format_exc(), str(e)])
+                self.log.console(msg,
                                  logging.ERROR)
             
 
