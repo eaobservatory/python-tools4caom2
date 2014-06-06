@@ -928,8 +928,7 @@ class testIngest2caom2(unittest.TestCase):
 
     def test190_TestIngest_submitJobToGridEngine(self):
         """
-        Verify that submitting a container creates the cshfile and a
-        file containing the pickled container.
+        Verify that submitting a container creates the cshfile.
         """
         for container in self.testingest.containerlist:
             (csh, pickle) = self.testingest.submitJobToGridEngine(container)
@@ -971,11 +970,6 @@ class testIngest2caom2(unittest.TestCase):
                           re.escape(self.testingest.logfile),
                           output))
             self.assertTrue(re.search(r'--test', output))
-
-            # Now verify that the pickled container can be restored
-            with open(pickle, 'r') as PKL:
-                self.assertEqual(cpickle.load(PKL), container)
-
 
     def test200_TestIngest_commandLineContainers(self):
         """

@@ -1484,11 +1484,12 @@ class ingest2caom2(object):
                 self.gridengine = gridengine(
                                    self.log,
                                    queue=self.queue,
-                                   options='-cwd -j yes -l cmem=32')
+                                   options='-cwd -j yes -l cmem=32',
+                                   test=self.test)
             else:
                 self.gridengine = gridengine(self.log, 
-                                         queue=self.queue)
-
+                                         queue=self.queue,
+                                         test=self.test)
 
         cshdir = os.path.abspath(os.path.dirname(self.logfile))
         suffix = re.sub(r':', 
@@ -1557,11 +1558,7 @@ class ingest2caom2(object):
 
         cmd += ' ' + (containerpath)
 
-        if self.test:
-            status = 0
-            output = ''
-        else:
-            self.gridengine(cmd, cshfile, containerlog)
+        self.gridengine.submit(cmd, cshfile, containerlog)
 
         # these file names can be discarded, but are useful for test purposes
         return (cshfile, containerpath)

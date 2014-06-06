@@ -57,7 +57,12 @@ class gridengine(object):
     A class to help submit jobs to gridengine
     """
     
-    def __init__(self, log, queue='cadcproc', options=None, preamble=None):
+    def __init__(self, 
+                 log, 
+                 queue='cadcproc', 
+                 options=None, 
+                 preamble=None, 
+                 test=False):
         """
         Initialize a gridengine submission object
         
@@ -69,6 +74,8 @@ class gridengine(object):
                   preamble for the submitted job
         """
         self.log = log
+        self.test = test
+        
         self.options = ' -q ' + queue
         if options:
             if isinstance(options, str):
@@ -154,8 +161,13 @@ class gridengine(object):
         repeat = True
         while repeat:
             try:
-                status, output = commands.getstatusoutput(qsub_cmd)
-                repeat = False
+                if not self.test:
+                    status, output = commands.getstatusoutput(qsub_cmd)
+                    repeat = False
+                else:
+                    status = 0
+                    output = ''
+                    repeat = False
             except:
                 if retry == len(self.backoff):
                     repeat = False
