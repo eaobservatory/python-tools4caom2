@@ -55,6 +55,7 @@ setup(name="tools4caom2",
       author='Russell Redman',
       author_email='russell.o.redman@gmail.com',
       provides=['tools4caom2'],
+      requires=['requests (>=2.3.0)'],
       packages=find_packages(exclude=['*.test']),
       test_suite='tools4caom2.test',
       install_requires = ['distribute']
