@@ -380,11 +380,12 @@ def run():
                     for line in RETRY:
                         # This must match the success message written 
                         # by get()
-                        m = re.search(r'SUCCESS: got (\w+) ', line)
+                        m = re.search(r'SUCCESS: got (\S+) ', line)
                         if m:
                             fileid = m.group(1)
                             if fileid in fileid_list:
-                                del fileid_list[fileid]
+                                fileid_list.remove(fileid)
+                                log.file('remove ' + fileid)
                 
         if a.file and len(a.fileid) != 1:
             log.console('if file is given, exactly one fileid must '
