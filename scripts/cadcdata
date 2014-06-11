@@ -1,0 +1,3 @@
+#!/usr/bin/env python2.7
+from tools4caom2.data_web_client import run
+run()

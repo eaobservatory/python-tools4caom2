@@ -12,19 +12,19 @@ import unittest
 
 from tools4caom2.logger import logger
 
-from tools4caom2.data_web_service import data_web_service
+from tools4caom2.data_web_client import data_web_client
 
 class testDataWebService(unittest.TestCase):
     def setUp(self):
         """
-        Create a temp directory and data_web_service object
+        Create a temp directory and data_web_client object
         """
         self.tmpdir = tempfile.mkdtemp()
         self.logfile = 'web_data_service.log'
         self.log = logger(self.logfile, 
                           loglevel=logging.DEBUG, 
                           console_output=False)
-        self.web_service = data_web_service(self.tmpdir,
+        self.web_service = data_web_client(self.tmpdir,
                                             self.log)
         
     def tearDown(self):
@@ -74,9 +74,9 @@ class testDataWebService(unittest.TestCase):
         Create a FITS file and put it into the TEST archive.  Then get it 
         back and delete it from TEST.
         """
-        filename = 'data_web_service_test.fits'
-        file_id = 'data_web_service_test'
-        filepath = os.path.join(self.tmpdir,  'data_web_service_test.fits')
+        filename = 'data_web_client_test.fits'
+        file_id = 'data_web_client_test'
+        filepath = os.path.join(self.tmpdir,  'data_web_client_test.fits')
         
         data = np.arange(100)
         hdu = pyfits.PrimaryHDU(data)

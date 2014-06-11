@@ -386,6 +386,10 @@ class ingest2caom2(object):
             with open(userconfigpath) as UC:
                 config_parser.readfp(UC)
         
+            if config_parser.has_section('cadc'):
+                for option in config_parser.options('cadc'):
+                    self.userconfig[option] = config_parser.get('cadc', 
+                                                                option)
             if config_parser.has_section('database'):
                 for option in config_parser.options('database'):
                     self.userconfig[option] = config_parser.get('database', 

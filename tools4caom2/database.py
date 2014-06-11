@@ -79,8 +79,8 @@ class database(object):
     
     'cred_db': at the CADC, database for which credentials will be found
     or
-    'cred_id': database user_id
-    'cred_key': database password
+    'cadc_id': cadc account user_id
+    'cadc_key': cadc account password
     
     'read_db': database to read by default ('cred_db' if absent)
     'write_db': database to write by default ('cred_db' if absent)
@@ -170,13 +170,13 @@ class database(object):
         elif 'read_db' in userconfig:
             self.write_db = userconfig['read_db']
         
-        self.cred_id = None
-        if 'cred_id' in userconfig:
-            self.cred_id = userconfig['cred_id']
+        self.cadc_id = None
+        if 'cadc_id' in userconfig:
+            self.cadc_id = userconfig['cred_id']
 
-        self.cred_key = None
-        if 'cred_key' in userconfig:
-            self.cred_key = userconfig['cred_key']
+        self.cadc_key = None
+        if 'cadc_key' in userconfig:
+            self.cadc_key = userconfig['cadc_key']
 
         self.pause_queue = [1.0, 2.0, 3.0]
         self.log = log
@@ -188,7 +188,7 @@ class database(object):
         Arguments:
         <None>
         """
-        if not (self.cred_id and self.cred_key):
+        if not (self.cadc_id and self.cadc_key):
             try:
                 credcmd = ['dbrc_get', self.server,  self.cred_db]
                 credentials = subprocess.check_output(credcmd,
@@ -200,8 +200,8 @@ class database(object):
                                      ' should contain username, password',
                                      logging.ERROR)
 
-                self.cred_id = cred[0]
-                self.cred_key = cred[1]
+                self.cadc_id = cred[0]
+                self.cadc_key = cred[1]
             except subprocess.CalledProcessError as e:
                 self.log.console('errno.' + errno.errorcode(e.returnvalue) +
                                  ': ' + credentials,
@@ -220,24 +220,22 @@ class database(object):
             if not database.read_connection:
                 self.get_credentials()
                 # Check that credentials exist
-                if not (self.cred_id and self.cred_key):
+                if not (self.cadc_id and self.cadc_key):
                     
                     self.log.file('No user credentials, so omit '
                                   'opening connection to database')
                 else:
                     database.read_connection = \
                         Sybase.connect(self.server,
-                                       self.cred_id,
-                                       self.cred_key,
+                                       self.cadc_id,
+                                       self.cadc_key,
                                        database=self.read_db,
                                        auto_commit=1,
                                        datetime='python')
                     if not database.read_connection:
                         self.log.console('Could not connect to ' + 
                                          self.server + ':' +
-                                         self.read_db + ' with ' +
-                                         self.cred_id + ' and ' + 
-                                         self.cred_key,
+                                         self.read_db,
                                          logging.ERROR)
         else:
             self.log.file('cannot open a read_connection to a database '
@@ -256,24 +254,22 @@ class database(object):
             if not database.write_connection:
                 self.get_credentials()
                 # Check that credentials exist
-                if not (self.cred_id and self.cred_key):
+                if not (self.cadc_id and self.cadc_key):
                     
                     self.log.file('No user credentials, so omit '
                                   'opening connection to database')
                 else:
                     database.write_connection = \
                         Sybase.connect(self.server,
-                                       self.cred_id,
-                                       self.cred_key,
+                                       self.cadc_id,
+                                       self.cadc_key,
                                        database=self.write_db,
                                        auto_commit=0,
                                        datetime='python')
                     if not database.write_connection:
                         self.log.console('Could not connect to ' + 
                                          self.server + ':' +
-                                         self.write_db + ' with ' +
-                                         self.cred_id + ' and ' + 
-                                         self.cred_key,
+                                         self.write_db,
                                          logging.ERROR)
         else:
             self.log.file('Could not open a write_connection to a database '
