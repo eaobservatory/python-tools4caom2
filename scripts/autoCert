@@ -1,0 +1,3 @@
+#!/usr/bin/env python2.7
+from tools4caom2.autocert import run
+run()
