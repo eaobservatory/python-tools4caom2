@@ -652,6 +652,8 @@ class ingest2caom2(object):
         self.writer = ObservationWriter()
         
         # storage for the optional connection to the database
+        # set use_connection to False if a database connection is not needed
+        self.use_connection = True
         self.conn = None
 
     #************************************************************************
@@ -2205,7 +2207,8 @@ class ingest2caom2(object):
                 # lazy initialization and are not opened until a call to read 
                 # or write is made.
                 with connection(self.userconfig,
-                                self.log) as self.conn:
+                                self.log,
+                                use=self.use_connection) as self.conn:
                     self.commandLineContainers()
                     for c in self.containerlist:
                         self.log.console('PROGRESS: container = ' + c.name)

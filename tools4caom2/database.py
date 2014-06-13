@@ -46,9 +46,11 @@ __author__ = "Russell O. Redman"
 
 
 import errno
+from ConfigParser import SafeConfigParser
 from contextlib import contextmanager
 import datetime
 import logging
+import os.path
 import re
 import subprocess
 from threading import Event
@@ -131,7 +133,7 @@ class database(object):
         def __init__(self, value):
             self.value = value
 
-    def __init__(self, userconfig, log):
+    def __init__(self, userconfig, log, use=True):
         """
         Create a new connection to the Sybase server
         
@@ -146,6 +148,7 @@ class database(object):
 
         It is legitimate to customize the pause_queue for each connection.
         """
+        self.use = use
         self.server = None
         if 'server' in userconfig:
             self.server = userconfig['server']
@@ -188,24 +191,44 @@ class database(object):
         Arguments:
         <None>
         """
-        if not (self.cadc_id and self.cadc_key):
-            try:
-                credcmd = ['dbrc_get', self.server,  self.cred_db]
-                credentials = subprocess.check_output(credcmd,
-                                                stderr=subprocess.STDOUT)
+        if self.use and not (self.cadc_id and self.cadc_key):
+            if subprocess.call(['which', 'get_dbrc']):
+                # Returns nonzero if get_dbrc is NOT found
+                # try to read ~/.tools4caom2/tools4caom2.config
+                toolconfigpath = os.path.abspath(
+                                    os.path.expanduser(
+                                        '~/.tools4caom2/tools4caom2.config'))
+                if os.path.isfile(toolconfigpath):
+                    config_parser = SafeConfigParser()
+                    with open(toolconfigpath) as TC:
+                        config_parser.readfp(TC)
+                
+                    if config_parser.has_section('cadc'):
+                        if config_parser.has_option('cadc', 'cadc_id'):
+                            self.cadc_id = \
+                                config_parser.get('cadc', 'cadc_id')
+                        if config_parser.has_option('cadc', 'cadc_key'):
+                            self.cadc_key = \
+                                config_parser.get('cadc', 'cadc_key')
+                    
+            else:
+                try:
+                    credcmd = ['dbrc_get', self.server,  self.cred_db]
+                    credentials = subprocess.check_output(credcmd,
+                                                    stderr=subprocess.STDOUT)
 
-                cred = re.split(r'\s+', credentials)
-                if len(cred) < 2:
-                    self.log.console('cred = ' + repr(cred) +
-                                     ' should contain username, password',
+                    cred = re.split(r'\s+', credentials)
+                    if len(cred) < 2:
+                        self.log.console('cred = ' + repr(cred) +
+                                         ' should contain username, password',
+                                         logging.ERROR)
+
+                    self.cadc_id = cred[0]
+                    self.cadc_key = cred[1]
+                except subprocess.CalledProcessError as e:
+                    self.log.console('errno.' + errno.errorcode(e.returnvalue) +
+                                     ': ' + credentials,
                                      logging.ERROR)
-
-                self.cadc_id = cred[0]
-                self.cadc_key = cred[1]
-            except subprocess.CalledProcessError as e:
-                self.log.console('errno.' + errno.errorcode(e.returnvalue) +
-                                 ': ' + credentials,
-                                 logging.ERROR)
         
     def get_read_connection(self):
         """
@@ -216,7 +239,7 @@ class database(object):
         Arguments:
         <None>
         """
-        if sybase_defined:
+        if sybase_defined and self.use:
             if not database.read_connection:
                 self.get_credentials()
                 # Check that credentials exist
@@ -250,7 +273,7 @@ class database(object):
         Arguments:
         <None>
         """
-        if sybase_defined:
+        if sybase_defined and self.use:
             if not database.write_connection:
                 self.get_credentials()
                 # Check that credentials exist
@@ -413,7 +436,7 @@ class database(object):
             database.write_connection = None
 
 @contextmanager
-def connection(userconfig, log):
+def connection(userconfig, log, use=True):
     """
     Context manager that creates and yields a database object that
     can be used to create read and write connections, then closes the 
@@ -425,6 +448,6 @@ def connection(userconfig, log):
     log: the instance of tools4caom2.logger.logger to use
     """
     try:
-        yield database(userconfig, log)
+        yield database(userconfig, log, use=use)
     finally:
         database.close()

@@ -9,7 +9,7 @@ import os.path
 import sys
 import urllib2
 
-def renew(proxypath, username, passwd, days_valid):
+def renew(proxypath, username, passwd, daysvalid):
     """
     Renew the proxy certificate
     
@@ -37,25 +37,22 @@ def renew(proxypath, username, passwd, days_valid):
     urllib2.install_opener(opener)
 
     # Now all calls to urllib2.urlopen use our opener.
-    url = ''.join([certHost, certQuery, str(daysValid)])
-    # r = urllib2.urlopen(url)
-    with urllib2.urlopen(url) as r, open(certfile,'w') as w:
+    url = ''.join([certHost, certQuery, str(daysvalid)])
+    r = urllib2.urlopen(url)
+    with open(proxypath,'w') as w:
         while True:
             buf = r.read()
             if not buf:
                 break
             w.write(buf)
-    # r.close()
+    r.close()
     return 
 
 def run():
     """
     Auto-renew CADC proxy certificate using credentials from either the
-    user config file or from .netrc.  Beware that the .netrc credentials
-    normally apply to the login account, not the CADC user account.
+    user config file or from .netrc.  
     """
-    utdate_str = utdate_string()
-    
     ap = argparse.ArgumentParser('autoCert',
                                  fromfile_prefix_chars='@')
     ap.add_argument('--proxy',
@@ -84,12 +81,12 @@ def run():
             config_parser.readfp(UC)
     
         if config_parser.has_section('cadc'):
-            username = configparser.get('cadc', 'cadc_id')
-            passwd = configparser.get('cadc', 'cadc_key')
+            username = config_parser.get('cadc', 'cadc_id')
+            passwd = config_parser.get('cadc', 'cadc_key')
     
     elif os.access(os.path.join(os.environ.get('HOME','/'),".netrc"), os.R_OK):
         auth = netrc.netrc().authenticators(host)
         username = auth[0]
         passwd = auth[2]
 
-    renew(a.cadcproxy, username, passwd, a.days)
+    renew(cadcproxy, username, passwd, a.daysvalid)
