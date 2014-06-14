@@ -1431,18 +1431,11 @@ class ingest2caom2(object):
     #************************************************************************
     def logCommandLineSwitches(self):
         """
-        Generic method to start the logger and
-        log the command line switch values
+        Generic method to log the command line switch values
 
         Arguments:
         <none>
         """
-        if not self.log:
-            # Do not re-open the log if it has already been done
-            self.log = logger(self.logfile,
-                              self.loglevel,
-                              console_output=self.console_output)
-
         # Report switch values
         self.log.file('tools4caom2version = ' + __version__.version)
         self.log.file('configpath         = ' + str(self.configpath))

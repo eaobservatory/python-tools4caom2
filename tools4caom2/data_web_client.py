@@ -27,7 +27,7 @@ http://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/data/.
 class data_web_client(object):
     
     PrimaryHEADER = {'fhead': 'true', 'cutout': '[0]'}
-    CADC_URL = 'http://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/data/pub'
+    CADC_URL = 'https://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/data/pub'
     
     def __init__(self, 
                  workdir,
@@ -75,9 +75,10 @@ class data_web_client(object):
             if r.status_code != 200:
                 self.log.console(str(r.status_code) + ' = ' + 
                                  httplib.responses[r.status_code],
-                                 logging.ERROR)
-            # copy dictionary for usage after r is closed
-            headerdict.update(r.headers)
+                                 logging.WARN)
+            else:
+                # copy dictionary for usage after r is closed
+                headerdict.update(r.headers)
         except Exception as e:
             self.log.console('FAILED to get info for ' + file_id + ': ' + 
                              traceback.format_exc(),
@@ -168,20 +169,20 @@ class data_web_client(object):
                 elif ext == '.ftz':
                     filename = unzipped + '.fits'
                     gzipped = True
-                filepath = os.path.join(self.workdir, filename)
-
-            if noclobber and os.path.exists(filepath):
+                myfilepath = os.path.join(self.workdir, filename)
+                
+            if noclobber and os.path.exists(myfilepath):
                 self.log.console('No download because file exists: ' + 
                                  url,
                                  logging.WARN)
             else:
-                with open(filepath, 'wb') as F:
+                with open(myfilepath, 'wb') as F:
                     for chunk in r.iter_content(8192):
                         F.write(chunk)
                 # This message must match the format of the regex
                 # in run(), below
                 self.log.file('SUCCESS: got ' + file_id + ' as ' + 
-                              filepath)
+                              myfilepath)
         except Exception as e:
             self.log.console('FAILED to get ' + file_id + ': ' + 
                              traceback.format_exc(),
@@ -215,29 +216,22 @@ class data_web_client(object):
             url = re.sub(r'http:', 'https:', file_id)
         else:
             url = '/'.join([data_web_client.CADC_URL, archive, file_id])
-        self.log.file('url = ' + url,
-                      logging.DEBUG)
         
         headers = {}
         if adstream:
             headers['X-CADC-Stream'] = adstream
 
-        try:
-            with open(myfilepath, 'rb') as F:
-                r = requests.put(url,
-                                 data=F,
-                                 cert=self.cadcproxy,
-                                 headers=headers)
-                if r.status_code == 201:
-                    success = True
-                else:
-                    self.log.console(str(r.status_code) + ' = ' + 
-                                     httplib.responses[r.status_code],
-                                     logging.WARN)
-        except Exception as e:
-            self.log.console('FAILED to put ' + filepath + ': ' + 
-                             traceback.format_exc(),
-                             logging.WARN)
+        with open(myfilepath, 'rb') as F:
+            r = requests.put(url,
+                             data=F,
+                             cert=self.cadcproxy,
+                             headers=headers)
+            if r.status_code == 201:
+                success = True
+            else:
+                self.log.console(str(r.status_code) + ' = ' + 
+                                 httplib.responses[r.status_code],
+                                 logging.ERROR)
 
         return success
 
@@ -333,10 +327,14 @@ def run():
     
     a = ap.parse_args()
 
-        # Open log and record switches
+    # Open log and record switches
     cwd = os.path.abspath(
                 os.path.expanduser(
                     os.path.expandvars('.')))
+    
+    cadcproxy = os.path.abspath(
+                    os.path.expandvars(
+                        os.path.expanduser(a.proxy)))
     
     loglevel = logging.INFO
     if a.debug:
@@ -352,7 +350,6 @@ def run():
     with logger(logpath, loglevel).record() as log:
         log.file(sys.argv[0])
         log.file('tools4caom2version   = ' + tools4caom2version)
-        log.file('jcmt2caom2version    = ' + jcmt2caom2version)
         log.console('log = ' + logpath)
         for attr in dir(a):
             if attr != 'id' and attr[0] != '_':
@@ -423,18 +420,7 @@ def run():
                             noclobber=a.noclobber)
 
         elif a.operation == 'put':
-            dwc.put(a.archive, a.stream, filepath, a.fileid[0])
+            dwc.put(filepath, a.archive, a.fileid[0], adstream=a.stream)
         
         elif a.operation == 'delete':
             dwc.delete(a.archive, a.fileid[0])
-        
-if __name__ == '__main__':
-    import os.path
-    from tools4caom2.data_web_client import data_web_client
-    from tools4caom2.logger import logger
-    logpath = os.path.expanduser('~/junk/dws.log')
-    log = logger(logpath)
-    dws = data_web_client('~/junk', log)
-    f = dws.get('JCMT', sys.argv[1])
-    print f
-

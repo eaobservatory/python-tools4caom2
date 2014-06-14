@@ -25,7 +25,7 @@ class testDataWebService(unittest.TestCase):
                           loglevel=logging.DEBUG, 
                           console_output=False)
         self.web_service = data_web_client(self.tmpdir,
-                                            self.log)
+                                           self.log)
         
     def tearDown(self):
         """
@@ -39,16 +39,12 @@ class testDataWebService(unittest.TestCase):
         """
         get info on a nonexistent file
         """
-        self.assertRaises(logger.LoggerError, 
-                          self.web_service.info, 
-                          'JCMT', 
-                          'bogusfile')
-        self.assertEqual('', self.log.get_text())
+        headers = self.web_service.info('JCMT', 'bogusfile')
+        self.assertEqual(headers, {})
 
     def test_info_found(self):
         """
-        get info on a real file, this one a calibration observation
-        acsis_00002_20140101T080531
+        get info on a real file, acsis_00002_20140101T080531
         """
         http_header = self.web_service.info('JCMT', 'a20140101_00002_01_0001')
         self.assertEqual(http_header['content-disposition'],
@@ -56,8 +52,7 @@ class testDataWebService(unittest.TestCase):
 
     def test_get(self):
         """
-        get some real files, acsis_00002_20140101T080531 as a gzipped sdf
-        and jcmts20140314_00009_850_reduced001_nit_000, as a fits file.
+        get gzipped sdf and ungzipped fits files.
         """
         fid1 = 'a20140101_00002_01_0001'
         fp1 = self.web_service.get('JCMT', fid1)
@@ -71,19 +66,22 @@ class testDataWebService(unittest.TestCase):
         
     def test_put(self):
         """
-        Create a FITS file and put it into the TEST archive.  Then get it 
-        back and delete it from TEST.
+        Create FITS file put into TEST archive, get and delete it from TEST.
         """
         filename = 'data_web_client_test.fits'
-        file_id = 'data_web_client_test'
-        filepath = os.path.join(self.tmpdir,  'data_web_client_test.fits')
+        file_id, ext = os.path.splitext(filename)
+        filepath = os.path.join(self.tmpdir, filename)
         
         data = np.arange(100)
         hdu = pyfits.PrimaryHDU(data)
         hdulist = pyfits.HDUList([hdu])
         hdulist.writeto(filepath)
         
-        self.web_service.put(filepath, 'TEST', file_id, adstream='test')
+        s = self.web_service.put(filepath, 'TEST', file_id, adstream='test')
+        logmsg = open(self.logfile,'r').read()
+        self.assertTrue(s, 'failed to put ' + filepath + ' to TEST with ' +
+                        ' file_id = ' + file_id + ': logmsg = ' + logmsg)
+            
         d = self.web_service.info('TEST', file_id)
         self.assertTrue(d['content-disposition'].find(file_id) > 0)
         
