@@ -61,13 +61,8 @@ from tools4caom2.ingest2caom2 import make_file_id
 from tools4caom2.ingest2caom2 import fitsfilter
 from tools4caom2.basecontainer import basecontainer
 from tools4caom2.adfile_container import adfile_container
+from tools4caom2.data_web_client import data_web_client
 
-# Is the archive accessible on the current platform?
-status, output = commands.getstatusoutput('which adPut')
-if status:
-    adput_available = False
-else:
-    adput_available = True
 
 def write_fits(filepath,
                numexts,
@@ -180,6 +175,11 @@ class testAdfileContainer(unittest.TestCase):
 
         # set up the test envirnonment
         self.testdir = tempfile.mkdtemp()
+        self.log = logger(os.path.join(self.testdir, 'testadfile.log'),
+                          logging.INFO)
+
+        self.dataweb = data_web_client(self.testdir, self.log)
+
         # fake data
         fakedata = numpy.arange(10)
 
@@ -218,16 +218,14 @@ class testAdfileContainer(unittest.TestCase):
         ADFILE = open(os.path.join(self.testdir, 'file6.ad'), 'w')
         for f in ['file6.fits', 'file7.fits', 'file8.fits', 'file9.txt']:
             filepath = os.path.join(self.testdir, f)
-            # if adPut is available, push this file into ad
-            if adput_available:
-                cmd = 'adPut -a TEST -as test -replace ' + filepath
-                status, output = commands.getstatusoutput(cmd)
-                if status:
-                    raise RuntimeError(cmd + ': ' + output,
-                                       logging.ERROR)
+            file_id = make_file_id(f)
+            
+            ok = self.dataweb.put(filepath, 'TEST', file_id, adstream='test')
+            if not ok:
+                raise RuntimeError(cmd + ': ' + output,
+                                   logging.ERROR)
             os.rename(filepath, os.path.join(self.savedir, f))
 
-            file_id = make_file_id(f)
             print >>ADFILE, 'ad:TEST/' + file_id
         ADFILE.close()
 
@@ -247,7 +245,6 @@ class testAdfileContainer(unittest.TestCase):
         # Restore the system argument vector
         sys.argv = self.argv
 
-    @unittest.skipIf(not adput_available, 'adPut is not available on this system')
     def test010_adfile_container_no_filter(self):
         """
         Test adfile_container implementations with no filtering
@@ -257,9 +254,8 @@ class testAdfileContainer(unittest.TestCase):
 
         # Verify that the files are in ad
         for fid in test_list:
-            cmd = 'adInfo -a TEST -fileName ' + fid
-            status, output = commands.getstatusoutput(cmd)
-            if status:
+            headers = self.dataweb.info('TEST', fid)
+            if not headers:
                self.log.console('ERROR: file not in ad: ' + fid +
                                 ': ' + output,
                                 logging.ERROR)
@@ -310,7 +306,6 @@ class testAdfileContainer(unittest.TestCase):
             fc.cleanup(file_id)
             self.assertTrue(not os.path.exists(filepath))
 
-    @unittest.skipIf(not adput_available, 'adPut is not available on this system')
     def test020_adfile_container(self):
         """
         Test adfile_container implementations with FITS filtering
@@ -320,9 +315,8 @@ class testAdfileContainer(unittest.TestCase):
 
         # Verify that the files are in ad
         for fid in test_list:
-            cmd = 'adInfo -a TEST -fileName ' + fid
-            status, output = commands.getstatusoutput(cmd)
-            if status:
+            headers = self.dataweb.info('TEST', fid)
+            if not headers:
                self.log.console('ERROR: file not in ad: ' + fid +
                                 ': ' + output,
                                 logging.ERROR)
@@ -372,7 +366,6 @@ class testAdfileContainer(unittest.TestCase):
             fc.cleanup(file_id)
             self.assertTrue(not os.path.exists(filepath))
 
-    @unittest.skipIf(not adput_available, 'adPut is not available on this system')
     def test020_adfile_container(self):
         """
         Test adfile_container implementations with FITS filtering
@@ -382,9 +375,8 @@ class testAdfileContainer(unittest.TestCase):
 
         # Verify that the files are in ad
         for fid in test_list:
-            cmd = 'adInfo -a TEST -fileName ' + fid
-            status, output = commands.getstatusoutput(cmd)
-            if status:
+            headers = self.dataweb.info('TEST', fid)
+            if headers:
                self.log.console('ERROR: file not in ad: ' + fid +
                                 ': ' + output,
                                 logging.ERROR)

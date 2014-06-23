@@ -67,16 +67,11 @@ from tools4caom2.tarfile_container import tarfile_container
 from tools4caom2.ingest2caom2 import make_file_id
 from tools4caom2.ingest2caom2 import nofilter
 from tools4caom2.logger import logger
+from tools4caom2.data_web_client import data_web_client
 
 from caom2.caom2_observation_uri import ObservationURI
 from caom2.caom2_plane_uri import PlaneURI
 
-# Is the archive accessible on the current platform?
-status, output = commands.getstatusoutput('which adPut')
-if status:
-    adput_available = False
-else:
-    adput_available = True
 
 def write_fits(filepath,
                numexts,
@@ -341,6 +336,9 @@ class testIngest2caom2(unittest.TestCase):
         self.testdir = tempfile.mkdtemp()
         # fake data
         fakedata = numpy.arange(10)
+        
+        self.log = logger(os.path.join(self.testdir, 'testingest.log'))
+        self.dataweb = data_web_client(self.testdir, self.log)
 
         # Create fits files with suitable test headers
         # Files file[1-4].fits will be present in the working directory
@@ -423,7 +421,7 @@ class testIngest2caom2(unittest.TestCase):
 
         self.testingest.archive = 'TEST'
         self.testingest.stream = 'test'
-        self.testingest.adput = False
+        self.testingest.copytoarchive = False
 
         self.testingest.server = 'DEVSYBASE'
         self.testingest.database = 'dummy'
@@ -471,13 +469,10 @@ class testIngest2caom2(unittest.TestCase):
             filepath = os.path.join(self.testdir, f)
             self.testingest.filelist.append(filepath)
             self.testingest.sortedlist.append(file_id)
-            # if adPut is available, push this file into ad
-            if adput_available:
-                cmd = 'adPut -a TEST -as test -replace ' + filepath
-                status, output = commands.getstatusoutput(cmd)
-                if status:
-                    self.testingest.log.console(cmd + ': ' + output,
-                                                logging.ERROR)
+            ok = self.dataweb.put(filepath, 'TEST', file_id, adstream='test')
+            if not ok:
+                self.testingest.log.console('put fails: ' + output,
+                                            logging.ERROR)
             print >>ADFILE, 'ad:' + self.testingest.archive + '/' + file_id
             os.rename(filepath, os.path.join(self.savedir, f))
         ADFILE.close()
@@ -846,7 +841,7 @@ class testIngest2caom2(unittest.TestCase):
         self.assertEqual(self.testingest.qsub, False)
         self.assertEqual(self.testingest.archive, 'TEST')
         self.assertEqual(self.testingest.stream, 'test')
-        self.assertEqual(self.testingest.adput, False)
+        self.assertEqual(self.testingest.copytoarchive, False)
         self.assertEqual(self.testingest.database, 'dummy')
         self.assertEqual(self.testingest.schema, 'dbo')
         self.assertEqual(self.testingest.config, os.path.join(self.testdir,
@@ -865,7 +860,7 @@ class testIngest2caom2(unittest.TestCase):
                     '--qsub',
                     '--archive=MYTEST',
                     '--stream=MYSTREAM',
-                    '--adput',
+                    '--copytoarchive',
                     '--database=MYDATABASE',
                     '--schema=MYSCHEMA',
                     '--config=MYCONFIG',
@@ -885,7 +880,7 @@ class testIngest2caom2(unittest.TestCase):
         self.assertEqual(self.testingest.qsub, True)
         self.assertEqual(self.testingest.archive, 'MYTEST')
         self.assertEqual(self.testingest.stream, 'MYSTREAM')
-        self.assertEqual(self.testingest.adput, True)
+        self.assertEqual(self.testingest.copytoarchive, True)
         self.assertEqual(self.testingest.database, 'MYDATABASE')
         self.assertEqual(self.testingest.schema, 'MYSCHEMA')
         self.assertEqual(self.testingest.config,
@@ -915,7 +910,6 @@ class testIngest2caom2(unittest.TestCase):
         self.testingest.processCommandLineSwitches()
         self.assertEqual(self.testingest.loglevel, logging.WARN)
 
-    @unittest.skipIf(not adput_available, 'adPut is not available on this system')
     def test180_TestIngest_verifyFileInAD(self):
         """
         Try to push the file into ad and then check that it is in ad, if
@@ -946,7 +940,7 @@ class testIngest2caom2(unittest.TestCase):
                 re.search(r'--archive=' + self.testingest.archive, output))
             self.assertTrue(
                 re.search(r'--stream=' + self.testingest.stream, output))
-            self.assertTrue(re.search(r'--adput', output))
+            self.assertTrue(re.search(r'--copytoarchive', output))
             self.assertTrue(
                 re.search(r'--server=' + self.testingest.server, output))
             self.assertTrue(
@@ -986,7 +980,7 @@ class testIngest2caom2(unittest.TestCase):
                     '--qsub',
                     '--archive=MYTEST',
                     '--stream=MYSTREAM',
-                    '--adput',
+                    '--copytoarchive',
                     '--database=MYDATABASE',
                     '--schema=MYSCHEMA',
                     '--config=MYCONFIG',
@@ -1267,7 +1261,6 @@ class testIngest2caom2(unittest.TestCase):
         fd = pl['ad:TEST/file5']
         self.assertEqual(fd['field5'], 'GOOD')
 
-    @unittest.skipIf(not adput_available, 'adPut is not available on this system')
     def test250_testIngest_fillMetadict_adfile(self):
         """
         Verify that the example provided by TestIngest actually produces the
@@ -1354,8 +1347,7 @@ class testIngest2caom2(unittest.TestCase):
                      os.path.join(self.testdir, 'file3.fits'),
                      os.path.join(self.testdir, 'file4.fits'),
                      os.path.join(self.testdir, 'file5.tar.gz')]
-        if adput_available:
-            file_list.append('ad:' + os.path.join(self.testdir, 'file6.ad'))
+        file_list.append('ad:' + os.path.join(self.testdir, 'file6.ad'))
 
         sys.argv = ['TestIngest.py',
                     '--quiet'] + file_list

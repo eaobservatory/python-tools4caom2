@@ -82,23 +82,9 @@ class basecontainer(object):
                 <do something with file f>
     finally:
         mycontainer.close()
-
-    Exceptions:
-    To pass a container to a gridengine job, it must be pickled.  The logger
-    cannot be pickled, so containers cannot store a reference to the logger 
-    as an attribute. Consequently, this class and its subclasses cannot call
-    the logger directly.  Instead, errors should be reported using the
-    basecontainer.ContainerError exception, which can be trapped in the
-    calling code, logged, and either handled or raised again.
     """
 
-    class ContainerError(exceptions.Exception):
-        """
-        An exception class specific to basecontainer and derived classes.
-        """
-        pass
-
-    def __init__(self, name):
+    def __init__(self, name, log):
         """
         Initialize the basecontainer class.  Every container must have a
         filedict whose keys are the file_id's for the set of files in the
@@ -108,6 +94,7 @@ class basecontainer(object):
         <None>
         """
         self.name = name
+        self.log = log
         self.filedict = {}
 
     def file_id_list(self):

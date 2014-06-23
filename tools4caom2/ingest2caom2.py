@@ -1,61 +1,4 @@
-#!/usr/bin/env python
-#/*+
-#************************************************************************
-#****  C A N A D I A N   A S T R O N O M Y   D A T A   C E N T R E  *****
-#*
-#* (c) 2013  .                      (c) 2013
-#* National Research Council        Conseil national de recherches
-#* Ottawa, Canada, K1A 0R6          Ottawa, Canada, K1A 0R6
-#* All rights reserved              Tous droits reserves
-#*
-#* NRC disclaims any warranties,    Le CNRC denie toute garantie
-#* expressed, implied, or statu-    enoncee, implicite ou legale,
-#* tory, of any kind with respect   de quelque nature que se soit,
-#* to the software, including       concernant le logiciel, y com-
-#* without limitation any war-      pris sans restriction toute
-#* ranty of merchantability or      garantie de valeur marchande
-#* fitness for a particular pur-    ou de pertinence pour un usage
-#* pose.  NRC shall not be liable   particulier.  Le CNRC ne
-#* in any event for any damages,    pourra en aucun cas etre tenu
-#* whether direct or indirect,      responsable de tout dommage,
-#* special or general, consequen-   direct ou indirect, particul-
-#* tial or incidental, arising      ier ou general, accessoire ou
-#* from the use of the software.    fortuit, resultant de l'utili-
-#*                                  sation du logiciel.
-#*
-#************************************************************************
-#*
-#*   Script Name:    ingest2caom2.py
-#*
-#*   Purpose:
-#*    Organize the ingestion of data files into CAOM using fits2caom2
-#*
-#*   Classes:
-#+    ingest2caom2                    : Ingest files into CAOM using fits2caom2
-#+                                    : To be used as a base class for
-#+                                      CAOM ingestions into specific archives
-#*
-#*   Functions:
-#+    Redefine these class methods in a derived class for a specific archive
-#+
-#+    ingest2caom2.build_dict         : Build the substitution dictionary for
-#+                                      each file
-#+    Optionally, define a filter function (outside the class):
-#+    filter(f)                       : return True if f is a file to ingest,
-#+                                      False otherwise
-#+    Optionally define a file_id comparison function (outside the class)
-#+    in one of two ways:
-#+    gt(f1, f2)                      : return True if f1 should be after f2,
-#+                                      False otherwise
-#+    compare(f1,f2)                  : return 1 if f1 should come after f2,
-#+                                      -1 if f1 should come before f2, and
-#+                                      0 if the order is not significant
-#+    These can be used to initialize the fields filterfunc and either
-#+    gtfunc or cmpfunc in the __init__ function for the derived class.
-#*
-#****  C A N A D I A N   A S T R O N O M Y   D A T A   C E N T R E  *****
-#************************************************************************
-#-*/
+#!/usr/bin/env python2.7
 __author__ = "Russell O. Redman"
 
 import argparse
@@ -91,6 +34,7 @@ from caom2.caom2_observation_uri import ObservationURI
 from caom2.caom2_plane_uri import PlaneURI
 
 from tools4caom2 import __version__
+from tools4caom2.data_web_client import data_web_client
 from tools4caom2.database import database
 from tools4caom2.database import connection
 from tools4caom2.gridengine import gridengine
@@ -100,8 +44,7 @@ from tools4caom2.adfile_container import adfile_container
 from tools4caom2.dataproc_container import dataproc_container
 from tools4caom2.filelist_container import filelist_container
 from tools4caom2.tarfile_container import tarfile_container
-
-from jcmt2caom2.jsa.utdate_string import utdate_string
+from tools4caom2.utdate_string import utdate_string
 
 __doc__ = """
 The ingest2caom2 base class supplies a generic wrapper for fits2caom2.
@@ -165,13 +108,14 @@ Version: """ + __version__.version
 #************************************************************************
 #* Utility routines
 #************************************************************************
-def make_file_id(basename):
+def make_file_id(filename):
     """
-    An archive-specific routine to convert a file basename (without the
+    An archive-specific routine to convert a filename (possibly including a
     directory path) to the corressponding file_id used in AD.  The default
-    routine provided here strips off the extension, but otherwise leaves
-    the basename unchanged.  In some archives, the name might be put into
-    lower case, or parts of the name may be extracted to make the file_id.
+    routine provided here strips off the directory path  and the extension, 
+    but and forces the file_id into lower case, matching recomended CADC practice.  
+    In some archives, the name might be left in mixed case, or the name may be 
+    transformed significantly to make the file_id.
     This routine or its equivalent must be supplied as an argument for most
     file containers.
 
@@ -179,7 +123,7 @@ def make_file_id(basename):
     basename : a file name without the directory path
     This is a static method taking exactly one argument.
     """
-    return os.path.splitext(basename)[0]
+    return os.path.basename(os.path.splitext(filename)[0]).lower()
 
 
 def fitsfilter(filename):
@@ -193,7 +137,7 @@ def fitsfilter(filename):
     filename : the file name to check for validity
     This is a static method taking exactly one argument.
     """
-    return (os.path.splitext(string.lower(filename))[1] in
+    return (os.path.splitext(filename)[1].lower() in
             ['.fits', '.fit'])
 
 
@@ -371,31 +315,6 @@ class ingest2caom2(object):
         # FITS header in the file/extension.
 
     #************************************************************************
-    # Optionally read user configuration 
-    #************************************************************************
-    def read_user_config(self, userconfigpath):
-        """
-        If a user configuration file has been specified, read it and
-        copy the configuration into the appropriate files in self.
-        
-        Arguments:
-        userconfigpath: path to user configuration file
-        """
-        if os.path.isfile(userconfigpath):
-            config_parser = SafeConfigParser()
-            with open(userconfigpath) as UC:
-                config_parser.readfp(UC)
-        
-            if config_parser.has_section('cadc'):
-                for option in config_parser.options('cadc'):
-                    self.userconfig[option] = config_parser.get('cadc', 
-                                                                option)
-            if config_parser.has_section('database'):
-                for option in config_parser.options('database'):
-                    self.userconfig[option] = config_parser.get('database', 
-                                                                option)
-
-    #************************************************************************
     # Apply archive-specific changes to a plane in an observation xml
     #************************************************************************
     def build_observation_custom(self, 
@@ -419,6 +338,7 @@ class ingest2caom2(object):
 #        if change:
 #            with open(xmlfile, 'w') as XMLFILE:
 #                self.writer.write(observation, XMLFILE)
+
     #************************************************************************
     # Apply archive-specific changes to a plane in an observation xml
     #************************************************************************
@@ -501,7 +421,7 @@ class ingest2caom2(object):
         dynamically.
 
         Derived classes will probably want to use their own versions of
-        filterfunc and either gtfunc or cmpfunc.
+        filterfunc and cmpfunc.
 
         The filterfunc is a name checking function that returns True if
         a filename is valid for ingestion and False otherwise.
@@ -509,7 +429,7 @@ class ingest2caom2(object):
         operates on filenames rather than file_id's and can use the
         file extension to help determine if the file name is valid.
         
-        Note that filterfunc, gtfunc and cmpfunc are functions, not class 
+        Note that filterfunc, cmpfunc are functions, not class 
         methods.  The filter functions supplied with ingest2caom2 are:
 
             fitsfilter : accept only files with extensions ['.fits', '.fit']
@@ -517,36 +437,33 @@ class ingest2caom2(object):
 
         The default is fitsfilter.
 
-        The gtfunc and cmpfunc implement file_id comparisons for sorting.
-        The implementation of gtfunc(fid1, fid2) should return True if fid1
-        should come after fid2 in sorted order.  Similarly,
-        cmpfunc(fid1, fid2) is a full comparison function that returns 1 if
+        The cmpfunc function implements file_id comparisons for sorting.
+        The implementation of cmpfunc(fid1, fid2) should return 1 if
         fid1 belongs after fid2, 0 if the order does not matter, and -1
-        if fid1 belongs before fid2.
-
-        By default cmpfunc is implemented using gtfunc, because it is often
-        easier to write a one-sided comparison,  However, only cmpfunc is used
-        in the ingest2caom2 code, so in some cases it may be useful to bypass
-        gtfunc by redefining self.cmpfunc. Only one comparison function is 
+        if fid1 belongs before fid2.  Only one comparison function is 
         supplied with ingest2caom2, which is thus the default:
 
             nosort : do not sort the files
         """
         # default path to configuration files, computed relative to the path
         # to the executable.
-        self.configpath = os.path.abspath(os.path.dirname(sys.argv[0]) +
-                                          '/../config')
+        self.exedir = os.path.abspath(os.path.dirname(sys.argv[0]))
+        self.configpath = os.path.abspath(self.exedir + '/../config')
+
         # config object optionally contains a user configuration object
         # this can be left undefined at the CADC, but is needed at other sites
-        self.userconfig = {}
+        self.userconfig = SafeConfigParser()
         self.userconfigpath = None
 
         # -------------------------------------------
         # placeholders for command line switch values
         # -------------------------------------------
         # Command line options
-        self.arg = argparse.ArgumentParser('ingest2caom2')
+        self.progname = os.path.basename(os.path.splitext(sys.path[0])[0])
+        self.ap = argparse.ArgumentParser(self.progname)
         self.switches = None
+        
+        # -
         
         # If true, gather metadata and resubmit as a set of gridengine jobs
         self.qsub = None
@@ -563,7 +480,7 @@ class ingest2caom2(object):
         # archive and database access parameters
         self.archive = None
         self.stream = None
-        self.adput = False
+        self.copytoarchive = False
 
         self.server = None
         self.database = 'dummy'
@@ -610,9 +527,7 @@ class ingest2caom2(object):
         # Note that these are NOT methods of the class.
 
         # By default do not sort the file_id's
-        self.gtfunc = nosort
-        self.cmpfunc = lambda f1, f2: 1 if self.gtfunc(f1, f2) else \
-                                     -1 if self.gtfunc(f2, f1) else 0
+        self.cmpfunc = lambda f1, f2: 0
 
         # local_args - configure for archive specific operations
         self.local_args = ''
@@ -656,6 +571,10 @@ class ingest2caom2(object):
         self.use_connection = True
         self.conn = None
 
+        # all archive access runs through the CADC data web service
+        # which must be started after the log is open
+        self.dataweb = None
+
     #************************************************************************
     # Clear the local plane and artifact dictionaries
     #************************************************************************
@@ -668,7 +587,6 @@ class ingest2caom2(object):
         """
         self.file_id = ''
         self.uri = ''
-        self.collection = None
         self.observationID = None
         self.productID = None
         self.plane_dict.clear()
@@ -1011,9 +929,9 @@ class ingest2caom2(object):
 
         # archive and database switches
         --archive   : default normally set in __init__
-        --stream'   : ad stream to use with adPut (only needed with --adput)
+        --stream'   : ad stream to use with --copytoarchive
 
-        --adput     : use adPut to push files into ad before ingestion
+        --copytoarchive     : use data_web-client.put() to push files into ad
 
         --server    : choices=['SYBASE','DEVSYBASE'], default='SYBASE'
         --database  : default normally set in __init__
@@ -1066,82 +984,87 @@ class ingest2caom2(object):
 
         # Optional user configuration
         if self.userconfigpath:
-            self.arg.add_argument('--userconfig',
-                                  default=self.userconfigpath,
-                                  help='Optional user configuration file '
-                                  '(default=' + self.userconfigpath + ')')
+            self.ap.add_argument('--userconfig',
+                default=self.userconfigpath,
+                help='Optional user configuration file '
+                     '(default=' + self.userconfigpath + ')')
+
+        self.ap.add_argument('--mode',
+            choices=['check', 'ingest'],
+            default='ingest',
+            help='stop processing after check or proceed to full ingestion')
 
         # Grid Engine options
-        self.arg.add_argument('--qsub',
+        self.ap.add_argument('--qsub',
             action='store_true',
             help='(optional) submit to gridengine')
-        self.arg.add_argument('--queue',
+        self.ap.add_argument('--queue',
             default='cadcproc',
             help='gridengine queue to use if --qsub is set')
 
         # Basic fits2caom2 options
         # --archive and --stream will normally be assigned default values
         #     in __init__
-        # --archive is needed with adput to store files in ad
-        self.arg.add_argument('--archive',
+        # --stream is needed with --copytoarchive
+        self.ap.add_argument('--archive',
             help='mandatory AD archive recording the data files')
-        #  --stream is needed with --adput to ingest files into ad
-        self.arg.add_argument('--stream',
+        #  --stream is needed with --copytoarchive to ingest files into ad
+        self.ap.add_argument('--stream',
             help='(optional) use this stream with adPut')
-        self.arg.add_argument('--adput',
+        self.ap.add_argument('--copytoarchive',
             action='store_true',
-            help='(optional) use adPut to put FITS files into AD')
+            help='(optional) use data web client to copy files into the archive')
 
-        self.arg.add_argument('--server',
+        self.ap.add_argument('--server',
             default='SYBASE',
             choices=['SYBASE', 'DEVSYBASE'])
-        self.arg.add_argument('--database')
-        self.arg.add_argument('--schema',
+        self.ap.add_argument('--database')
+        self.ap.add_argument('--schema',
             default='dbo')
 
         # Optionally, specify explicit paths to the config and default files
-        self.arg.add_argument('--config',
+        self.ap.add_argument('--config',
             help='(optional) path to fits2caom2 config file')
-        self.arg.add_argument('--default',
+        self.ap.add_argument('--default',
             help='(optional) path to fits2caom2 default file')
 
         # Big jobs require extra memory
-        self.arg.add_argument('--big',
+        self.ap.add_argument('--big',
             action='store_true',
             help='(optional) request extra heap space and RAM')
         
         # output directory
-        self.arg.add_argument('--outdir',
+        self.ap.add_argument('--outdir',
             default='.',
             help='output directory, (default = current directory')
 
         # debugging options
-        self.arg.add_argument('--keeplog',
+        self.ap.add_argument('--keeplog',
             action='store_true',
             help='(optional) keep log if successful (default is to delete)')
-        self.arg.add_argument('--test',
+        self.ap.add_argument('--test',
             action='store_true',
             help='(optional) simulate operation of fits2caom2')
-        self.arg.add_argument('--logdir',
+        self.ap.add_argument('--logdir',
                         help='(optional) directory to hold log file')
-        self.arg.add_argument('--log',
+        self.ap.add_argument('--log',
                         help='(optional) name of the log file')
-        self.arg.add_argument('--quiet',
+        self.ap.add_argument('--quiet',
             action='store_const',
             dest='loglevel',
             const=logging.WARN,
             help='(optional) only show warning and error messages')
-        self.arg.add_argument('--verbose',
+        self.ap.add_argument('--verbose',
             action='store_const',
             dest='loglevel',
             const=logging.DEBUG,
             help='(optional) show all messages')
-        self.arg.add_argument('--debug',
+        self.ap.add_argument('--debug',
             action='store_true',
             help='(optional) show all messages, pass --debug to fits2caom2,'
             ' and retain all xml and override files')
 
-        self.arg.add_argument('input',
+        self.ap.add_argument('input',
             nargs='*',
             help='file(s) or container(s) to ingest')
 
@@ -1165,26 +1088,29 @@ class ingest2caom2(object):
         default switches are interpreted and stored into individual attributes.
         """
 
-        self.switches = self.arg.parse_args()
+        self.switches = self.ap.parse_args()
 
-        # If the user configuration file exists, read it
-        # Regardless of whether the file exists, after this point
-        # the self.userconfig dictionary exists.
+        # If the user configuration file exists, read it.
         if 'userconfig' in self.switches:
             self.userconfigpath = os.path.abspath(
                                     os.path.expanduser(
                                         os.path.expandvars(
                                             self.switches.userconfig)))
-        if self.userconfigpath:
-            self.read_user_config(self.userconfigpath)
-            
-        self.userconfig['server'] = self.switches.server
+        if self.userconfigpath and os.path.isfile(self.userconfigpath):
+            with open(self.userconfigpath) as UC:
+                self.userconfig.readfp(UC)
+        
+        if not self.userconfig.has_section('database'):
+            self.userconfig.add_section('database')
+        self.userconfig.set('database', 'server', self.switches.server)
+
+        self.mode = self.switches.mode
 
         # For finer control, set values for database tables in the 
         # user configuration file
         if self.switches.database:
             self.database = self.switches.database
-            self.userconfig['cred_db'] = self.database
+            self.userconfig.set('database', 'cred_db', self.database)
 
         # Save the values in self
         # A value on the command line overrides a default set in code.
@@ -1197,7 +1123,7 @@ class ingest2caom2(object):
             self.archive = self.switches.archive
         if self.switches.stream:
             self.stream = self.switches.stream
-        self.adput = self.switches.adput
+        self.copytoarchive = self.switches.copytoarchive
 
         self.schema = self.switches.schema
 
@@ -1230,7 +1156,7 @@ class ingest2caom2(object):
             self.loglevel = logging.DEBUG
             self.debug = True
 
-        logbase = self.database
+        logbase = self.progname
         if len(self.switches.input) == 1:
             logbase = re.sub(r'[^a-zA-Z0-9]', r'_', 
                              os.path.splitext(
@@ -1265,9 +1191,9 @@ class ingest2caom2(object):
         if not self.database:
             raise RuntimeError('--database is required')
 
-        if self.adput and not self.stream:
+        if self.copytoarchive and not self.stream:
             raise RuntimeError('--stream must be defined (possibly as '
-                               'a default) when --adput is used')
+                               'a default) when --copytoarchive is used')
 
         # create outdir if it does not already exist
         if not os.path.exists(self.outdir):
@@ -1352,7 +1278,9 @@ class ingest2caom2(object):
                                 self.submitJobToGridEngine('ad:' + absf)
                             else:
                                 self.containerlist.append(
-                                    adfile_container(absf,
+                                    adfile_container(self.log, 
+                                                     self.dataweb, 
+                                                     absf,
                                                      self.outdir,
                                                      self.filterfunc))
 
@@ -1363,10 +1291,12 @@ class ingest2caom2(object):
                                 self.submitJobToGridEngine(f)
                             else:
                                 self.containerlist.append(
-                                    dataproc_container(key,
-                                                 self.conn,
-                                                 self.outdir,
-                                                 self.filterfunc))
+                                    dataproc_container(self.log, 
+                                                       self.dataweb, 
+                                                       key,
+                                                       self.conn,
+                                                       self.outdir,
+                                                       self.filterfunc))
                         
                         else:
                             self.log.console('unknown service: "' + f + '"',
@@ -1386,6 +1316,7 @@ class ingest2caom2(object):
                                                for ff in os.listdir(absf)]
                                     self.containerlist.append(
                                         filelist_container(
+                                            self.log,
                                             os.path.basename(absf),
                                             dirlist,
                                             self.filterfunc,
@@ -1397,7 +1328,8 @@ class ingest2caom2(object):
                                     self.submitJobToGridEngine(absf)
                                 else:
                                     self.containerlist.append(
-                                        tarfile_container(absf,
+                                        tarfile_container(self.log,
+                                                          absf,
                                                           self.outdir,
                                                           self.filterfunc,
                                                           self.make_file_id))
@@ -1414,7 +1346,8 @@ class ingest2caom2(object):
                         self.submitJobToGridEngine(argfilelist)
                     else:
                         self.containerlist.append(
-                            filelist_container('filelist',
+                            filelist_container(self.log,
+                                               'filelist',
                                                argfilelist,
                                                self.filterfunc,
                                                self.make_file_id))
@@ -1437,29 +1370,13 @@ class ingest2caom2(object):
         <none>
         """
         # Report switch values
+        self.log.file(self.progname)
+        for attr in dir(self.switches):
+            if attr != 'id' and attr[0] != '_':
+                self.log.console('%-15s= %s' % 
+                                 (attr, str(getattr(self.switches, attr))),
+                                 logging.DEBUG)
         self.log.file('tools4caom2version = ' + __version__.version)
-        self.log.file('configpath         = ' + str(self.configpath))
-        self.log.file('qsub               = ' + str(self.qsub))
-        self.log.file('queue              = ' + self.queue)
-        self.log.file('big                = ' + str(self.big))
-        self.log.file('')
-        self.log.file('archive            = ' + str(self.archive))
-        self.log.file('stream             = ' + str(self.stream))
-        self.log.file('adput              = ' + str(str(self.adput)))
-        self.log.file('')
-        self.log.file('server             = ' + str(self.server))
-        self.log.file('database           = ' + str(self.database))
-        self.log.file('schema             = ' + str(self.schema))
-        self.log.file('')
-        self.log.file('config             = ' + str(self.config))
-        self.log.file('default            = ' + str(self.default))
-        self.log.file('')
-        self.log.file('outdir             = ' + str(self.outdir))
-        self.log.file('logfile            = ' + str(self.logfile))
-        self.log.file('test               = ' + str(self.test))
-        self.log.file('debug              = ' + str(self.debug))
-
-        self.log.file('')
 
     #************************************************************************
     # Submit a single job to gridengine
@@ -1525,8 +1442,8 @@ class ingest2caom2(object):
         cmd += ' --archive=' + self.archive
         if self.stream:
             cmd += ' --stream=' + self.stream
-        if self.adput:
-            cmd += ' --adput'
+        if self.copytoarchive:
+            cmd += ' --copytoarchive'
 
         if self.server:
             cmd += ' --server=' + self.server
@@ -1568,16 +1485,16 @@ class ingest2caom2(object):
     def verifyFileInAD(self, filename):
         """
         Generic method to check whether a specified file is in AD.
-        If adput has been requested, first try to put filename into AD.
+        If copytoarchive has been requested, first try to put filename into AD.
         
         NB: We do not need to know that a file is in AD in order to ingest it.
-        If adput is not requested, assume that the file is already in AD.
+        If copytoarchive is not requested, assume that the file is already in AD.
         
 
         Arguments:
         filename : path to the file on disk
         """
-        if not self.adput:
+        if not self.copytoarchive:
             return
         
         self.log.file('verifyFileInAD ' + filename,
@@ -1586,49 +1503,22 @@ class ingest2caom2(object):
         #*****************************************************************
         # Put the file into AD if so requested
         #*****************************************************************
-        file_id = os.path.basename(os.path.splitext(filename)[0])
-        if self.archive and self.stream:
-            cmd = 'adPut -a %s -as %s -replace %s' % (self.archive,
-                                                     self.stream,
-                                                     filename)
-            output = ''
-            if self.test:
-                self.log.console('TEST: ' + cmd)
-                status = 0
+        file_id = self.make_file_id(filename)
+        # try up to three puts
+        for tryit in range(3):
+            if self.dataweb.put(filename, 
+                                self.archive, 
+                                file_id, 
+                                adstream=self.stream):
+                if self.dataweb.info(self.archive, file_id):
+                    break
+                else:
+                    self.log.file('failed to verify in AD: ' + filename,
+                                  logging.WARN)
             else:
-                self.log.file(cmd)
-                status, output = commands.getstatusoutput(cmd)
-
-            if status == None or status != 0:
-                self.log.console('adPut of %s failed with status %s\n' %
-                               (filename, status) + output,
-                               logging.ERROR)
-
-        #*****************************************************************
-        # Verify that the file is in AD
-        #*****************************************************************
-        cmd = 'adInfo -a %s -s %s' % (self.archive, file_id)
-        if self.test:
-            self.log.console('TEST: ' + cmd)
-            status = 0
-        else:
-            self.log.file(cmd)
-            # work-around for adInfo bug - retry up to 3 times with
-            # increasing delays
-            numtries = 0
-            status = 0
-            while numtries < 3 and status:
-                status, adfilename = commands.getstatusoutput(cmd)
-                if status:
-                    numtries += 1
-                    self.log.file('retry adInfo %s: %d' % (file_id, numtries),
-                                  logging.WARNING)
-                    time.sleep(1.0 * numtries)
-
-            if status == None or status != 0:
-                self.log.file('adInfo of %s failed with status %s\n' %
-                                (filename, status) + output,
-                          logging.ERROR)
+                self.log.console('failed to put into AD: ' + filename,
+                                 logging.WARN)
+            
 
     def fillMetadictFromFile(self, file_id, filepath, local):
         """
@@ -2168,8 +2058,6 @@ class ingest2caom2(object):
                        if os.path.splitext(f)[1] in ['.xml', '.override']]
             for src, dst in xmllist:
                 shutil.copyfile(src, dst)
-            
-        
         
     #************************************************************************
     # Run the program
@@ -2192,6 +2080,7 @@ class ingest2caom2(object):
         with logger(self.logfile,
                     loglevel=self.loglevel).record() as self.log:
             self.logCommandLineSwitches()
+            self.dataweb = data_web_client(self.outdir, self.log)
             if self.qsub:
                 self.commandLineContainers()
             else:
@@ -2206,11 +2095,12 @@ class ingest2caom2(object):
                     for c in self.containerlist:
                         self.log.console('PROGRESS: container = ' + c.name)
                         self.fillMetadict(c)
-                        try:
-                            self.ingestPlanesFromMetadict()
-                        except:
-                            self.rescue_xml()
-                            raise
+                        if self.mode == 'ingest':
+                            try:
+                                self.ingestPlanesFromMetadict()
+                            except:
+                                self.rescue_xml()
+                                raise
             # if no errors, declare we are DONR
             self.log.console('DONE')
         

@@ -318,6 +318,9 @@ def run():
                     help='stream for the archive during put operations')
     ap.add_argument('-f', '--file',
                     help='path to file for get and put operations')
+    ap.add_argument('--workdir',
+                    default='.',
+                    help='directory to hold files from get')
     ap.add_argument('--noclobber',
                     action='store_true',
                     help='do not overwrite existing files')
@@ -331,7 +334,7 @@ def run():
     cwd = os.path.abspath(
                 os.path.expanduser(
                     os.path.expandvars('.')))
-    
+
     cadcproxy = os.path.abspath(
                     os.path.expandvars(
                         os.path.expanduser(a.proxy)))
@@ -360,6 +363,15 @@ def run():
             log.console('existing file must be supplied for put',
                         logging.ERROR)
 
+        workdir = cwd
+        if a.workdir:
+            workdir = os.path.abspath(
+                          os.path.expanduser(
+                              os.path.expandvars(a.workdir)))
+            if not os.path.isdir(workdir):
+                log.console('requested workdir is not a directory: ' + workdir,
+                            logging.ERROR)
+            
         fileid_list = []
         fileid_list.extend(a.fileid)
         # Remove any fileid that have already been transfered
@@ -395,7 +407,7 @@ def run():
                            os.path.expanduser(
                                os.path.expandvars(a.file)))
 
-        dwc = data_web_client(cwd, log, proxy=a.proxy)
+        dwc = data_web_client(workdir, log, proxy=a.proxy)
         
         if a.operation == 'info':
             for fileid in fileid_list:

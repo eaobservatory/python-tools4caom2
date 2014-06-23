@@ -3,6 +3,7 @@
 __author__ = "Russell O. Redman"
 
 import commands
+import logging
 import os
 import os.path
 import re
@@ -10,6 +11,7 @@ import time
 
 from tools4caom2 import __version__
 from tools4caom2.basecontainer import basecontainer
+from tools4caom2.data_web_client import data_web_client
 
 __doc__ = """
 The dataproc_container class holds a list of processed files to ingest that are
@@ -20,6 +22,8 @@ Version: """ + __version__.version
 
 class dataproc_container(basecontainer):
     def __init__(self, 
+                 log,
+                 data_web_client,
                  identity_instance_id, 
                  conn, 
                  working_directory, 
@@ -50,6 +54,8 @@ class dataproc_container(basecontainer):
         use will be deleted again.
         
         Arguments:
+        log: a tools4caom2.logger object
+        data_web_client: a tools4caom2.data_web_client object
         identity_instance_id: a string providing the primary key for the 
                               db_recipe_output table
         conn: a connection to the database
@@ -57,19 +63,21 @@ class dataproc_container(basecontainer):
                            files can be created
         filterfunc: returns True if filename should be ingested
         """
-        basecontainer.__init__(self, 'dp_' + identity_instance_id)
+        basecontainer.__init__(self, 'dp_' + identity_instance_id, log)
 
         if os.path.isdir(working_directory):
             self.directory = os.path.abspath(working_directory)
         else:
-            raise basecontainer.ContainerError('ERROR: not a directory: ' +
-                                               working_directory)
+            self.log.console('not a directory: ' +  working_directory,
+                             logging.ERROR)
 
+        self.dataweb = data_web_client
+        
         if not conn:
-            raise basecontainer.ContainerError('ERROR: no connection to the '
-                                               'database')
+            self.log.console('no connection to the database',
+                             logging.ERROR)
 
-        self.ad_uri = {}
+        self.archive = {}
 
         sqlcmd = '\n'.join([
             'SELECT state',
@@ -80,9 +88,11 @@ class dataproc_container(basecontainer):
         if result:
             dp_state = result[0][0]
             if dp_state != 'Y':
-                raise basecontainer.ContainerError('ERROR: state of '
-                    'indentity_instance_id is "' + dp_state + 
-                    '" but must be "Y: for ingestion to proceed') 
+                self.log.console(
+                    'state of indentity_instance_id=' +
+                    str(identity_instance_id) + ' is "' + dp_state + 
+                    '" but must be "Y: for ingestion to proceed',
+                    logging.ERROR) 
 
         sqlcmd = '\n'.join([
             'SELECT dp_output',
@@ -98,40 +108,29 @@ class dataproc_container(basecontainer):
                 if match:
                     (archive, file_id) = match.group(1, 2)
                     # Beware that uri's from dp_recipe_output include extensions
-                    file_id = os.path.splitext(file_id)[0]
-                    
-                    cmd = 'adInfo -a %s -q -fileName %s' % \
-                          (archive, file_id)
-
-                    # work-around for adInfo bug - retry up to 3 times with
-                    # increasing delays
-                    numtries = 0
-                    status = 1
-                    while numtries < 3 and status:
-                        status, adfilename = commands.getstatusoutput(cmd)
-                        if status:
-                            numtries += 1
-                            time.sleep(1.0 * numtries)
-                    
-                    if status:
-                        # file not found error for adInfo
-                        # ignore these errors and skip the files because they
-                        # failed ingestion into AD
-                        if status != 1280:
-                            raise basecontainer.ContainerError(
-                                'adInfo fails for %s in %s with status=%d'
-                                ' after %d tries' %
-                                (file_id, adfilename, status, numtries))
-                    if not filterfunc or filterfunc(adfilename):
-                        self.filedict[file_id] = \
-                            os.path.join(self.directory, adfilename)
-                        self.ad_uri[file_id] = archive
-
-                        filecount += 1
+                    file_id = os.path.splitext(file_id)[0].lower()
+                    headers = self.dataweb.info(archive, file_id)
+                    if headers and 'content-disposition' in headers:
+                        m = re.match(r'^.*?filename=(.+)$', 
+                                     headers['content-disposition'])
+                        if m:
+                            adfilename = m.group(1)
+                            # use the adfilename to filter, but do not record 
+                            # the name on disk, which will change when the 
+                            # cutout for the primary header is done in get
+                            if not filterfunc or filterfunc(adfilename):
+                                self.filedict[file_id] = ''
+                                self.archive[file_id] = archive
+                                filecount += 1
+                        else:
+                            self.log.console('data web service cannot find ' +
+                                             archive + '/' + file_id,
+                                             logging.ERROR)
             if filecount == 0:
-                raise basecontainer.ContainerError(
-                        'ERROR: identity_instance_id ' + identity_instance_id + 
-                        ' contains no valid ad URIs')
+                self.log.console('identity_instance_id ' + 
+                                 identity_instance_id + 
+                                 ' contains no valid ad URIs',
+                                 logging.ERROR)
 
     def get(self, file_id):
         """
@@ -140,20 +139,22 @@ class dataproc_container(basecontainer):
         Arguments:
         file_id : The file_id to extract from the archive
         """
-        if file_id not in self.ad_uri:
-            raise basecontainer.ContainerError('ERROR: ' + file_id +
-                                               ' not in ' +
-                                               repr(self.file_id_list()))
+        if file_id not in self.archive:
+            self.log.console('requesting bad file_id: ' + file_id +
+                             ' from ' +repr(self.file_id_list()),
+                             logging.ERROR)
 
-        cmd = 'cd %s ; adGet -a %s %s' % (self.directory,
-                                          self.ad_uri[file_id],
-                                          file_id)
-
-        status, output = commands.getstatusoutput(cmd)
-        if status:
-            raise basecontainer.ContainerError('ERROR: ' + cmd +
-                                               ' returned: "' + output + '"')
-        return self.filedict[file_id]
+        # This fetches only the header from the primary HDU, which
+        # should result in significant performance improvements
+        filepath = self.dataweb.get(self.archive[file_id], 
+                                    file_id,
+                                    params=data_web_client.PrimaryHEADER)
+        if not filepath:
+            self.log.console('could not get ' + file_id + ' from ' + 
+                             self.archive[file_id],
+                             logging.ERROR)
+        self.filedict[file_id] = filepath
+        return filepath
 
     def cleanup(self, file_id):
         """

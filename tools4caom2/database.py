@@ -150,36 +150,37 @@ class database(object):
         """
         self.use = use
         self.server = None
-        if 'server' in userconfig:
-            self.server = userconfig['server']
-        
         self.cred_db = None
-        if 'cred_db' in userconfig:
-            self.cred_db = userconfig['cred_db']
-        elif 'read_db' in userconfig:
-            self.cred_db = userconfig['read_db']
-        
         self.read_db = None
-        if 'read_db' in userconfig:
-            self.read_db = userconfig['read_db']
-        elif 'cred_db' in userconfig:
-            self.read_db = userconfig['cred_db']
-        
         self.write_db = None
-        if 'write_db' in userconfig:
-            self.write_db = userconfig['write_db']
-        elif 'cred_db' in userconfig:
-            self.write_db = userconfig['cred_db']
-        elif 'read_db' in userconfig:
-            self.write_db = userconfig['read_db']
-        
         self.cadc_id = None
-        if 'cadc_id' in userconfig:
-            self.cadc_id = userconfig['cred_id']
-
         self.cadc_key = None
-        if 'cadc_key' in userconfig:
-            self.cadc_key = userconfig['cadc_key']
+
+        if userconfig.has_section('cadc'):
+            if userconfig.has_option('cadc', 'server'):
+                self.server = userconfig.get('cadc', 'server')
+            
+            if userconfig.has_option('cadc', 'cred_db'):
+                self.cred_db = userconfig.get('cadc', 'cred_db')
+            elif userconfig.has_option('cadc', 'read_db'):
+                self.cred_db = userconfig.get('cadc', 'read_db')
+            
+            if userconfig.has_option('cadc', 'read_db'):
+                self.read_db = userconfig.get('cadc', 'read_db')
+            elif userconfig.has_option('cadc', 'cred_db'):
+                self.read_db = userconfig.get('cadc', 'cred_db')
+        
+            if userconfig.has_option('cadc', 'write_db'):
+                self.read_db = userconfig.get('cadc', 'write_db')
+            elif userconfig.has_option('cadc', 'cred_db'):
+                self.read_db = userconfig.get('cadc', 'cred_db')
+            elif userconfig.has_option('cadc', 'read_db'):
+                self.read_db = userconfig.get('cadc', 'read_db')
+
+            if userconfig.has_option('cadc', 'cadc_id'):
+                self.cadc_id = userconfig.get('cadc', 'cadc_id')
+            if userconfig.has_option('cadc', 'cadc_key'):
+                self.cadc_key = userconfig.get('cadc', 'cadc_key')
 
         self.pause_queue = [1.0, 2.0, 3.0]
         self.log = log
@@ -192,7 +193,13 @@ class database(object):
         <None>
         """
         if self.use and not (self.cadc_id and self.cadc_key):
-            if subprocess.call(['which', 'get_dbrc']):
+            try:
+                output = subprocess.check_output(['which', 'dbrc_get'],
+                                                 stderr=subprocess.STDOUT)
+                use_config = True
+            except:
+                use_config = False
+            if use_config:
                 # Returns nonzero if get_dbrc is NOT found
                 # try to read ~/.tools4caom2/tools4caom2.config
                 toolconfigpath = os.path.abspath(
