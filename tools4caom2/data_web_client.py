@@ -72,13 +72,14 @@ class data_web_client(object):
         headerdict = {}
         try:
             r = requests.get(url, cert=self.cadcproxy)
-            if r.status_code != 200:
+            if r.status_code == 200:
+                # copy dictionary for usage after r is closed
+                headerdict.update(r.headers)
+                
+            elif r.status_code != 404:
                 self.log.console(str(r.status_code) + ' = ' + 
                                  httplib.responses[r.status_code],
                                  logging.WARN)
-            else:
-                # copy dictionary for usage after r is closed
-                headerdict.update(r.headers)
         except Exception as e:
             self.log.console('FAILED to get info for ' + file_id + ': ' + 
                              traceback.format_exc(),
