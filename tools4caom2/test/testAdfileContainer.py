@@ -62,6 +62,7 @@ from tools4caom2.ingest2caom2 import fitsfilter
 from tools4caom2.basecontainer import basecontainer
 from tools4caom2.adfile_container import adfile_container
 from tools4caom2.data_web_client import data_web_client
+from tools4caom2.logger import logger
 
 
 def write_fits(filepath,
@@ -176,7 +177,7 @@ class testAdfileContainer(unittest.TestCase):
         # set up the test envirnonment
         self.testdir = tempfile.mkdtemp()
         self.log = logger(os.path.join(self.testdir, 'testadfile.log'),
-                          logging.INFO)
+                           console_output=False)
 
         self.dataweb = data_web_client(self.testdir, self.log)
 
@@ -413,24 +414,24 @@ class testAdfileContainer(unittest.TestCase):
             self.assertTrue(not os.path.exists(filepath))
 
         # If we ask for an adfile name with a different extension, 
-        # the init should throw a ContainerError
-        self.assertRaises(basecontainer.ContainerError,
+        # the init should throw a LoggerError
+        self.assertRaises(logger.LoggerError,
                           adfile_container,
                           'bogus.file',
                           self.testdir,
                           None)
 
         # If the output directory does not exist, the init should throw a 
-        # ContainerError
-        self.assertRaises(basecontainer.ContainerError,
+        # LoggerError
+        self.assertRaises(logger.LoggerError,
                           adfile_container,
                           adfilepath,
                           '/junk/bogus',
                           None)
 
         # If we request a bogus file_id, this should raise a 
-        # ContainerError
-        self.assertRaises(basecontainer.ContainerError,
+        # LoggerError
+        self.assertRaises(logger.LoggerError,
                           fc.get, 'bogus')
 
 if __name__ == '__main__':

@@ -47,6 +47,7 @@ import time
 
 from tools4caom2 import __version__
 from tools4caom2.basecontainer import basecontainer
+from tools4caom2.logger import logger
 
 __doc__ = """
 The adfile_container class reads from a text file a list of AD URIs that 

@@ -61,6 +61,7 @@ from tools4caom2.ingest2caom2 import make_file_id
 from tools4caom2.ingest2caom2 import fitsfilter
 from tools4caom2.basecontainer import basecontainer
 from tools4caom2.tarfile_container import tarfile_container
+from tools4caom2.logger import logger
 
 def write_fits(filepath,
                numexts,
@@ -172,6 +173,10 @@ class testTarfileContainer(unittest.TestCase):
 
         # set up the test envirnonment
         self.testdir = tempfile.mkdtemp()
+        
+        self.log = logger(os.path.join(self.testdir, 'testtarcontainer.log'),
+                           console_output=False)
+        
         # fake data
         fakedata = numpy.arange(10)
 
@@ -267,7 +272,8 @@ class testTarfileContainer(unittest.TestCase):
         # should succeed.
         # The filterfunc is None.
         tarfilepath = os.path.join(self.testdir, 'file5.tar.gz')
-        fc = tarfile_container(tarfilepath, 
+        fc = tarfile_container(self.log,
+                               tarfilepath, 
                                self.testdir, 
                                None, 
                                make_file_id)
@@ -311,7 +317,7 @@ class testTarfileContainer(unittest.TestCase):
             self.assertTrue(not os.path.exists(filepath))
 
         # If we request a bogus file_id, this should raise a logger error
-        self.assertRaises(basecontainer.ContainerError,
+        self.assertRaises(logger.LoggerError,
                           fc.get, 'bogus')
 
         fc.close()
@@ -319,14 +325,20 @@ class testTarfileContainer(unittest.TestCase):
         # If we ask for a bogus tar file name, the init should throw an IOError
         self.assertRaises(IOError,
                           tarfile_container,
-                          'bogus.file', self.testdir, True, 
+                          self.log, 
+                          'bogus.file', 
+                          self.testdir, 
+                          True, 
                           make_file_id)
 
         # If the output directory does not exist, the init should throw a 
-        # ContainerError
-        self.assertRaises(basecontainer.ContainerError,
+        # LoggerError
+        self.assertRaises(logger.LoggerError,
                           tarfile_container,
-                          tarfilepath, '/junk/bogus', True, 
+                          self.log, 
+                          tarfilepath, 
+                          '/junk/bogus', 
+                          True, 
                           make_file_id)
 
     # Test tarfile_container implementations
@@ -346,7 +358,8 @@ class testTarfileContainer(unittest.TestCase):
         # should succeed.
         # The filterfunc is fitsfilter.
         tarfilepath = os.path.join(self.testdir, 'file5.tar.gz')
-        fc = tarfile_container(tarfilepath, 
+        fc = tarfile_container(self.log,
+                               tarfilepath, 
                                self.testdir, 
                                fitsfilter, 
                                make_file_id)

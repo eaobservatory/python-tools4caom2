@@ -60,13 +60,7 @@ from tools4caom2.ingest2caom2 import make_file_id
 from tools4caom2.ingest2caom2 import fitsfilter
 from tools4caom2.basecontainer import basecontainer
 from tools4caom2.filelist_container import filelist_container
-
-# Is the archive accessible on the current platform?
-status, output = commands.getstatusoutput('which adPut')
-if status:
-    adput_available = False
-else:
-    adput_available = True
+from tools4caom2.logger import logger
 
 def write_fits(filepath,
                numexts,
@@ -177,6 +171,8 @@ class testFilelistContainer(unittest.TestCase):
 
         # set up the test envirnonment
         self.testdir = tempfile.mkdtemp()
+        self.log = logger(os.path.join(self.testdir, 'filelist.log'), 
+                          console_output=False)
         # fake data
         fakedata = numpy.arange(10)
 
@@ -230,7 +226,8 @@ class testFilelistContainer(unittest.TestCase):
 
         # These files should all exist so creation of a filelist_container
         # should succeed
-        fc = filelist_container('filelist', 
+        fc = filelist_container(self.log,
+                                'filelist', 
                                 test_file_list, 
                                 fitsfilter, 
                                 make_file_id)
@@ -282,9 +279,13 @@ class testFilelistContainer(unittest.TestCase):
 
         # If we append a bogus file name, the init should throw an IOError
         test_file_list.append('bogus.file')
-        self.assertRaises(basecontainer.ContainerError,
+        self.assertRaises(logger.LoggerError,
                           filelist_container,
-                          'filelist', test_file_list, None, make_file_id)
+                          self.log, 
+                          'filelist', 
+                          test_file_list, 
+                          None, 
+                          make_file_id)
 
     # Test filelist_container implementations
     def test020_filelist_container_no_filtering(self):
@@ -298,7 +299,11 @@ class testFilelistContainer(unittest.TestCase):
         # These files should all exist so creation of a filelist_container
         # should succeed.
         # This container should include file9.txt, since the filterfunc is None
-        fc = filelist_container('filelist', test_file_list, None, make_file_id)
+        fc = filelist_container(self.log,
+                                'filelist', 
+                                test_file_list, 
+                                None, 
+                                make_file_id)
 
         # Verify that the list of file_id's returned by fc1.file_id_list()
         # is identical to the list we inserted.  Beware that the order is
@@ -350,7 +355,8 @@ class testFilelistContainer(unittest.TestCase):
         # These files should all exist so creation of a filelist_container
         # should succeed.
         # This container should include file9.txt, since the filterfunc is None
-        fc = filelist_container('filelist',
+        fc = filelist_container(self.log,
+                                'filelist',
                                 test_file_list, 
                                 fitsfilter, 
                                 make_file_id)

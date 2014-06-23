@@ -38,6 +38,7 @@
 #-*/
 __author__ = "Russell O. Redman"
 
+import logging
 import os
 import os.path
 import stat
@@ -54,6 +55,7 @@ Version: """ + __version__.version
 
 class tarfile_container(basecontainer):
     def __init__(self,
+                 log,
                  tarfilepath,
                  working_directory,
                  filterfunc,
@@ -78,13 +80,14 @@ class tarfile_container(basecontainer):
                            but ignored for tarfile_containers
         make_file_id:      function that converst a file name to a file_id
         """
-        basecontainer.__init__(self, os.path.basename(tarfilepath))
+        basecontainer.__init__(self, log, os.path.basename(tarfilepath))
 
         if os.path.isdir(working_directory):
             self.directory = os.path.abspath(working_directory)
         else:
-            raise basecontainer.ContainerError('ERROR: not a directory: ' +
-                                               working_directory)
+            self.log.console('Working directory is not a directory: ' +
+                             working_directory,
+                             logging.ERROR)
 
         self.tarfilemember = {}
         self.tarfilepath = tarfilepath
@@ -102,13 +105,15 @@ class tarfile_container(basecontainer):
                     file_count += 1
             self.TAR.close()
         else:
-            raise basecontainer.ContainerError('ERROR: not a tar file: ' +
-                                               tarfilepath)
+            self.log.console('tarfile is not a tar file: ' +
+                             tarfilepath,
+                             logging.ERROR)
         self.TAR = None
         
         if file_count == 0:
-            raise basecontainer.ContainerError(
-                'ERROR: tar file ' + tarfilepath + ' contains no valid files')
+            self.log.console('tar file ' + tarfilepath + 
+                             ' contains no valid files',
+                             logging.ERROR)
 
     def get(self, file_id):
         """
@@ -126,9 +131,9 @@ class tarfile_container(basecontainer):
                                  self.directory)
             return self.filedict[file_id]
         else:
-            raise basecontainer.ContainerError(
-                'ERROR: ' + file_id + ' is not a member of the tar file ' +
-                self.tarfilepath)
+            self.log.console(file_id + ' is not a member of the tar file ' +
+                             self.tarfilepath,
+                             logging.ERROR)
 
     def cleanup(self, file_id):
         """

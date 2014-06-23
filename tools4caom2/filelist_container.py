@@ -38,7 +38,7 @@
 #-*/
 __author__ = "Russell O. Redman"
 
-
+import logging
 import os.path
 
 from tools4caom2 import __version__
@@ -53,6 +53,7 @@ Version: """ + __version__.version
 
 class filelist_container(basecontainer):
     def __init__(self,
+                 log,
                  listname,
                  list_of_files,
                  filterfunc,
@@ -67,7 +68,7 @@ class filelist_container(basecontainer):
         filterfunc: returns True if file name should be ingested
         make_file_id: returns the file_id corresponding to file name
         """
-        basecontainer.__init__(self, listname)
+        basecontainer.__init__(self, log, listname)
         file_count = 0
         for f in list_of_files:
             if not filterfunc or filterfunc(f):
@@ -78,9 +79,10 @@ class filelist_container(basecontainer):
                     self.filedict[file_id] = filepath
                     file_count += 1
                 else:
-                    raise basecontainer.ContainerError('File not found: ' + f)
+                    self.log.console('File not found: ' + f,
+                                     logging.ERROR)
 
         if file_count == 0:
-            raise basecontainer.ContainerError(
-                    'ERROR: adfile ' + adfile + ' contains no valid files')
+            self.log.console('adfile ' + adfile + ' contains no valid files',
+                             logging.ERROR)
 
