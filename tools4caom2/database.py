@@ -55,6 +55,7 @@ import re
 import subprocess
 from threading import Event
 from threading import Lock
+import traceback
 
 try:
     import Sybase
@@ -227,9 +228,11 @@ class database(object):
         Arguments:
         <None>
         """
+        self.log.file('enter get_read_connection')
         if sybase_defined and self.use:
             if not database.read_connection:
                 self.get_credentials()
+                self.log.file('have credentials')
                 # Check that credentials exist
                 if not (self.cadc_id and self.cadc_key):
                     
@@ -251,6 +254,8 @@ class database(object):
         else:
             self.log.file('cannot open a read_connection to a database '
                           'because Sybase is not available')
+        self.log.file('leave get_read_connection')
+
             
     def get_write_connection(self, write_db):
         """
@@ -302,8 +307,7 @@ class database(object):
         while retry:
             returnList = []
             try:
-                try:
-                    database.read_mutex.acquire()
+                with database.read_mutex:
                     self.get_read_connection()
                     cursor = database.read_connection.cursor()
                     cursor.execute(query, params)
@@ -312,8 +316,6 @@ class database(object):
                     retry = False
                     # should be a no-op
                     # database.read_connection.commit()
-                finally:
-                    database.read_mutex.release()
             except Exception as e:
                 # Do not know what kind of error we will get back
                 # only the last one will be reported
@@ -327,7 +329,7 @@ class database(object):
                     number += 1
                 else:
                     retry = False
-                    self.log.console(str(e))
+                    self.log.console(traceback.format_exc())
                     raise
         return returnList
 
@@ -349,8 +351,7 @@ class database(object):
         retry = True
         while retry:
             try:
-                try:
-                    database.write_mutex.acquire()
+                with database.write_mutex:
                     self.get_write_connection()
                     cursor = database.write_connection.cursor()
                     cursor.execute(cmd, params)
@@ -358,8 +359,6 @@ class database(object):
                         returnList = cursor.fetchall()
                     cursor.close()
                     retry = False
-                finally:
-                    database.write_mutex.release()
             except Exception as e:
                 # Do not know what kind of error we will get back
                 # only the last one will be reported
@@ -373,7 +372,7 @@ class database(object):
                     number += 1
                 else:
                     retry = False
-                    self.log.console(str(e))
+                    self.log.console(traceback.format_exc())
                     raise
         return returnList
     
