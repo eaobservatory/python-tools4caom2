@@ -192,7 +192,7 @@ class database(object):
         Arguments:
         <None>
         """
-        if self.use and not (self.cadc_id and self.cadc_key):
+        if self.use:
             try:
                 output = subprocess.check_output(['which', 'dbrc_get'],
                                                  stderr=subprocess.STDOUT)
@@ -200,25 +200,6 @@ class database(object):
             except:
                 use_config = False
             if use_config:
-                # Returns nonzero if get_dbrc is NOT found
-                # try to read ~/.tools4caom2/tools4caom2.config
-                toolconfigpath = os.path.abspath(
-                                    os.path.expanduser(
-                                        '~/.tools4caom2/tools4caom2.config'))
-                if os.path.isfile(toolconfigpath):
-                    config_parser = SafeConfigParser()
-                    with open(toolconfigpath) as TC:
-                        config_parser.readfp(TC)
-                
-                    if config_parser.has_section('cadc'):
-                        if config_parser.has_option('cadc', 'cadc_id'):
-                            self.cadc_id = \
-                                config_parser.get('cadc', 'cadc_id')
-                        if config_parser.has_option('cadc', 'cadc_key'):
-                            self.cadc_key = \
-                                config_parser.get('cadc', 'cadc_key')
-                    
-            else:
                 try:
                     credcmd = ['dbrc_get', self.server,  self.cred_db]
                     credentials = subprocess.check_output(credcmd,

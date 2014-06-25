@@ -63,7 +63,7 @@ class dataproc_container(basecontainer):
                            files can be created
         filterfunc: returns True if filename should be ingested
         """
-        basecontainer.__init__(self, 'dp_' + identity_instance_id, log)
+        basecontainer.__init__(self, log, 'dp_' + identity_instance_id)
 
         if os.path.isdir(working_directory):
             self.directory = os.path.abspath(working_directory)
