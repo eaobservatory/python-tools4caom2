@@ -6,6 +6,7 @@ import argparse
 from ConfigParser import SafeConfigParser
 import netrc
 import os.path
+import subprocess
 import sys
 import urllib2
 
@@ -65,8 +66,16 @@ def run():
                     default=7,
                     type=int,
                     help='days for which the certificate will remain valid')
+    ap.add_argument('--minvalid',
+                    default=5,
+                    type=int,
+                    help='minimum days for which the certificate should '
+                         'remain valid')
     a = ap.parse_args()
 
+    minvalid = min(a.minvalid, a.daysvalid)
+    secvalid = str(86400*minvalid)
+    
     cadcproxy = os.path.abspath(
                     os.path.expandvars(
                         os.path.expanduser(a.proxy)))
@@ -89,4 +98,12 @@ def run():
         username = auth[0]
         passwd = auth[2]
 
-    renew(cadcproxy, username, passwd, a.daysvalid)
+    needsupdate = subprocess.call(['openssl', 
+                                   'x509',
+                                   '-in',
+                                   cadcproxy,
+                                   '-noout',
+                                   '-checkend',
+                                   secvalid])
+    if needsupdate:
+        renew(cadcproxy, username, passwd, a.daysvalid)
