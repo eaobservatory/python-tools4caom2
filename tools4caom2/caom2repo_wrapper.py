@@ -196,8 +196,7 @@ class Repository(object):
                                    prefix=re.sub(r'[^A-Za-z0-9]+',r'_', myuri),
                                    dir=self.workdir)
         cmd = 'caom2repo.py --debug --retry=5 --get ' + myuri + ' ' + filepath
-        self.log.console('PROGRESS: "' + cmd + '"',
-                         logging.DEBUG)
+        self.log.file(cmd)
 
         try:
             output = subprocess.check_output(cmd,

@@ -228,7 +228,6 @@ class database(object):
         Arguments:
         <None>
         """
-        self.log.file('enter get_read_connection')
         if sybase_defined and self.use:
             if not database.read_connection:
                 self.get_credentials()
@@ -254,7 +253,6 @@ class database(object):
         else:
             self.log.file('cannot open a read_connection to a database '
                           'because Sybase is not available')
-        self.log.file('leave get_read_connection')
 
             
     def get_write_connection(self, write_db):

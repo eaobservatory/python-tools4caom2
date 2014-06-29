@@ -367,6 +367,23 @@ class ingest2caom2(object):
 #                self.writer.write(observation, XMLFILE)
 
     #************************************************************************
+    # Standard cleanup method, which can be customized in derived classes
+    #************************************************************************
+    def cleanup(self):
+        """
+        Cleanup actions to be done after closing the log. The standard action
+        is to delete the log file unless in debug mode or --keeplog was 
+        requested.
+        
+        Arguements:
+        <none>
+        """
+        # if execution reaches here, the ingestion was successful, 
+        # so, if not in debug mode, delete the log file
+        if self.loglevel != logging.DEBUG and not self.keeplog:
+            os.remove(self.logfile)
+
+    #************************************************************************
     # Apply archive-specific changes to a plane in an observation xml
     #************************************************************************
     def build_fitsuri_custom(self, 
@@ -504,6 +521,10 @@ class ingest2caom2(object):
         self.loglevel = logging.INFO
         self.test = None
         self.debug = False
+        self.logprefix = ''
+        # Optionally record whether errors and warnings occur
+        self.errors = False
+        self.warnings = False
 
         # The filterfunc is a name checking function that returns True if
         # a filename is valid for ingestion and False otherwise.
@@ -1181,7 +1202,7 @@ class ingest2caom2(object):
         else:
             # make a log file that is temporary unless the ingestion fails
             self.logfile = os.path.join(self.logdir,
-                                        logbase + '_' + utdate_string() + 
+                                        logbase + utdate_string() + 
                                         '.log')
         
         # check for consistency and correctness of switches
@@ -2079,35 +2100,41 @@ class ingest2caom2(object):
         self.processCommandLineSwitches()
         with logger(self.logfile,
                     loglevel=self.loglevel).record() as self.log:
-            self.logCommandLineSwitches()
-            self.dataweb = data_web_client(self.outdir, self.log)
-            if self.qsub:
-                self.commandLineContainers()
-            else:
-                # It is harmless to create a database connection object if it
-                # is not going to be used, since the actual connections use
-                # lazy initialization and are not opened until a call to read 
-                # or write is made.
-                with connection(self.userconfig,
-                                self.log,
-                                use=self.use_connection) as self.conn:
+            try:
+                self.logCommandLineSwitches()
+                self.dataweb = data_web_client(self.outdir, self.log)
+                if self.qsub:
                     self.commandLineContainers()
-                    for c in self.containerlist:
-                        self.log.console('PROGRESS: container = ' + c.name)
-                        self.fillMetadict(c)
-                        if self.mode == 'ingest':
-                            try:
-                                self.ingestPlanesFromMetadict()
-                            except:
-                                self.rescue_xml()
-                                raise
-            # if no errors, declare we are DONR
-            self.log.console('DONE')
-        
-        # if execution reaches here, the ingestion was successful, 
-        # so, if not in debug mode, delete the log file
-        if self.loglevel != logging.DEBUG and not self.keeplog:
-            os.remove(self.logfile)
+                else:
+                    # It is harmless to create a database connection object if it
+                    # is not going to be used, since the actual connections use
+                    # lazy initialization and are not opened until a call to read 
+                    # or write is made.
+                    with connection(self.userconfig,
+                                    self.log,
+                                    use=self.use_connection) as self.conn:
+                        self.commandLineContainers()
+                        for c in self.containerlist:
+                            self.log.console('PROGRESS: container = ' + c.name)
+                            self.fillMetadict(c)
+                            if self.mode == 'ingest':
+                                try:
+                                    self.ingestPlanesFromMetadict()
+                                except:
+                                    self.rescue_xml()
+                                    raise
+                # if no errors, declare we are DONE
+                self.log.console('DONE')
+            except Exception as e:
+                if not isinstance(e, logger.LoggerError):
+                    # Log this previously uncaught error, but let it pass
+                    try:
+                        self.log.console(traveback.format_exc(),
+                                         logging.ERROR)
+                    except Exception as p:
+                        pass
+            
+        self.cleanup()
 
 if __name__ == '__main__':
     myingest2caom2 = ingest2caom2()
