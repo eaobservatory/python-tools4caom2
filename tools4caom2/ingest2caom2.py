@@ -2129,7 +2129,7 @@ class ingest2caom2(object):
                 if not isinstance(e, logger.LoggerError):
                     # Log this previously uncaught error, but let it pass
                     try:
-                        self.log.console(traveback.format_exc(),
+                        self.log.console(traceback.format_exc(),
                                          logging.ERROR)
                     except Exception as p:
                         pass
