@@ -1891,6 +1891,7 @@ class ingest2caom2(object):
             # if the first attempt to run fits2caom2 fails, try again with
             # --debug to capture the full error message
             if status:
+                self.errors = True
                 self.log.console("fits2caom2 return status %d" % (status))
                 if not debug:
                     self.log.console("fits2caom2 - rerun in debug mode")
