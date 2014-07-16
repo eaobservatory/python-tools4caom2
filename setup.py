@@ -14,14 +14,17 @@ if sys.version_info[0] > 2:
 # debug.DEBUG=1
 
 setup(name="tools4caom2",
-      version='1.1.6',
+      version='1.1.7',
       description='Python tools to assist ingestions into CAOM-2, ' + \
                   'especially when using fits2caom2',
       author='Russell Redman',
       author_email='russell.o.redman@gmail.com',
       provides=['tools4caom2'],
-      requires=['requests (>=2.3.0)', 'vos', 'pyfits'],
+      requires=[,
       packages=find_packages(exclude=['*.test']),
       test_suite='tools4caom2.test',
-      install_requires = ['distribute']
+      install_requires = ['distribute', 
+                          'requests (>=2.3.0)', 
+                          'vos', 
+                          'astropy']
 )
