@@ -307,7 +307,6 @@ class database(object):
             try:
                 with database.read_mutex:
                     self.get_read_connection()
-                    try:
                     cursor = database.read_connection.cursor()
                     cursor.execute(query, params)
                     returnList = cursor.fetchall()

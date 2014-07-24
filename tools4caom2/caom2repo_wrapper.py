@@ -220,9 +220,9 @@ class Repository(object):
         # 3) An exception was raised that cannot be handled internally
         # The following statements will only execute in the first two cases.
         if exists:
-            self.log.console('Observation ' + myuri + ' was found')
+            self.log.console('PROGRESS: Observation ' + myuri + ' was found')
         else:
-            self.log.console('Observation ' + myuri + ' was NOT found')
+            self.log.console('PROGRESS: Observation ' + myuri + ' was NOT found')
         return (filepath, exists)
 
     def put(self, uri, filepath, exists):

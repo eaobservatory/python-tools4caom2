@@ -513,6 +513,7 @@ class ingest2caom2(object):
         # files and directories
         self.infiles = None
         self.outdir = None
+        self.logdir = None
 
         # log handling
         self.logfile = None
@@ -1056,20 +1057,19 @@ class ingest2caom2(object):
         
         # output directory
         self.ap.add_argument('--outdir',
-            default='.',
             help='output directory, (default = current directory')
 
         # debugging options
+        self.ap.add_argument('--logdir',
+                        help='(optional) directory to hold log file')
+        self.ap.add_argument('--log',
+                        help='(optional) name of the log file')
         self.ap.add_argument('--keeplog',
             action='store_true',
             help='(optional) keep log if successful (default is to delete)')
         self.ap.add_argument('--test',
             action='store_true',
             help='(optional) simulate operation of fits2caom2')
-        self.ap.add_argument('--logdir',
-                        help='(optional) directory to hold log file')
-        self.ap.add_argument('--log',
-                        help='(optional) name of the log file')
         self.ap.add_argument('--quiet',
             action='store_const',
             dest='loglevel',
@@ -1156,16 +1156,19 @@ class ingest2caom2(object):
         if self.switches.default:
             self.default = os.path.abspath(self.switches.default)
 
-        self.outdir = os.path.abspath(
-                         os.path.expandvars(
-                             os.path.expanduser(self.switches.outdir)))
+        if self.switches.outdir:
+            self.outdir = os.path.abspath(
+                             os.path.expandvars(
+                                 os.path.expanduser(self.switches.outdir)))
+        else:
+            self.outdir = os.getcwd()
         
         if self.switches.logdir:
             self.logdir = os.path.abspath(
                             os.path.expandvars(
                                 os.path.expanduser(self.switches.logdir)))
         else:
-            self.logdir = self.outdir
+            self.logdir = os.getcwd()
 
         self.test = self.switches.test
 
@@ -1390,13 +1393,15 @@ class ingest2caom2(object):
         <none>
         """
         # Report switch values
-        self.log.file(self.progname)
+        self.log.file(sys.argv[0])
+        self.log.file('tools4caom2version = ' + __version__.version)
         for attr in dir(self.switches):
             if attr != 'id' and attr[0] != '_':
-                self.log.console('%-15s= %s' % 
-                                 (attr, str(getattr(self.switches, attr))),
-                                 logging.DEBUG)
-        self.log.file('tools4caom2version = ' + __version__.version)
+                self.log.file('%-15s= %s' % 
+                                 (attr, str(getattr(self.switches, attr))))
+        self.log.file('logdir = ' + self.logdir)
+        self.log.file('outdir = ' + self.outdir)
+        self.log.console('log = ' + self.logfile)
 
     #************************************************************************
     # Submit a single job to gridengine
@@ -1424,8 +1429,8 @@ class ingest2caom2(object):
                                    test=self.test)
             else:
                 self.gridengine = gridengine(self.log, 
-                                         queue=self.queue,
-                                         test=self.test)
+                                             queue=self.queue,
+                                             test=self.test)
 
         cshdir = os.path.abspath(os.path.dirname(self.logfile))
         suffix = re.sub(r':', 
@@ -1885,9 +1890,9 @@ class ingest2caom2(object):
         # run the command
         self.log.file("fits2caom2Interface: cmd = '" + cmd + "'")
         if not self.test:
+            cwd = os.getcwd()
             try:
                 # create a temporary working directory
-                cwd = os.getcwd()
                 tempdir = tempfile.mkdtemp(dir=self.outdir)
                 os.chdir(tempdir)
                 status, output = commands.getstatusoutput(cmd)
@@ -2107,8 +2112,8 @@ class ingest2caom2(object):
         # metadata in a set of nested dictionaries.
         self.metadict = {}
         self.defineCommandLineSwitches()
-
         self.processCommandLineSwitches()
+        
         with logger(self.logfile,
                     loglevel=self.loglevel).record() as self.log:
             try:
