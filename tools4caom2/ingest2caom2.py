@@ -1888,7 +1888,7 @@ class ingest2caom2(object):
             try:
                 # create a temporary working directory
                 cwd = os.getcwd()
-                tempdir = tempfile.mkdtemp(dir=cwd)
+                tempdir = tempfile.mkdtemp(dir=self.outdir)
                 os.chdir(tempdir)
                 status, output = commands.getstatusoutput(cmd)
 
@@ -2137,6 +2137,7 @@ class ingest2caom2(object):
                 # if no errors, declare we are DONE
                 self.log.console('DONE')
             except Exception as e:
+                self.errors = True
                 if not isinstance(e, logger.LoggerError):
                     # Log this previously uncaught error, but let it pass
                     try:
