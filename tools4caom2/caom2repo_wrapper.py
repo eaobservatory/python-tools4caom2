@@ -156,18 +156,13 @@ class Repository(object):
                         fits2caom2 --out=myfile <other stuff>
         """
         filepath = ''
-        success = False
         try:
 
             filepath, exists = self.get(uri)
             yield filepath
             self.put(uri, filepath, exists)
-            success = True
         finally:
-            if (not self.debug and success and 
-                filepath and os.path.exists(filepath)):
-                # if something goes wrong, retain the xml file for
-                # diagnostic purposes
+            if (not self.debug and filepath and os.path.exists(filepath)):
                 os.remove(filepath)
 
     def get( self, uri):
@@ -218,46 +213,6 @@ class Repository(object):
                              'exception of type ' + type(e) +
                              ' giving reason: ' + str(e),
                              logging.ERROR)
-        # kludge to work around a problem with congestion in the caom2repo 
-        # service. Back off and try again if get fails.  This can happen 
-        # if the rpository web service gets too busy.
-#        rep_count = 0
-#        retry = True
-#        exists = False
-#        while retry:
-#            try:
-#                output = subprocess.check_output(cmd,
-#                                                 stderr=subprocess.STDOUT,
-#                                                 shell=True)
-#                retry = False
-#                exists = True
-#            except subprocess.CalledProcessError as e:
-#                if (re.search(r'No such Observation found', e.output)):
-#                    # Recognizing that the observation does not exist is a 
-#                    # success, so do not retry
-#                    retry = False
-#                else:
-#                    # get failed and it is not known if the observation exists
-#                    if rep_count < len(self.backoff):
-#                        self.log.file('caom2repo.py failed: ' + str(e))
-#                        self.log.console('retry "' + 
-#                                         cmd + '"',
-#                                         logging.WARN)
-#                        time.sleep(self.backoff[rep_count])
-#                        rep_count += 1
-#                    else:
-#                        retry = False
-#                        self.log.console('Command "' + e.cmd +
-#                                           ' " returned errno.' +
-#                                           errno.errorcode[e.returncode] +
-#                                           ' with output "' + e.output + '"',
-#                                           logging.ERROR)
-#            except Exception as e:
-#                retry = False
-#                self.log.console('caom2repo.py failed with an unexpected '
-#                                 'exception of type ' + type(e) +
-#                                 ' giving reason: ' + str(e),
-#                                 logging.ERROR)
 
         # Note that by this point, one of three things will have happened
         # 1) observation does not exist and exista=False
@@ -313,40 +268,6 @@ class Repository(object):
                                errno.errorcode[e.returncode] +
                                ' with output "' + e.output + '"',
                                logging.ERROR)
-    # kludge to work around a problem that causes caom2repo to report bad 
-    # input in valid files.  Back off a second or two and try again with the 
-    # same file up to three times
-#        rep_count = 0
-#        retry = True
-#        while retry:
-#            try:
-#                output = subprocess.check_output(cmd,
-#                                                 stderr=subprocess.STDOUT,
-#                                                 shell=True)
-#                retry = False
-#            except subprocess.CalledProcessError as e:
-#                # backoff and retry the command
-#                if rep_count < len(self.backoff):
-#                    self.log.console('retry "' + 
-#                                     cmd + '"',
-#                                     logging.WARN)
-#                    self.log.file('Repcount = ' + str(rep_count) + 
-#                                  ': returned errno.' +
-#                                  errno.errorcode[e.returncode] +
-#                                  ' with output "' + e.output + '"',
-#                                  logging.WARN)
-#
-#                    time.sleep(self.backoff[rep_count])
-#                    rep_count += 1
-#                else:
-#                    retry = False
-#                    self.log.console('Command "' + e.cmd +
-#                                       ' " returned errno.' +
-#                                       errno.errorcode[e.returncode] +
-#                                       ' with output "' + e.output + '"',
-#                                       logging.ERROR)
-#        self.log.console('SUCCESS: "' + cmd + '"')
-            
 
     def remove(self, uri):
         """

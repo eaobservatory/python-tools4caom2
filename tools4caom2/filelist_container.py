@@ -83,6 +83,6 @@ class filelist_container(basecontainer):
                                      logging.ERROR)
 
         if file_count == 0:
-            self.log.console('adfile ' + adfile + ' contains no valid files',
+            self.log.console('filelist ' + listname + ' contains no valid files',
                              logging.ERROR)
 

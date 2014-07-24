@@ -1373,8 +1373,7 @@ class ingest2caom2(object):
                                                self.filterfunc,
                                                self.make_file_id))
             except Exception as e:
-                msg = '\n'.join([traceback.format_exc(), str(e)])
-                self.log.console(msg,
+                self.log.console(traceback.format_exc(),
                                  logging.ERROR)
             
 
@@ -1742,7 +1741,7 @@ class ingest2caom2(object):
     #************************************************************************
     def fillMetadict(self, container):
         """
-        Generic routine to filll the metadict structure by iterating over
+        Generic routine to fill the metadict structure by iterating over
         all containers (directories, tarfiles, adfiles, and file lists),
         generating for each container a filtered and sorted list of
         (file_id, filename) pairs and extracting the required metadata
@@ -1886,21 +1885,30 @@ class ingest2caom2(object):
         # run the command
         self.log.file("fits2caom2Interface: cmd = '" + cmd + "'")
         if not self.test:
-            status, output = commands.getstatusoutput(cmd)
+            try:
+                # create a temporary working directory
+                cwd = os.getcwd()
+                tempdir = tempfile.mkdtemp(dir=cwd)
+                os.chdir(tempdir)
+                status, output = commands.getstatusoutput(cmd)
 
-            # if the first attempt to run fits2caom2 fails, try again with
-            # --debug to capture the full error message
-            if status:
-                self.errors = True
-                self.log.console("fits2caom2 return status %d" % (status))
-                if not debug:
-                    self.log.console("fits2caom2 - rerun in debug mode")
-                    cmd += ' --debug'
-                    status, output = commands.getstatusoutput(cmd)
-                self.log.console("output = '%s'" % (output), 
-                                 logging.ERROR)
-            elif debug:
-                self.log.file("output = '%s'" % (output))
+                # if the first attempt to run fits2caom2 fails, try again with
+                # --debug to capture the full error message
+                if status:
+                    self.errors = True
+                    self.log.console("fits2caom2 return status %d" % (status))
+                    if not debug:
+                        self.log.console("fits2caom2 - rerun in debug mode")
+                        cmd += ' --debug'
+                        status, output = commands.getstatusoutput(cmd)
+                    self.log.console("output = '%s'" % (output), 
+                                     logging.ERROR)
+                elif debug:
+                    self.log.file("output = '%s'" % (output))
+            finally:
+                # clean up FITS files that were not present originally 
+                os.chdir(cwd)
+                shutil.rmtree(tempdir)
 
     #************************************************************************
     # Add members to the observation xml
@@ -2024,20 +2032,22 @@ class ingest2caom2(object):
 
                             arg = thisPlane.get('fits2caom2_arg', '')
 
-                            self.runFits2caom2(collection,
-                                               observationID,
-                                               productID,
-                                               xmlfile,
-                                               override,
-                                               uristring,
-                                               localstring,
-                                               arg=arg,
-                                               debug=self.switches.debug)
-                            self.log.file('SUCCESS: observationID=%s '
-                                          'productID="%s"' %
-                                                (observationID, productID))
-                            if not self.debug:
-                                os.remove(override)
+                            try:
+                                self.runFits2caom2(collection,
+                                                   observationID,
+                                                   productID,
+                                                   xmlfile,
+                                                   override,
+                                                   uristring,
+                                                   localstring,
+                                                   arg=arg,
+                                                   debug=self.switches.debug)
+                                self.log.file('SUCCESS: observationID=%s '
+                                              'productID="%s"' %
+                                                    (observationID, productID))
+                            finally:
+                                if not self.debug:
+                                    os.remove(override)
 
                             for fitsuri in thisPlane:
                                 if fitsuri not in ('plane_dict',
