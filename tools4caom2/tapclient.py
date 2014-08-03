@@ -1,0 +1,129 @@
+#!/usr/bin/env python2.7
+
+import argparse
+from astropy.io.votable import parse
+import astropy.io.ascii
+import httplib
+import os
+import os.path
+import re
+import requests
+import StringIO
+
+from tools4caom2.logger import logger
+from tools4caom2.utdate_string import utdate_string
+
+from tools4caom2.__version__ import version as tools4caom2version
+from jcmt2caom2.__version__ import version as jcmt2caom2version
+
+class tapclient(object):
+    """
+    Query the CADC TAP (Table Access Protocol) service using ADQL to 
+    request data from the database.
+    
+    Expected usage might be like:
+    
+    tap = tapclient()
+    adql = ("SELECT count(*) AS count"
+            "FROM caom2.Observation AS Observation "
+            "WHERE O.collection = 'JCMT'")
+    table = tap.query(adql)
+    count = table[0]['count']
+    """
+    
+    CADC_TAP_SERVICE = 'http://www1.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/tap/sync'
+    
+    def __init__(self, 
+                 log, 
+                 proxy='$HOME/.ssl/cadcproxy.pem'):
+        """
+        TAP queries using ADQL return a VOtable or an astropy Table
+        
+        Arguments:
+        log: an instance of a tools4caom2.logger
+        proxy: (optional) path to a proxy certificate
+        """
+        self.log = log
+        self.cadcproxy = os.path.abspath(
+                            os.path.expandvars(
+                                os.path.expanduser(proxy)))
+
+    def query(self, adql, format='table'):
+        """
+        Send an adql query to the service and store the response in a file-like
+        object.
+        
+        Arguments:
+        adql: a text string containing and ADQL query
+        format: text string indicating whether the desired output format 
+                should be an astropy.table.Table (default) or the raw votable
+        """
+        params = {'REQUEST': 'doQuery',
+                  'LANG': 'ADQL',
+                  'QUERY': adql}
+
+        table = None
+        try:
+            r = requests.get(tapclient.CADC_TAP_SERVICE, 
+                             params=params, 
+                             cert=self.cadcproxy)
+            if r.status_code == 200:
+                # copy dictionary for usage after r is closed
+                table = parse(StringIO.StringIO(r.content))
+                if format == 'table':
+                    table = table.get_first_table().to_table()
+                
+            elif r.status_code != 404:
+                self.log.console(str(r.status_code) + ' = ' + 
+                                 httplib.responses[r.status_code],
+                                 logging.WARN)
+        except Exception as e:
+            self.log.console('FAILED to get reply for "' + adql + '": ' + 
+                             traceback.format_exc(),
+                             logging.WARN)
+        return table
+
+def run():
+    """
+    do a simple test
+    """
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--adql',
+                    required=True,
+                    type=argparse.FileType('r'),
+                    help='text file containing an ADQL string that can contain '
+                         'format codes')
+    ap.add_argument('--out',
+                    required=True,
+                    help='file to contain query results')
+    ap.add_argument('--votable',
+                    action='store_true',
+                    help='output the response as a VOtable, else as text')
+    ap.add_argument('-v', '--verbose',
+                    action='store_true',
+                    help='output extra information')
+    ap.add_argument('values', 
+                    nargs='*',
+                    help='values to be substituted in the format codes')
+    a = ap.parse_args()
+    
+    log = logger('tapclient_' + utdate_string() + '.log')
+    
+    tap = tapclient(log)
+    
+    rawquery = a.adql.read()
+    if a.values:
+        rawquery = rawquery % tuple(a.values)
+    query = re.sub(r'\s*\n\s*', ' ', rawquery)
+    if a.verbose:
+        print query
+    
+    if a.votable:
+        votable = tap.query(query, 'votable')
+        astropy.io.votable.table.writeto(votable, a.out)
+    else:
+        table = tap.query(query)
+        astropy.io.ascii.ui.write(table, 
+                                  a.out, 
+                                  Writer=astropy.io.ascii.FixedWidth)
+    
