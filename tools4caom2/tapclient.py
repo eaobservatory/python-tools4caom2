@@ -4,11 +4,14 @@ import argparse
 from astropy.io.votable import parse
 import astropy.io.ascii
 import httplib
+import logging
 import os
 import os.path
 import re
 import requests
 import StringIO
+import sys
+import traceback
 
 from tools4caom2.logger import logger
 from tools4caom2.utdate_string import utdate_string
@@ -58,11 +61,14 @@ class tapclient(object):
         format: text string indicating whether the desired output format 
                 should be an astropy.table.Table (default) or the raw votable
         """
+        self.log.file(adql)
+        query = re.sub(r'\s+', ' ', adql.strip())
         params = {'REQUEST': 'doQuery',
                   'LANG': 'ADQL',
-                  'QUERY': adql}
+                  'QUERY': query}
 
         table = None
+        
         try:
             r = requests.get(tapclient.CADC_TAP_SERVICE, 
                              params=params, 
@@ -71,7 +77,10 @@ class tapclient(object):
                 # copy dictionary for usage after r is closed
                 table = parse(StringIO.StringIO(r.content))
                 if format == 'table':
-                    table = table.get_first_table().to_table()
+                    try:
+                        table = table.get_first_table().to_table()
+                    except:
+                        table = None
                 
             elif r.status_code != 404:
                 self.log.console(str(r.status_code) + ' = ' + 
@@ -90,11 +99,9 @@ def run():
     ap = argparse.ArgumentParser()
     ap.add_argument('--adql',
                     required=True,
-                    type=argparse.FileType('r'),
-                    help='text file containing an ADQL string that can contain '
-                         'format codes')
+                    help='string or text file containing an ADQL string that '
+                         'can contain format codes')
     ap.add_argument('--out',
-                    required=True,
                     help='file to contain query results')
     ap.add_argument('--votable',
                     action='store_true',
@@ -111,19 +118,31 @@ def run():
     
     tap = tapclient(log)
     
-    rawquery = a.adql.read()
+    if os.path.isfile(a.adql):
+        adqlquery = a.adql.read()
+    else:
+        adqlquery = a.adql
+    
     if a.values:
-        rawquery = rawquery % tuple(a.values)
-    query = re.sub(r'\s*\n\s*', ' ', rawquery)
+        adqlquery = adqlquery % tuple(a.values)
     if a.verbose:
-        print query
+        print adqlquery
     
     if a.votable:
-        votable = tap.query(query, 'votable')
-        astropy.io.votable.table.writeto(votable, a.out)
+        votable = tap.query(adqlquery, 'votable')
+        if votable:
+            astropy.io.votable.table.writeto(votable, a.out)
     else:
-        table = tap.query(query)
-        astropy.io.ascii.ui.write(table, 
-                                  a.out, 
-                                  Writer=astropy.io.ascii.FixedWidth)
-    
+        table = tap.query(adqlquery)
+        if a.out:
+            OUTFILE = open(a.out, 'w')
+        else:
+            OUTFILE = sys.stdout
+        try:
+            if table:
+                astropy.io.ascii.write(table, 
+                                       OUTFILE,
+                                       Writer=astropy.io.ascii.FixedWidth)
+        finally:
+            if a.out:
+                OUTFILE.close()

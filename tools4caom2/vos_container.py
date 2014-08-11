@@ -25,10 +25,10 @@ class vos_container(basecontainer):
                  log, 
                  data_web_client, 
                  vosroot, 
-                 archive,
-                 in_archive,
+                 archive_name,
+                 mode,
+                 delayed_error_warning,
                  working_directory, 
-                 filterfunc,
                  make_file_id):
         """
         Reads a list of files from a VOspace directory and subdirectories.
@@ -43,38 +43,37 @@ class vos_container(basecontainer):
         data_web_client:   a tools4caom2.data_web_client object
         vosroot:           a uri pointing to a VOspace directory
         archive_name:      archive that will contain copies of the files
-        in_archive:        True if the files have already been copied into
-                           the archive, False otherwise
         working_directory: directory to hold files from AD
-        filterfunc:        returns True if a filename should be ingested
         make_file_id:      function that turns a file uri/url/path into a file_id
         """
         basecontainer.__init__(self, log, re.sub(r':', '_', vosroot))
         self.vosclient = Client()
-        self.filterfunc = filterfunc
-        self.make_file_id = make_file_id
+        self.dataweb = data_web_client
         self.archive_name = archive_name
-        self.in_archive = in_archive
+        self.mode = mode
+        self.dew = delayed_error_warning
+        self.working_directory = working_directory
+        self.make_file_id = make_file_id
         
         if self.vosclient.access(vosroot) and self.vosclient.isdir(vosroot):
             self.vosroot = vosroot
         else:
-            self.log.console('vosroot does not exist: ' + vosroot,
+            self.log.console('vos does not exist: ' + vosroot,
                              logging.ERROR)
 
         if os.path.isdir(working_directory):
             self.directory = os.path.abspath(working_directory)
         else:
-            self.log.console('not a directory: ' + working_directory,
+            self.log.console('working_directory is not a directory: ' + 
+                             working_directory,
                              logging.ERROR)
         
-        self.dataweb = data_web_client()
-
         self.vospath = {}
         
         filecount = self.readvos(vosroot)
         if filecount == 0:
-            self.log.console('vosroot contains no valid files:' + vosroot)
+            self.log.console('vos contains no ingestible files: ' + vosroot,
+                             logging.WARN)
 
     def readvos(self, uri):
         """
@@ -83,17 +82,16 @@ class vos_container(basecontainer):
         pathlist = [uri + '/' + f for f in self.vosclient.listdir(uri)]
         dirlist = sorted([f for f in pathlist if self.vosclient.isdir(f)])
         filelist = sorted([f for f in pathlist if (self.vosclient.isfile(f) and
-                                                   self.filterfunc(f))])
+                                                   self.dew.namecheck(f))])
+        filelist = [f for f in filelist if self.dew.sizecheck(f)]
         
         filecount = 0
         for f in filelist:
             file_id = self.make_file_id(f)
             filename = os.path.basename(f)
             if file_id in self.vospath:
-                self.log.console('Duplicate file_id: ' + file_id +
-                                 ' for ' + self.vospath[file_id] +
-                                 ' and ' + f,
-                                 logging.ERROR)
+                self.dew.error(f, 'Duplicate file_id = ' + file_id +
+                                  ' for ' + self.vospath[file_id])
             else:
                 filecount += 1
                 self.vospath[file_id] = f
@@ -119,7 +117,9 @@ class vos_container(basecontainer):
 
         # This fetches only the header from the primary HDU, which
         # should result in significant performance improvements
-        if self.in_archive:
+        if mode == 'ingest':
+            # file should already be in AD
+            # This gets ONLY the primary header
             filepath = self.dataweb.get(self.archive_name, 
                                         file_id,
                                         params=data_web_client.PrimaryHEADER)
@@ -129,6 +129,7 @@ class vos_container(basecontainer):
                                  logging.ERROR)
             self.filedict[file_id] = filepath
         else:
+            # fetch the whole file from vos 
             filepath = self.filedict[file_id]
             filesize = self.vosclient.copy(self.vospath[file_id], filepath)
             if not filesize:

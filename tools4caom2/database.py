@@ -149,7 +149,10 @@ class database(object):
 
         It is legitimate to customize the pause_queue for each connection.
         """
-        self.use = use
+        if sybase_defined:
+            self.use = use
+        else:
+            self.use = False
         self.server = None
         self.cred_db = None
         self.read_db = None
@@ -186,6 +189,12 @@ class database(object):
         self.pause_queue = [1.0, 2.0, 3.0]
         self.log = log
 
+    def available(self):
+        """
+        Return True if it is possible to query the database, False otherwise 
+        """
+        return self.use
+    
     def get_credentials(self):
         """
         Read the users .dbrc file to get credentials, if dbrc_get is defined
@@ -193,7 +202,7 @@ class database(object):
         Arguments:
         <None>
         """
-        if self.use:
+        if sybase_defined and self.use:
             try:
                 output = subprocess.check_output(['which', 'dbrc_get'],
                                                  stderr=subprocess.STDOUT)
@@ -299,11 +308,11 @@ class database(object):
         query: a properly formated SQL select query
         params: dictionary of parameters to pass to execute
         """
+        returnList = []
         self.log.file(query)
         retry = True
         number = 0
-        while retry:
-            returnList = []
+        while sybase_defined and retry:
             try:
                 with database.read_mutex:
                     self.get_read_connection()
@@ -347,7 +356,7 @@ class database(object):
         returnList = [[]]
         number = 0
         retry = True
-        while retry:
+        while sybase_defined and retry:
             try:
                 with database.write_mutex:
                     self.get_write_connection()
@@ -389,20 +398,21 @@ class database(object):
         
         Otherwise, the transaction will be commited.  
         """
-        try:
-            self.write('BEGIN TRANSACTION')
-            yield
-        except database.ConnectionError as e:
-            self.log.console('write_connection has failed BEGIN TRANSACTION:'
-                             + str(e),
-                             logging.ERROR)
-        except Exception as e:
-            self.write('ROLLBACK')
-            self.log.console('The write_connection has been rolled back:'
-                             + str(e),
-                             logging.ERROR)
-        else:
-            self.write('COMMIT')
+        if sybase_defined:
+            try:
+                self.write('BEGIN TRANSACTION')
+                yield
+            except database.ConnectionError as e:
+                self.log.console('write_connection has failed BEGIN TRANSACTION:'
+                                 + str(e),
+                                 logging.ERROR)
+            except Exception as e:
+                self.write('ROLLBACK')
+                self.log.console('The write_connection has been rolled back:'
+                                 + str(e),
+                                 logging.ERROR)
+            else:
+                self.write('COMMIT')
             
     @classmethod
     def close(cls):
@@ -412,13 +422,14 @@ class database(object):
         Arguments:
         cls        the class that called the method (ignored)
         """
-        if database.read_connection:
-            database.read_connection.close()
-            database.read_connection = None
+        if sybase_defined:
+            if database.read_connection:
+                database.read_connection.close()
+                database.read_connection = None
 
-        if database.write_connection:
-            database.write_connection.close()
-            database.write_connection = None
+            if database.write_connection:
+                database.write_connection.close()
+                database.write_connection = None
 
 @contextmanager
 def connection(userconfig, log, use=True):

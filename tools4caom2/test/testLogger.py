@@ -94,7 +94,7 @@ class TestLogger(unittest.TestCase):
                               stderr=subprocess.PIPE)
         (stdo, stde) = po.communicate()
         self.assertTrue(len(stdo) == 0,
-                        'stdoutput should be empty by held "' + stdo + '"')
+                        'stdoutput should be empty but held "' + stdo + '"')
         self.assertTrue(re.search('MESSAGE1', stde),
                         'Running "' + clientCmd + '", '
                         'MESSAGE1 was not found in stderr')
@@ -116,7 +116,7 @@ class TestLogger(unittest.TestCase):
                               stderr=subprocess.PIPE)
         (stdo, stde) = po.communicate()
         self.assertTrue(len(stdo) == 0,
-                        'stdoutput should be empty by held "' + stdo + '"')
+                        'stdoutput should be empty but held "' + stdo + '"')
         self.assertFalse(re.search('MESSAGE1', stde),
                          'Running "' + clientCmd + '", '
                          'MESSAGE1 was found in stderr')
@@ -138,7 +138,7 @@ class TestLogger(unittest.TestCase):
                               stderr=subprocess.PIPE)
         (stdo, stde) = po.communicate()
         self.assertTrue(len(stdo) == 0,
-                        'stdoutput should be empty by held "' + stdo + '"')
+                        'stdoutput should be empty but held "' + stdo + '"')
         self.assertTrue(re.search('MESSAGE1', stde),
                         'Running "' + clientCmd + '", '
                         'MESSAGE1 was not found in stderr')
@@ -160,7 +160,7 @@ class TestLogger(unittest.TestCase):
                               stderr=subprocess.PIPE)
         (stdo, stde) = po.communicate()
         self.assertTrue(len(stdo) == 0,
-                        'stdoutput should be empty by held "' + stdo + '"')
+                        'stdoutput should be empty but held "' + stdo + '"')
         self.assertFalse(re.search('MESSAGE1', stde),
                          'Running "' + clientCmd + '", '
                          'MESSAGE1 was found in stderr')
