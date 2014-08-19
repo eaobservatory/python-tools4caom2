@@ -79,11 +79,13 @@ class vos_container(basecontainer):
         """
         Call recursively to read the list of files from a VOspace
         """
-        pathlist = [uri + '/' + f for f in self.vosclient.listdir(uri)]
+        pathlist = [uri + '/' + f for f in self.vosclient.listdir(uri, 
+                                                                  force=True)]
         dirlist = sorted([f for f in pathlist if self.vosclient.isdir(f)])
-        filelist = sorted([f for f in pathlist if (self.vosclient.isfile(f) and
-                                                   self.dew.namecheck(f))])
-        filelist = [f for f in filelist if self.dew.sizecheck(f)]
+        filelist = sorted([f for f in pathlist 
+                           if self.vosclient.isfile(f)
+                              and self.dew.sizecheck(f)
+                              and self.dew.namecheck(f, report=False)])
         
         filecount = 0
         for f in filelist:
@@ -117,7 +119,7 @@ class vos_container(basecontainer):
 
         # This fetches only the header from the primary HDU, which
         # should result in significant performance improvements
-        if mode == 'ingest':
+        if self.mode == 'ingest':
             # file should already be in AD
             # This gets ONLY the primary header
             filepath = self.dataweb.get(self.archive_name, 
@@ -138,6 +140,19 @@ class vos_container(basecontainer):
                                  logging.ERROR)
         
         return filepath
+
+    def uri(self, file_id):
+        """
+        Return the vos uri for a file_id
+
+        Arguments:
+        file_id : The file_id for which the vos uri is required
+        """
+        if file_id not in self.vospath:
+            self.log.console('requesting bad file_id: ' + file_id +
+                             ' from ' +repr(self.file_id_list()),
+                             logging.ERROR)
+        return vospath[file_id]
 
     def cleanup(self, file_id):
         """

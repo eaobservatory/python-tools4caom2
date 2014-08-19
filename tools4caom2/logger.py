@@ -322,13 +322,14 @@ class logger(object):
         if loglevel >= logging.ERROR:
             raise logger.LoggerError(padded_message)
 
-    def console(self, message, loglevel=logging.INFO):
+    def console(self, message, loglevel=logging.INFO, raise_exception=True):
         """
         Send a message to the console (stderr) and to the log file.
 
         Arguments:
         message  - mandatory string containing the log message
         loglevel - option logging level, default = logging.INFO
+        raise_exception - raise an exception if loglevel == logging.ERROR
 
         Important messages (e.g. error messages) should be sent to the console.
         Setting loglevel == logging.ERROR will raise a logger.LoggerError.
@@ -340,7 +341,7 @@ class logger(object):
         use a fair amount of additional memory.
         """
         padded_message = message
-        if loglevel >= logging.ERROR:
+        if raise_exception and loglevel >= logging.ERROR:
             cframe = inspect.currentframe()
             padded_message = '\n'.join(traceback.format_stack(cframe.f_back))
             padded_message += '\nERROR: '
@@ -358,7 +359,7 @@ class logger(object):
 
         # raise the exception
         # no need to catch this error
-        if loglevel >= logging.ERROR:
+        if raise_exception and loglevel >= logging.ERROR:
             raise logger.LoggerError(padded_message)
 
     def file(self, message, loglevel=logging.INFO):

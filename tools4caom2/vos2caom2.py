@@ -19,12 +19,18 @@ from subprocess import CalledProcessError
 import sys
 import traceback
 
+try:
+    import Sybase
+    sybase_defined = True
+except:
+    sybase_defined = False
+
 from vos.vos import Client
 
 from tools4caom2.database import connection
 from tools4caom2.data_web_client import data_web_client
 from tools4caom2.delayed_error_warning import delayed_error_warning as dew
-from tools4caom2.ingest2caom2 import ingest2caom2
+from tools4caom2.filelist_container import filelist_container
 from tools4caom2.logger import logger
 from tools4caom2.tapclient import tapclient
 from tools4caom2.utdate_string import utdate_string
@@ -123,7 +129,7 @@ def fits_png_filter(filepath):
     Arguments:
     filepath : the file name to check for validity
     """
-    return (os.path.splitext(filename)[1].lower() in
+    return (os.path.splitext(filepath)[1].lower() in
             ['.fits', '.fit', '.png'])
 
 
@@ -146,7 +152,7 @@ class vos2caom2(object):
         It is normally necessary to override __init__ in a derived class,
         supplying archive-specific values for some of the fields, e.g.
             def __init__(self):
-                ingest2caom2.__init__(self)
+                vos2caom2.__init__(self)
                 self.archive  = <myarchive>
         """
         # config object optionally contains a user configuration object
@@ -168,6 +174,7 @@ class vos2caom2(object):
         self.args = None
         
         # Database defaults, filled from userconfig 
+        self.sybase_defined = sybase_defined
         self.archive = None
         self.stream = None
         self.schema = None
@@ -192,7 +199,6 @@ class vos2caom2(object):
         # operates on filenames rather than file_id's and can use the
         # file extension to help determine if the file name is valid.
         # By default, ingest only FITS files.
-        self.filterfunc = fits_png_filter
 
         # Ingestion parameters and structures
         self.mode = None
@@ -205,19 +211,36 @@ class vos2caom2(object):
         self.voslist = []
         # Current vos container
         self.vos = None
+        self.local = None
+        self.fitsprefix = ''
+        # default fileid_regex_dict will pass all .fits files
+        self.fileid_regex_dict = None
         
         # Working structures
         # The metadata dictionary - fundamental structure for the entire class
         # For the detailed structure of metadict, see the help text for
         # fillMetadictFromFile()
+        self.collection = None
+        self.observationID = None
+        self.productID = None
+        self.plane_dict = OrderedDict()
+        self.fitsuri_dict = OrderedDict()
         self.metadict = OrderedDict()
+        self.data_storage = []
+        self.preview_storage = []
         
+        # local sets to be accumulated in a plane
+        self.memberset = set([])
+        self.inputset = set([])
+
+        # list of containers for input files
+        self.containerlist = []
+
         # Delayed errors and warnings discovered in files
         self.dew = None
-        self.namecheck_regex_list = [re.compile(r'.*')]
         
         # TAP client
-        self.tap = tapclient()
+        self.tap = None
 
     #************************************************************************
     # Define the standardcommand line interface.
@@ -283,6 +306,9 @@ class vos2caom2(object):
             choices=['new', 'check', 'store', 'ingest'],
             default='new',
             help='ingestion mode')
+        self.ap.add_argument('--fitsprefix',
+                             help='file name prefix that identifies FITS files '
+                                  'intended to be ingested')
 
         # Basic fits2caom2 options
         # Optionally, specify explicit paths to the config and default files
@@ -354,6 +380,15 @@ class vos2caom2(object):
                             os.path.expanduser(self.args.proxy)))
         
         self.mode = self.args.mode
+        
+        if self.args.fitsprefix:
+            self.fitsprefix = self.args.fitsprefix
+            file_id_regex = re.compile(self.fitsprefix + r'.*')
+            self.fileid_regex_dict = {'.fits': [file_id_regex],
+                                      '.fit': [file_id_regex]}
+        else:
+            self.fileid_regex_dict = {'.fits': [re.compile(r'.*')],
+                                      '.fit': [re.compile(r'.*')]}
 
         # Save the values in self
         # A value on the command line overrides a default set in code.
@@ -444,6 +479,7 @@ class vos2caom2(object):
         self.log.file('logdir = ' + self.logdir)
         self.log.console('log = ' + self.logfile)
         
+        self.tap = tapclient(self.log, self.proxy)
         errors = False
         if not os.path.exists(self.proxy):
             errors = True
@@ -490,7 +526,7 @@ class vos2caom2(object):
         # Find the lists of release directories to ingest.
         self.containerlist = []
         try:
-            if local:
+            if self.local:
                 for localdir in self.voslist:
                     if os.path.isdir(localdir):
                         absf = os.path.abspath(
@@ -503,8 +539,7 @@ class vos2caom2(object):
                                 self.log,
                                 os.path.basename(absf),
                                 dirlist,
-                                lambda f : (self.dew.namecheck(f)
-                                            and self.dew.zerolength(f)),
+                                self.filterfunc,
                                 self.make_file_id))
             else:
                 for vos in self.voslist:
@@ -527,6 +562,28 @@ class vos2caom2(object):
                              logging.ERROR)
 
     #************************************************************************
+    # Clear the local plane and artifact dictionaries
+    #************************************************************************
+    def clear(self):
+        """
+        Clear the local plane and artifact dictionaries.
+
+        Arguments:
+        <none>
+        """
+        self.file_id = ''
+        self.uri = ''
+        self.observationID = None
+        self.productID = None
+        self.plane_dict.clear()
+        self.fitsuri_dict.clear()
+        self.memberset.clear()
+        self.member_cache.clear()
+        self.inputset.clear()
+        self.input_cache.clear()
+        self.override_items = 0
+    
+    #************************************************************************
     # Fill metadict using metadata from each file in the specified container
     #************************************************************************
     def fillMetadict(self, container):
@@ -546,18 +603,18 @@ class vos2caom2(object):
                           repr(file_id_list),
                           logging.DEBUG)
 
-            # verify that each file is in ad and ingest its metadata
+            # Gather metadata from each file in the container
             for file_id in file_id_list:
                 self.log.file('In fillMetadict, use ' + file_id,
                               logging.DEBUG)
                 with container.use(file_id) as f:
                     if self.mode == 'ingest':
                         self.verifyFileInAD(f)
-                    self.fillMetadictFromFile(file_id, f)
+                    self.fillMetadictFromFile(file_id, f, container)
         finally:
             container.close()
     
-    def fillMetadictFromFile(self, file_id, filepath):
+    def fillMetadictFromFile(self, file_id, filepath, container):
         """
         Generic routine to read metadata and fill the internal structure
         metadict (a nested set of dictionaries) that will be used to control
@@ -577,28 +634,307 @@ class vos2caom2(object):
         # standard, substitute an empty dictionary for the headers.  This is
         # a silent replacement, not an error, to allow non-FITS files to be
         # ingested allong with regular FITS files.
-        try:
-            head = pyfits.getheader(filepath, 0)
-            head.update('file_id', file_id)
-            head.update('filepath', filepath)
-            self.log.file('...got primary header from ' + filepath,
-                          logging.DEBUG)
-        except:
-            head = {}
-            head['file_id'] = file_id
-            head['filepath'] = filepath
-            self.log.file('...could not read primary header from ' + filepath,
-                          logging.DEBUG)
+        if self.dew.namecheck(filepath, report=False):
+            try:
+                head = pyfits.getheader(filepath, 0)
+                head.update('file_id', file_id)
+                head.update('filepath', filepath)
+                if isinstance(container, vos_container):
+                    head.update('DPRCINST', container.vosroot)
+                else:
+                    head.update('DPRCINST', container.name)
+                self.log.file('...got primary header from ' + filepath,
+                              logging.DEBUG)
+            except:
+                head = {}
+                head['file_id'] = file_id
+                head['filepath'] = filepath
+                self.log.file('...could not read primary header from ' + 
+                              filepath,
+                              logging.DEBUG)
+        else:
+            self.preview_storage.append(filepath)
         self.file_id = file_id
         self.build_dict(head)
-        self.build_metadict(filepath, local)
+        self.build_metadict(filepath)
+        if len(self.dew.errors[filepath]) == 0:
+            self.data_storage.append(filepath)
         
-    def build_metadict(self, filepath, local):
+    #************************************************************************
+    # Format an observation URI for composite members
+    #************************************************************************
+    def observationURI(self, collection, observationID, member=True):
+        """
+        Generic method to format an observation URI, i.e. the URI used to
+        specify members in a composite observation.
+
+        Arguments:
+        collection : the collection containing observationID
+        observationID : the observationID of the URI
+        member : True => store in memberset
+
+        Returns:
+        the value of the observationURI
+        """
+        uri = ObservationURI('caom:' +
+                             collection + '/' +
+                             observationID)
+        if member:
+            self.memberset |= set([uri.uri])
+        return uri
+
+    #************************************************************************
+    # Format a plane URI for provenance inputs
+    #************************************************************************
+    def planeURI(self, collection, observationID, productID, input=True):
+        """
+        Generic method to format a plane URI, i.e. the URI used to access
+        a plane in the data repository.
+
+        Arguments:
+        collection : the collection containing observationID
+        observationID : the observationID containing productID
+        productID : the productID of the URI
+        input : True => store in inputset
+
+        Returns:
+        the value of the planeURI
+        """
+        uri = PlaneURI('caom:' +
+                       collection + '/' +
+                       observationID + '/' +
+                       productID)
+        if input:
+            self.inputset |= set([uri.uri])
+        return uri
+
+    #************************************************************************
+    # Format a URI for data access
+    #************************************************************************
+    def fitsfileURI(self,
+                    archive,
+                    file_id,
+                    fits2caom2=True):
+        """
+        Generic method to format an artifact URI, i.e. the URI used to access
+        a file in AD.
+
+        Either fitsfileURI or fitsextensionURI must be called with
+        fits2caom2=True for every file to be ingested.
+
+        Arguments:
+        archive : the archive within ad that holds the file
+        file_id : file_id of the file in ad
+        fits2caom2 : True => store uri for use with fits2caom2
+
+        Returns:
+        the value of the fitsfileURI
+        """
+        fileuri = 'ad:' + archive + '/' + file_id
+        if fits2caom2:
+            self.uri = fileuri
+            if fileuri not in self.fitsuri_dict:
+                self.fitsuri_dict[fileuri] = OrderedDict()
+                self.fitsuri_dict[fileuri]['custom'] = OrderedDict()
+        return fileuri
+
+    #************************************************************************
+    # Format a URI for data access
+    #************************************************************************
+    def fitsextensionURI(self,
+                         archive,
+                         file_id,
+                         extension_list,
+                         fits2caom2=True):
+        """
+        Generic method to format a part URI, i.e. the URI used to access
+        one or more extensions from a FITS file in AD.
+
+        Generating a fitsextensionURI calls fitsfileURI so it is not necessary
+        to call both explicitly, but one or the other must be called with
+        fits2caom2=True for every file that is ingested.
+
+        Arguments:
+        archive : the archive within ad that holds the file
+        file_id : file_id of the file in ad
+        extension_list : list (or tuple) of integers or tuples containing 
+                        integer pairs for the extensions to be ingested; 
+                        if omitted ingest all extensions
+        fits2caom2 : True => store uri for use with fits2caom2
+
+        Returns:
+        the value of the fitsextensionURI
+        """
+        fileuri = self.fitsfileURI(archive, file_id, fits2caom2=False)
+        elist = []
+        for e in extension_list:
+            if isinstance(e, int):
+                elist.append(str(e))
+            elif (isinstance(e, tuple) and 
+                  len(e) == 2 and
+                  isinstance(e[0], int) and
+                  isinstance(e[1], int)):
+                elist.append(str(e[0]) + '-' + str(e[1]))
+            else:
+                self.log.console('extension_list must contain only integers '
+                                 'or tuples cntaining pairs of integers: ' +
+                                 repr(extension_list),
+                                 logging.ERROR)
+        if elist:
+            fexturi = fileuri + '#[' + ','.join(elist) + ']'
+            
+        if fits2caom2:
+            self.uri = fileuri
+            if fexturi not in self.fitsuri_dict:
+                self.fitsuri_dict[fexturi] = OrderedDict()
+                self.fitsuri_dict[fexturi]['custom'] = OrderedDict()
+        return fexturi
+
+    #************************************************************************
+    # Add a key-value pair to the local plane dictionary
+    #************************************************************************
+    def add_to_plane_dict(self, key, value):
+        """
+        Add a key, value pair to the local plane dictionary.  The method will
+        throw an exception and exit if the value does not have a string type.
+
+        Arguments:
+        key : a key in a string.Template
+        value : a string value to be substituted in a string.Template
+        """
+        if not isinstance(value, str):
+            self.log.console("in the (key, value) pair ('%s', '%s'),"
+                             " the value should have type 'str' but is %s" %
+                             (key, repr(value), type(value)),
+                             logging.ERROR)
+        self.plane_dict[key] = value
+        self.override_items += 1
+
+    #************************************************************************
+    # Add a key-value pair to the local fitsuri dictionary
+    #************************************************************************
+    def add_to_fitsuri_dict(self, uri, key, value):
+        """
+        Add a key, value pair to the local fitsuri dictionary.  The method
+        will throw an exception if the value does not have a string type.
+
+        Arguments:
+        uri : the uri of this fits file or extension
+        key : a key in a string.Template
+        value : a string value to be substituted in a string.Template
+        """
+        if not isinstance(value, str):
+            self.log.console("in the (key, value) pair ('%s', '%s'),"
+                             " the value should have type 'str' but is %s" %
+                             (key, repr(value), type(value)),
+                             logging.ERROR)
+
+        if not uri in self.fitsuri_dict:
+            self.log.console('Create the fitsuri before adding '
+                             'key,value pairs to the fitsuri_dict: '
+                             '["%s"]["%s"] = "%s")' % (uri, key, value),
+                             logging.ERROR)
+
+        self.fitsuri_dict[uri][key] = value
+        self.override_items += 1
+
+    #************************************************************************
+    # Add a key-value pair to the local fitsuri custom dictionary
+    #************************************************************************
+    def add_to_fitsuri_custom_dict(self, uri, key, value):
+        """
+        Add a key, value pair to the local fitsuri dictionary.  Unlike the 
+        other dictionaries, the fitsuri custom dictionary can hold arbitray
+        dictionary values, since the values will be processed using custom
+        code and do not necessary get written into the override file.
+
+        Arguments:
+        uri : the uri of this fits file or extension
+        key : a key
+        value : an arbitrary data type
+        """
+        if not uri in self.fitsuri_dict:
+            self.log.console('call fitfileURI before adding '
+                             'key,value pairs to the fitsuri_dict: '
+                             '["%s"]["%s"] = "%s")' % (uri, key, 
+                                                       repr(value)),
+                             logging.ERROR)
+
+        self.fitsuri_dict[uri]['custom'][key] = value
+        self.override_items += 1
+
+    #************************************************************************
+    # Fetch a previously entered value from a specified plane dictionary
+    #************************************************************************
+    def findURI(self, uri):
+        """
+        Generic routine to find which collection, observationID and productID
+        contains a particular uri that has been previously ingested.
+
+        Arguments:
+        uri : an artifact URI to locate
+
+        Returns:
+        the tuple (collection, observationID, productID) describing the uri
+        or (None, None, None)
+        """
+        for c in self.metadict:
+            for o in self.metadict[c]:
+                for p in self.metadict[c][o]:
+                    if p not in ['memberset']:
+                        if uri in self.metadict[c][o][p]['uri_dict']:
+                            return (c, o, p)
+        return (None, None, None)
+
+    #************************************************************************
+    # Fetch a previously entered value from a specified plane dictionary
+    #************************************************************************
+    def get_plane_value(self, collection, observationID, productID, key):
+        """
+        Return the value stored in the plane dictionary for a previously
+        entered collection, productID, and key.
+
+        Arguements:
+        collection : the collection containing the productID
+        productID : the productID containing the key in its plane_dict
+        key : the key whose value is needed
+
+        If any of collection, productID or key are not present, a
+        KeyError exception will be raised.
+        """
+        return self.metadict[collection][observationID][productID
+                             ]['plane_dict'][key]
+
+    #************************************************************************
+    # Fetch a previously entered value from a specified artifact dictionary
+    #************************************************************************
+    def get_artifact_value(self,
+                           collection,
+                           observationID,
+                           productID,
+                           uri,
+                           key):
+        """
+        Return the value stored in the artifact dictionary for a previously
+        entered collection, observationID, productID, uri, and key.
+
+        Arguements:
+        collection : the collection containing the productID
+        productID : the productID containing the key in its plane_dict
+        key : the key whose value is needed
+
+        If any of collection, productID or key are not present, a
+        KeyError exception will be raised.
+        """
+        return self.metadict[collection][observationID][productID
+                             ]['fitsuri_dict'][uri][key]
+
+    def build_metadict(self, filepath):
         """
         Generic routine to build the internal structure metadict (a nested set
         of ordered dictionaries) that will be used to control, sort and fill
         the override file templates.  The required metadata must already exist
-        in the internal structures of ingest2caom2.
+        in the internal structures of vos2caom2.
 
         Arguments:
         filepath: path to file (may not exist if not local)
@@ -641,30 +977,48 @@ class vos2caom2(object):
         """
         self.log.file('build_metadict',
                       logging.DEBUG)
+        
+        # In check mode, errors should not raise exceptions
+        raise_exception = True
+        if self.mode in ('new', 'replace', 'check'):
+            raise_exception = False
+        
         #If the plane_dict is completely empty, skip further processing
         if self.override_items:
             #*****************************************************************
             # fetch the required keys from self.plane_dict
             #*****************************************************************
             if not self.collection:
-                self.log.console(filepath + ' does not define the required'
-                                 ' key "collection"',
-                                 logging.ERROR)
+                if raise_exception:
+                    self.log.console(filepath + ' does not define the required'
+                                     ' key "collection"',
+                                     logging.ERROR)
+                else:
+                    return
 
             if not self.observationID:
-                self.log.console(filepath + ' does not define the required'
-                                 ' key "observationID"',
-                                 logging.ERROR)
+                if raise_exception:
+                    self.log.console(filepath + ' does not define the required'
+                                     ' key "observationID"',
+                                     logging.ERROR)
+                else:
+                    return
 
             if not self.productID:
-                self.log.console(filepath + ' does not define the required' +
-                                 ' key "productID"',
-                                 logging.ERROR)
+                if raise_exception:
+                    self.log.console(filepath + ' does not define the required' +
+                                     ' key "productID"',
+                                     logging.ERROR)
+                else:
+                    return
 
             if not self.uri:
-                self.log.console(filepath + ' does not call fitsfileURI()'
-                                 ' or fitsextensionURI()',
-                                 logging.ERROR)
+                if raise_exception:
+                    self.log.console(filepath + ' does not call fitsfileURI()'
+                                     ' or fitsextensionURI()',
+                                     logging.ERROR)
+                else:
+                    return
 
             self.log.file(('PROGRESS: collection="%s" observationID="%s" '
                            'productID="%s"') % (self.collection,
@@ -724,7 +1078,7 @@ class vos2caom2(object):
             if 'uri_dict' not in thisPlane:
                 thisPlane['uri_dict'] = OrderedDict()
             if self.uri not in thisPlane['uri_dict']:
-                if local:
+                if self.local:
                     thisPlane['uri_dict'][self.uri] = filepath
                 else:
                     thisPlane['uri_dict'][self.uri] = None
@@ -753,17 +1107,314 @@ class vos2caom2(object):
                     else:
                         thisFitsuri[key] = self.fitsuri_dict[fitsuri][key]
 
-
     def verifyFileInAD(self):
         pass
     
     def storeFiles(self, container):
+        """
+        If files approved for storage are in vos, create a link in the
+        VOS pickup directory.  
+        """
         pass
     
-    def ingestPlanesFrommetadict(self):
+    def checkMembers(self):
         pass
-    
-    
+
+    def checkProvenanceInputs(self):
+        pass
+
+    #************************************************************************
+    # Write the override file for a plane
+    #************************************************************************
+    def writeOverrideFile(self, collection, observationID, productID):
+        """
+        Generic method to write override files for a plane specified
+        by the collection, observationID and productID.
+
+        Arguments:
+        collection : the collection containing observationID
+        observationID : the observationID containing productID
+        productID : productID for this plane
+
+        Returns:
+        filepath for override file
+        """
+        filepath = os.path.join(self.outdir,
+                                '_'.join([collection,
+                                          observationID,
+                                          productID]) + '.override')
+        with open(filepath, 'w') as OVERRIDE:
+            thisObservation = self.metadict[collection][observationID]
+            thisPlane = thisObservation[productID]
+
+            for key in thisPlane['plane_dict']:
+                print >>OVERRIDE, \
+                    '%-30s = %s' % (key, thisPlane['plane_dict'][key])
+
+            # Write artifact-specific overrides
+            for fitsuri in thisPlane:
+                if fitsuri not in ('uri_dict',
+                                  'inputset',
+                                  'plane_dict'):
+                    thisFitsuri = thisPlane[fitsuri]
+                    print >>OVERRIDE
+                    print >>OVERRIDE, '?' + fitsuri
+                    for key in thisFitsuri:
+                        if key != 'custom':
+                            print >>OVERRIDE, \
+                                '%-30s = %s' % (key, thisFitsuri[key])
+        return filepath
+
+    #************************************************************************
+    # Run fits2caom2.
+    # If an error occurs, rerun in debug mode.
+    #************************************************************************
+    def runFits2caom2(self, collection,
+                            observationID,
+                            productID,
+                            xmlfile,
+                            overrideFile,
+                            uristring,
+                            localstring,
+                            arg='',
+                            debug=False):
+        """
+        Generic method to format and run the fits2caom2 command.
+
+        Arguments:
+        collection    : CAOM collection for this observation
+        observationID : CAOM observationID for this observation
+        productID     : CAOM productID for this plane
+        overrideFile  : path to override file
+        uristring     : (string) comma-separated list of file URIs
+        arg           : (string) additional fits2caom2 switches
+        debug         : (boolean) include --debug switch by default
+
+        If fits2caom2 fails, the command will be run again with the additional
+        switch --debug, to capture in the log file details necessary to
+        debug the problem.
+        """
+
+        # build the fits2caom2 command
+
+        if self.big:
+            cmd = ('java -Xmx512m -jar ${CADC_ROOT}/lib/fits2caom2.jar ' + 
+                   self.local_args)
+        else:
+            cmd = ('java -Xmx128m -jar ${CADC_ROOT}/lib/fits2caom2.jar ' + 
+                   self.local_args)
+
+        cmd += ' --collection="' + collection + '"'
+        cmd += ' --observationID="' + observationID + '"'
+        cmd += ' --productID="' + productID + '"'
+
+        if os.path.exists(xmlfile):
+            cmd += ' --in="' + xmlfile + '"'
+        cmd += ' --out="' + xmlfile + '"'
+
+        cmd += ' --config="' + self.config + '"'
+        cmd += ' --default="' + self.default + '"'
+        cmd += ' --override="' + overrideFile + '"'
+        cmd += ' --uri="' + uristring + '"'
+        if self.local:
+            cmd += ' --local="' + localstring + '"'
+
+        if self.logfile:
+            cmd += ' --log="' + self.logfile + '"'
+
+        if debug:
+            cmd += ' --debug'
+
+        if arg:
+            cmd += ' ' + arg
+
+        # run the command
+        self.log.file("fits2caom2Interface: cmd = '" + cmd + "'")
+        if not self.test:
+            cwd = os.getcwd()
+            try:
+                # create a temporary working directory
+                tempdir = tempfile.mkdtemp(dir=self.outdir)
+                os.chdir(tempdir)
+                status, output = commands.getstatusoutput(cmd)
+
+                # if the first attempt to run fits2caom2 fails, try again with
+                # --debug to capture the full error message
+                if status:
+                    self.errors = True
+                    self.log.console("fits2caom2 return status %d" % (status))
+                    if not debug:
+                        self.log.console("fits2caom2 - rerun in debug mode")
+                        cmd += ' --debug'
+                        status, output = commands.getstatusoutput(cmd)
+                    self.log.console("output = '%s'" % (output), 
+                                     logging.ERROR)
+                elif debug:
+                    self.log.file("output = '%s'" % (output))
+            finally:
+                # clean up FITS files that were not present originally 
+                os.chdir(cwd)
+                shutil.rmtree(tempdir)
+
+    #************************************************************************
+    # Add members to the observation xml
+    #************************************************************************
+    def replace_members(self, thisObservation, thisPlane):
+        """
+        For the current plane, insert the full set of members in the plane_dict
+        
+        Arguments:
+        collection: the collection for this plane
+        observationID: the observationID for this plane
+        productID: the the productID for this plane
+        """
+        memberset = thisObservation['memberset']
+        if 'algorithm.name' in thisPlane['plane_dict']:
+            self.log.console('replace_members: algorithm.name = ' + 
+                             thisPlane['plane_dict']['algorithm.name'],
+                             logging.DEBUG)
+                             
+            self.log.console('memberset = ' + repr(list(memberset)),
+                             logging.DEBUG)
+            if (memberset and 
+                thisPlane['plane_dict']['algorithm.name'] != 'exposure'):
+                
+                thisPlane['plane_dict']['members'] = ' '.join(
+                                            sorted(list(memberset)))
+
+    #************************************************************************
+    # Add inputs to a plane in an observation xml
+    #************************************************************************
+    def replace_inputs(self, thisObservation, thisPlane):
+        """
+        For the current plane, insert the full set of inputs in the plane_dict
+        
+        Arguments:
+        collection: the collection for this plane
+        observationID: the observationID for this plane
+        productID: the the productID for this plane
+        """
+        if 'provenance.name' in thisPlane['plane_dict']:
+            inputset = thisPlane['inputset']
+            self.log.console('replace_inputs: provenance.name = ' + 
+                             thisPlane['plane_dict']['provenance.name'],
+                             logging.DEBUG)
+                             
+            self.log.console('inputset = ' + repr(list(inputset)),
+                             logging.DEBUG)
+            if inputset:
+                thisPlane['plane_dict']['provenance.inputs'] = ' '.join(
+                                            sorted(list(inputset)))
+
+    #************************************************************************
+    # Ingest planes from metadict, tracking members and inputs
+    #************************************************************************
+    def ingestPlanesFromMetadict(self):
+        """
+        Generic routine to ingest the planes in metadict, keeping track of
+        members and inputs.
+
+        Arguments:
+        <none>
+        """
+        # Try a backoff that is much longer than usual
+        repository = Repository(self.outdir, 
+                                self.log, 
+                                debug=self.debug,
+                                backoff=[10.0, 20.0, 40.0, 80.0])
+
+        for collection in self.metadict:
+            thisCollection = self.metadict[collection]
+            for observationID in thisCollection:
+                obsuri = self.observationURI(collection,
+                                             observationID,
+                                             member=False)
+                with repository.process(obsuri) as xmlfile:
+
+                    thisObservation = thisCollection[observationID]
+                    for productID in thisObservation:
+                        if productID != 'memberset':
+                            thisPlane = thisObservation[productID]
+
+                            self.log.console('PROGRESS ingesting '
+                                             'collection="%s"  '
+                                             'observationID="%s" '
+                                             'productID="%s"' %
+                                                    (collection,
+                                                     observationID,
+                                                     productID))
+                            
+                            self.replace_members(thisObservation,
+                                                 thisPlane)
+
+                            self.replace_inputs(thisObservation,
+                                                thisPlane)
+
+                            override = self.writeOverrideFile(collection,
+                                                              observationID,
+                                                              productID)
+
+                            #********************************************
+                            # Run fits2caom2 and record the planeID
+                            #********************************************
+                            urilist = sorted(thisPlane['uri_dict'].keys())
+                            if urilist:
+                                uristring = ','.join(urilist)
+                                localstring = ''
+                                if thisPlane['uri_dict'][urilist[0]]:
+                                    filepathlist = [thisPlane['uri_dict'][u] 
+                                                    for u in urilist]
+                                    localstring = ','.join(filepathlist)
+                            else:
+                                self.log.console('for ' + collection +
+                                                 '/' + observationID +
+                                                 '/' + planeID + 
+                                                 ', uri_dict is empty so '
+                                                 'there is nothing to ingest',
+                                                 logging.ERROR)
+
+                            arg = thisPlane.get('fits2caom2_arg', '')
+
+                            try:
+                                self.runFits2caom2(collection,
+                                                   observationID,
+                                                   productID,
+                                                   xmlfile,
+                                                   override,
+                                                   uristring,
+                                                   localstring,
+                                                   arg=arg,
+                                                   debug=self.switches.debug)
+                                self.log.file('INGESTED: observationID=%s '
+                                              'productID="%s"' %
+                                                    (observationID, productID))
+                            finally:
+                                if not self.debug:
+                                    os.remove(override)
+
+                            for fitsuri in thisPlane:
+                                if fitsuri not in ('plane_dict',
+                                                   'uri_dict',
+                                                   'inputset'):
+
+                                    self.build_fitsuri_custom(xmlfile,
+                                                              collection,
+                                                              observationID,
+                                                              productID,
+                                                              fitsuri)
+
+                            self.build_plane_custom(xmlfile,
+                                                    collection,
+                                                    observationID,
+                                                    productID)
+
+                    self.build_observation_custom(xmlfile,
+                                                  collection,
+                                                  observationID)
+
+                self.log.console('SUCCESS observationID="%s"' %
+                                    (observationID))
+
     #************************************************************************
     # Run the program
     #************************************************************************
@@ -797,14 +1448,16 @@ class vos2caom2(object):
                                 self.log) as self.conn, \
                      dew(self.log, 
                          self.outdir, 
-                         self.archive, 
-                         self.namecheck_regex_list,
+                         self.archive,
+                         self.fileid_regex_dict,
                          make_file_id).gather() as self.dew:
                     
                     self.commandLineContainers()
                     for c in self.containerlist:
                         self.log.console('PROGRESS: container = ' + c.name)
                         self.fillMetadict(c)
+                        self.checkMembers()
+                        self.checkProvenanceInputs()
                         if self.dew.error_count == 0:
                             if self.mode == 'store':
                                 self.storeFiles()

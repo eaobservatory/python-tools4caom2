@@ -119,7 +119,8 @@ def run():
     tap = tapclient(log)
     
     if os.path.isfile(a.adql):
-        adqlquery = a.adql.read()
+        with open(a.adql, 'r') as ADQL:
+            adqlquery = ADQL.read()
     else:
         adqlquery = a.adql
     

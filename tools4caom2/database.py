@@ -82,8 +82,8 @@ class database(object):
     
     'cred_db': at the CADC, database for which credentials will be found
     or
-    'cadc_id': cadc account user_id
-    'cadc_key': cadc account password
+    'cred_id': cadc account user_id
+    'cred_key': cadc account password
     
     'read_db': database to read by default ('cred_db' if absent)
     'write_db': database to write by default ('cred_db' if absent)
@@ -160,31 +160,31 @@ class database(object):
         self.cadc_id = None
         self.cadc_key = None
 
-        if userconfig.has_section('cadc'):
-            if userconfig.has_option('cadc', 'server'):
-                self.server = userconfig.get('cadc', 'server')
+        if userconfig.has_section('database'):
+            if userconfig.has_option('database', 'server'):
+                self.server = userconfig.get('database', 'server')
             
-            if userconfig.has_option('cadc', 'cred_db'):
-                self.cred_db = userconfig.get('cadc', 'cred_db')
-            elif userconfig.has_option('cadc', 'read_db'):
-                self.cred_db = userconfig.get('cadc', 'read_db')
+            if userconfig.has_option('database', 'cred_db'):
+                self.cred_db = userconfig.get('database', 'cred_db')
+            elif userconfig.has_option('database', 'read_db'):
+                self.cred_db = userconfig.get('database', 'read_db')
             
-            if userconfig.has_option('cadc', 'read_db'):
-                self.read_db = userconfig.get('cadc', 'read_db')
-            elif userconfig.has_option('cadc', 'cred_db'):
-                self.read_db = userconfig.get('cadc', 'cred_db')
+            if userconfig.has_option('database', 'read_db'):
+                self.read_db = userconfig.get('database', 'read_db')
+            elif userconfig.has_option('database', 'cred_db'):
+                self.read_db = userconfig.get('database', 'cred_db')
         
-            if userconfig.has_option('cadc', 'write_db'):
-                self.read_db = userconfig.get('cadc', 'write_db')
-            elif userconfig.has_option('cadc', 'cred_db'):
-                self.read_db = userconfig.get('cadc', 'cred_db')
-            elif userconfig.has_option('cadc', 'read_db'):
-                self.read_db = userconfig.get('cadc', 'read_db')
+            if userconfig.has_option('database', 'write_db'):
+                self.read_db = userconfig.get('database', 'write_db')
+            elif userconfig.has_option('database', 'cred_db'):
+                self.read_db = userconfig.get('database', 'cred_db')
+            elif userconfig.has_option('database', 'read_db'):
+                self.read_db = userconfig.get('database', 'read_db')
 
-            if userconfig.has_option('cadc', 'cadc_id'):
-                self.cadc_id = userconfig.get('cadc', 'cadc_id')
-            if userconfig.has_option('cadc', 'cadc_key'):
-                self.cadc_key = userconfig.get('cadc', 'cadc_key')
+            if userconfig.has_option('database', 'cred_id'):
+                self.cadc_id = userconfig.get('database', 'cred_id')
+            if userconfig.has_option('database', 'cred_key'):
+                self.cadc_key = userconfig.get('database', 'cred_key')
 
         self.pause_queue = [1.0, 2.0, 3.0]
         self.log = log
