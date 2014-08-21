@@ -120,19 +120,6 @@ def make_file_id(filepath):
     """
     return os.path.splitext(os.path.basename(filepath))[0].lower()
 
-def fits_png_filter(filepath):
-    """
-    Return True if this file should be processeded, False otherwise.
-    This is a default function that accepts FITS and PNG files, where the FITS
-    files hold processed data and the PNG files hold preview thumbnails. 
-
-    Arguments:
-    filepath : the file name to check for validity
-    """
-    return (os.path.splitext(filepath)[1].lower() in
-            ['.fits', '.fit', '.png'])
-
-
 #*******************************************************************************
 # Base class for ingestions from VOspace
 #*******************************************************************************
@@ -184,7 +171,7 @@ class vos2caom2(object):
         self.make_file_id = make_file_id
 
         # temporary disk space for working files
-        self.outdir = None
+        self.workdir = None
 
         # log handling
         self.logdir = None
@@ -201,18 +188,22 @@ class vos2caom2(object):
         # By default, ingest only FITS files.
 
         # Ingestion parameters and structures
-        self.mode = None
+        self.prefix = ''
+        self.major = ''
+        self.minor = []
+        self.replace = []
+        self.store = False
+        self.ingest = False
+        self.local = False
         
         # Archive-specific fits2caom2 config and default file paths
         self.config = None
         self.default = None
         
-        # A list of vos containers to ingest
-        self.voslist = []
         # Current vos container
+        self.vosclient = Client()
         self.vos = None
         self.local = None
-        self.fitsprefix = ''
         # default fileid_regex_dict will pass all .fits files
         self.fileid_regex_dict = None
         
@@ -261,19 +252,29 @@ class vos2caom2(object):
         Arguments:
         <none>
 
-        # config and mode arguments
+        # user config arguments
         --userconfig : path to user configuration file
         --proxy      : path to CADC proxy certificate
-        --mode       : one of ("new", "check", "store", "persist")
+        
+        # ingestion arguments
+        --prefix     : (required) prefix for FITS files to be stored/ingested
+        --major      : (required) major release directory
+        --minor      : (optional) comma-separated list of directories relative to
+                       the major release directory.
+        --replace    : (optional) comma-separated list of major release 
+                       directories whose contents may be replaced by the new 
+                       major release.  All major releases share the same minor 
+                       release directory structure.
+        --store      : (optional) store files in AD (requires CADC authorization)
+        --ingest     : (optional) ingest new files (requires CADC authorization)
 
-        # fits2caom2 options
+        # fits2caom2 arguments
         --collection : (required) collection to use for ingestion
         --config     : (optional) path to fits2caom2 config file
         --default    : (optional) path to fits2caom2 default file
 
         # File and directory options
-        --outdir     : output (working) directory (default = current directory)
-        --local      : the "release directories" are actaually on the disk
+        --workdir    : (optional) working directory (default = cwd)
 
         # debugging options
         --log        : (optional) name of the log file
@@ -281,10 +282,6 @@ class vos2caom2(object):
         --debug      : (optional) log all messages and retain temporary files
                        on error
         --test       : (optional) simulate operation of fits2caom2
-
-        Any additional arguments are interpreted as a list of VOspace directories
-        to ingest.  The format must be vos:<path_to_release_directory> unless the
-        --local switch is used.
 
         Log files are always opened in append.  Be sure to delete
         existing log files if it is important to have a clean record of the
@@ -302,13 +299,30 @@ class vos2caom2(object):
             default='~/.ssl/cadcproxy.pem',
             help='path to CADC proxy')
 
-        self.ap.add_argument('--mode',
-            choices=['new', 'check', 'store', 'ingest'],
-            default='new',
-            help='ingestion mode')
-        self.ap.add_argument('--fitsprefix',
+        # Ingestion modes
+        self.ap.add_argument('--prefix',
                              help='file name prefix that identifies FITS files '
-                                  'intended to be ingested')
+                                  'to be ingested')
+        self.ap.add_argument('--major',
+                             required=True,
+                             help='path to major release directory '
+                                  'containing files to store or ingest')
+        self.ap.add_argument('--minor',
+                             help='comma-separated list of minor release '
+                                  'directories relative to the major release '
+                                  'directory')
+        self.ap.add_argument('--replace',
+                             help='comma-separated list of major release '
+                                  'directories containing files that are '
+                                  'being replaced')
+        self.ap.add_argument('--store',
+                             action='store_true',
+                             help='store in AD files that are ready for '
+                                  'ingestion if there are no errors')
+        self.ap.add_argument('--ingest',
+                             action='store_true',
+                             help='ingest from AD files that are ready for '
+                                  'ingestion if there are no errors')
 
         # Basic fits2caom2 options
         # Optionally, specify explicit paths to the config and default files
@@ -327,11 +341,8 @@ class vos2caom2(object):
             help='(optional) request extra heap space and RAM')
         
         # output directory
-        self.ap.add_argument('--outdir',
+        self.ap.add_argument('--workdir',
             help='output directory, (default = current directory')
-        self.ap.add_argument('--local',
-            action='store_true',
-            help='release directories are on the local disk')
 
         # debugging options
         self.ap.add_argument('--logdir',
@@ -345,16 +356,11 @@ class vos2caom2(object):
             action='store_true',
             help='(optional) show all messages, pass --debug to fits2caom2,'
             ' and retain all xml and override files')
-
-        self.ap.add_argument('voslist',
-            nargs='*',
-            help='VOspace release directories to ingest')
-
     
     def processCommandLineSwitches(self):
         """
         Generic routine to process the command line arguments
-        and create outdir if necessary.  This will check the values of the
+        and create workdir if necessary.  This will check the values of the
         standard arguments defined in defineCommandLineSwitches and will
         leave the additional arguments in self.args.
         
@@ -379,11 +385,9 @@ class vos2caom2(object):
                         os.path.expandvars(
                             os.path.expanduser(self.args.proxy)))
         
-        self.mode = self.args.mode
-        
-        if self.args.fitsprefix:
-            self.fitsprefix = self.args.fitsprefix
-            file_id_regex = re.compile(self.fitsprefix + r'.*')
+        if self.args.prefix:
+            self.prefix = self.args.prefix
+            file_id_regex = re.compile(self.prefix + r'.*')
             self.fileid_regex_dict = {'.fits': [file_id_regex],
                                       '.fit': [file_id_regex]}
         else:
@@ -406,12 +410,12 @@ class vos2caom2(object):
                                 os.path.expandvars(
                                     os.path.expanduser(self.args.default)))
 
-        if self.args.outdir:
-            self.outdir = os.path.abspath(
+        if self.args.workdir:
+            self.workdir = os.path.abspath(
                              os.path.expandvars(
-                                 os.path.expanduser(self.args.outdir)))
+                                 os.path.expanduser(self.args.workdir)))
         else:
-            self.outdir = os.getcwd()
+            self.workdir = os.getcwd()
         
         self.local = self.args.local
         
@@ -428,12 +432,10 @@ class vos2caom2(object):
             self.loglevel = logging.DEBUG
             self.debug = True
 
-        logbase = self.progname
-        if len(self.args.voslist) == 1:
-            logbase = re.sub(r'[^a-zA-Z0-9]', r'_', 
-                             os.path.splitext(
-                                 os.path.basename(
-                                     self.args.voslist[0]))[0])
+        logbase = re.sub(r'[^a-zA-Z0-9]', r'_', 
+                         os.path.splitext(
+                             os.path.basename(
+                                 self.args.major)))
         logbase += '_'
 
         # log file name
@@ -451,13 +453,38 @@ class vos2caom2(object):
                                         logbase + utdate_string() + 
                                         '.log')
         
-        # create outdir if it does not already exist
-        if not os.path.exists(self.outdir):
-            os.makedirs(self.outdir)
+        # create workdir if it does not already exist
+        if not os.path.exists(self.workdir):
+            os.makedirs(self.workdir)
 
-        if len(self.args.voslist) > 0:
-            self.voslist = self.args.voslist
-    
+        # Parse ingestion options 
+        self.major = self.args.major
+        if os.path.isdir(self.major):
+            self.local = True
+            self.collection = 'SANDBOX'
+            self.log.console('When --major is a directory on disk, collection '
+                             'will be set to SANDBOX')
+        elif (self.vosclient.access(self.major) 
+              and self.vosclient.isdir(self.major)):
+            self.local = False
+        else:
+            self.log.console('major does not exist: ' + self.major,
+                             logging.ERROR)
+        
+        if self.args.minor:
+            self.minor = re.sub(r'/+', '/', 
+                                self.args.minor.strip(' \t\n')).split(',')
+        
+        if self.args.replace:
+            self.replace = re.sub(r'/+', '/', 
+                                self.args.replace.strip(' \t\n')).split(',')
+        
+        if self.args.store:
+            self.store = self.args.store
+        
+        if self.args.ingest:
+            self.ingest = self.args.ingest
+        
     def logCommandLineSwitches(self):
         """
         Generic method to log the command line switch values
@@ -474,10 +501,18 @@ class vos2caom2(object):
             if attr != 'id' and attr[0] != '_':
                 self.log.file('%-15s= %s' % 
                                  (attr, str(getattr(self.args, attr))))
-        self.log.file('outdir = ' + self.outdir)
+        self.log.file('workdir = ' + self.workdir)
         self.log.file('local =  ' + str(self.local))
         self.log.file('logdir = ' + self.logdir)
         self.log.console('log = ' + self.logfile)
+        
+        if self.minor:
+            for minor in self.minor:
+                self.log.file('minor = ' + minor)
+        
+        if self.replace:
+            for replace in self.replace:
+                self.log.file('replace = ' + replace)
         
         self.tap = tapclient(self.log, self.proxy)
         errors = False
@@ -485,14 +520,10 @@ class vos2caom2(object):
             errors = True
             self.log.console('ERROR: proxy does not exist: ' + self.proxy)
         
-        if not os.path.isdir(self.outdir):
+        if not os.path.isdir(self.workdir):
             errors = True
-            self.log.console('ERROR: outdir is not a directory: ' + self.outdir)
+            self.log.console('ERROR: workdir is not a directory: ' + self.workdir)
         
-        if len(self.args.voslist) == 0:
-            errors = True
-            self.log.console('ERROR: no vos release directories to ingest')
-
         if self.config and not os.path.isfile(self.config):
             errors = True
             self.log.console('ERROR: config file does not exist: ' + 
@@ -522,40 +553,63 @@ class vos2caom2(object):
         any existing log files if it is important to have a clean record of the
         current run.
         """
-
         # Find the lists of release directories to ingest.
         self.containerlist = []
+        releasedirs = []
         try:
             if self.local:
-                for localdir in self.voslist:
-                    if os.path.isdir(localdir):
-                        absf = os.path.abspath(
-                                    os.path.expandvars(
-                                        os.path.expanduser(localdir)))
-                        dirlist = [os.path.join(absf, ff)
-                                   for ff in os.listdir(absf)]
+                if self.minor:
+                    for minor in self.minor:
+                        releasedirs.append(os.path.abspath(
+                                            os.path.expandvars(
+                                                os.path.expanduser(
+                                                    os.path.join(self.major, 
+                                                                 minor)))))
+                else:
+                    releasedirs.append(os.path.abspath(
+                                        os.path.expandvars(
+                                            os.path.expanduser(self.major))))
+                
+                for releasedir in releasedirs:
+                    if os.path.isdir(releasedir):
+                        filelist = [os.path.join(releasedir, f)
+                                   for f in os.listdir(releasedir)]
                         self.containerlist.append(
                             filelist_container(
                                 self.log,
-                                os.path.basename(absf),
-                                dirlist,
+                                releasedir,
+                                filelist,
                                 self.filterfunc,
                                 self.make_file_id))
+                    else:
+                        self.log.console('release is not a directory: ' +
+                                         releasedir,
+                                         logging.ERROR)
             else:
-                for vos in self.voslist:
-                    if re.match(r'^vos:([\S]+$)', vos):
-                        self.log.console('vos container: ' + vos,
-                                         logging.DEBUG)
-                        
+                if self.minor:
+                    for minor in self.minor:
+                        releasedirs.append(self.major + '/' + minor)
+                else:
+                    releasedirs.append(self.major)
+                
+                for releasedir in releasedirs:
+                    if (self.vosclient.access(releasedir) 
+                        and self.vosclient.isdir(releasedir)):
+
                         self.containerlist.append(
                             vos_container(self.log, 
-                                          self.data_web,
-                                          vos,
+                                          releasedir,
                                           self.archive,
-                                          self.mode,
+                                          self.ingest,
+                                          self.workdir, 
                                           self.dew,
-                                          self.outdir, 
+                                          self.vosclient,
+                                          self.data_web,
                                           self.make_file_id))
+                    else:
+                        self.log.console('minor release is not a directory: ' +
+                                         minor_release,
+                                         logging.ERROR)
 
         except Exception as e:
             self.log.console(traceback.format_exc(),
@@ -566,7 +620,7 @@ class vos2caom2(object):
     #************************************************************************
     def clear(self):
         """
-        Clear the local plane and artifact dictionaries.
+        Clear the local plane and artifact dictionaries before each file is read.
 
         Arguments:
         <none>
@@ -582,20 +636,23 @@ class vos2caom2(object):
         self.inputset.clear()
         self.input_cache.clear()
         self.override_items = 0
-    
+        
     #************************************************************************
     # Fill metadict using metadata from each file in the specified container
     #************************************************************************
     def fillMetadict(self, container):
         """
         Generic routine to fill the metadict structure by iterating over
-        all containers (only vos_containers in this application),
-        extracting the required metadata from each file in turn using 
-        fillMetadictFromFile().
+        all containers, extracting the required metadata from each file 
+        in turn using fillMetadictFromFile().
 
         Arguments:
-        <none>
+        container: a container of files to read 
         """
+        self.metadict.clear()
+        self.data_storage.clear()
+        self.preview_storage.clear()
+        
         try:
             # sort the file_id_list
             file_id_list = container.file_id_list()
@@ -1107,20 +1164,39 @@ class vos2caom2(object):
                     else:
                         thisFitsuri[key] = self.fitsuri_dict[fitsuri][key]
 
-    def verifyFileInAD(self):
-        pass
+    def verifyFileInAD(self, file_id):
+        """
+        Use the data_web client to verify that file_id is in self.archive
+        """
+        found = False
+        if self.data_web(self.archive, file_id):
+            found = True
+        return found
     
-    def storeFiles(self, container):
+    def storeFiles(self):
         """
         If files approved for storage are in vos, create a link in the
         VOS pickup directory.  
         """
-        pass
+        if (self.userconfig.has_section('vos')
+            and self.userconfig.has_option('vos', 'pickup')):
+            pickup = self.userconfig.get('vos', 'pickup')
+            
+            for filelist in (self.data_storage, self.preview_storage):
+                for filepath in filelist:
+                    basefile = os.path.basename(filepath)
+                    self.vosclient.link(filepath, pickup + '/' + basefile)
     
     def checkMembers(self):
+        """
+        Checking membership will be archive-specific
+        """
         pass
 
     def checkProvenanceInputs(self):
+        """
+        Checking provenance inputs will be archive-specific
+        """
         pass
 
     #************************************************************************
@@ -1139,7 +1215,7 @@ class vos2caom2(object):
         Returns:
         filepath for override file
         """
-        filepath = os.path.join(self.outdir,
+        filepath = os.path.join(self.workdir,
                                 '_'.join([collection,
                                           observationID,
                                           productID]) + '.override')
@@ -1234,7 +1310,7 @@ class vos2caom2(object):
             cwd = os.getcwd()
             try:
                 # create a temporary working directory
-                tempdir = tempfile.mkdtemp(dir=self.outdir)
+                tempdir = tempfile.mkdtemp(dir=self.workdir)
                 os.chdir(tempdir)
                 status, output = commands.getstatusoutput(cmd)
 
@@ -1318,7 +1394,7 @@ class vos2caom2(object):
         <none>
         """
         # Try a backoff that is much longer than usual
-        repository = Repository(self.outdir, 
+        repository = Repository(self.workdir, 
                                 self.log, 
                                 debug=self.debug,
                                 backoff=[10.0, 20.0, 40.0, 80.0])
@@ -1439,7 +1515,7 @@ class vos2caom2(object):
             self.logCommandLineSwitches()
             # Read list of files from VOspace and do things
             try:
-                self.data_web = data_web_client(self.outdir, self.log)
+                self.data_web = data_web_client(self.workdir, self.log)
                 # It is harmless to create a database connection object if it
                 # is not going to be used, since the actual connections use
                 # lazy initialization and are not opened until a call to read 
@@ -1447,7 +1523,7 @@ class vos2caom2(object):
                 with connection(self.userconfig, 
                                 self.log) as self.conn, \
                      dew(self.log, 
-                         self.outdir, 
+                         self.workdir, 
                          self.archive,
                          self.fileid_regex_dict,
                          make_file_id).gather() as self.dew:
@@ -1459,9 +1535,9 @@ class vos2caom2(object):
                         self.checkMembers()
                         self.checkProvenanceInputs()
                         if self.dew.error_count == 0:
-                            if self.mode == 'store':
+                            if self.store:
                                 self.storeFiles()
-                            elif self.mode == 'ingest':
+                            elif self.ingest:
                                 self.ingestPlanesFromMetadict()
 
                 # if no errors, declare we are DONR

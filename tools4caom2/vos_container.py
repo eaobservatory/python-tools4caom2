@@ -23,12 +23,13 @@ Version: """ + __version__.version
 class vos_container(basecontainer):
     def __init__(self, 
                  log, 
-                 data_web_client, 
                  vosroot, 
                  archive_name,
-                 mode,
+                 ingest,
+                 working_directory,
                  delayed_error_warning,
-                 working_directory, 
+                 vosclient, 
+                 data_web_client, 
                  make_file_id):
         """
         Reads a list of files from a VOspace directory and subdirectories.
@@ -43,14 +44,15 @@ class vos_container(basecontainer):
         data_web_client:   a tools4caom2.data_web_client object
         vosroot:           a uri pointing to a VOspace directory
         archive_name:      archive that will contain copies of the files
+        ingest:            True if ingesting files from AD, False otherwise
+        delayed_error_warning: error and warning reporting interface
         working_directory: directory to hold files from AD
         make_file_id:      function that turns a file uri/url/path into a file_id
         """
         basecontainer.__init__(self, log, re.sub(r':', '_', vosroot))
-        self.vosclient = Client()
         self.dataweb = data_web_client
         self.archive_name = archive_name
-        self.mode = mode
+        self.ingest = ingest
         self.dew = delayed_error_warning
         self.working_directory = working_directory
         self.make_file_id = make_file_id
