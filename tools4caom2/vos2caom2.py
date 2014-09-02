@@ -27,6 +27,10 @@ except:
 
 from vos.vos import Client
 
+from caom2.caom2_composite_observation import CompositeObservation
+from caom2.caom2_observation_uri import ObservationURI
+from caom2.caom2_plane_uri import PlaneURI
+
 from tools4caom2.database import connection
 from tools4caom2.data_web_client import data_web_client
 from tools4caom2.delayed_error_warning import delayed_error_warning as dew
@@ -203,7 +207,7 @@ class vos2caom2(object):
         # Current vos container
         self.vosclient = Client()
         self.vos = None
-        self.local = None
+        self.local = False
         # default fileid_regex_dict will pass all .fits files
         self.fileid_regex_dict = None
         
@@ -217,12 +221,29 @@ class vos2caom2(object):
         self.plane_dict = OrderedDict()
         self.fitsuri_dict = OrderedDict()
         self.metadict = OrderedDict()
+        
+        # Lists of files to be stored, or to check are in storage
+        # Data files are added to data_storage iff they report no errors 
         self.data_storage = []
+        # Preview candidates are added as they are encountered and removed
+        # if they do not match any planes.
         self.preview_storage = []
         
-        # local sets to be accumulated in a plane
-        self.memberset = set([])
-        self.inputset = set([])
+        # local sets to be accumulated in a plane.
+        # The memberset contains member time intervals for this plane.
+        # The member_cache is a dict keyed bu observationURI that contains 
+        # member/input for the whole collectioon on the expectation that the 
+        # same mebers will be used by multiple files.
+        self.memberset = set()
+        self.member_cache = dict()
+        # The inputset is the set of planeURIs that are inputs for a plane
+        # The fileset is a set of files that have not yet been confirmed as 
+        # belonging to any particular input plane.
+        # The input cache is a dictionary giving the planeURI for each file_id
+        # found in a member observation.
+        self.inputset = set()
+        self.fileset = set()
+        self.input_cache = dict()
 
         # list of containers for input files
         self.containerlist = []
@@ -417,8 +438,6 @@ class vos2caom2(object):
         else:
             self.workdir = os.getcwd()
         
-        self.local = self.args.local
-        
         if self.args.logdir:
             self.logdir = os.path.abspath(
                             os.path.expandvars(
@@ -435,7 +454,7 @@ class vos2caom2(object):
         logbase = re.sub(r'[^a-zA-Z0-9]', r'_', 
                          os.path.splitext(
                              os.path.basename(
-                                 self.args.major)))
+                                 self.args.major))[0])
         logbase += '_'
 
         # log file name
@@ -462,8 +481,6 @@ class vos2caom2(object):
         if os.path.isdir(self.major):
             self.local = True
             self.collection = 'SANDBOX'
-            self.log.console('When --major is a directory on disk, collection '
-                             'will be set to SANDBOX')
         elif (self.vosclient.access(self.major) 
               and self.vosclient.isdir(self.major)):
             self.local = False
@@ -506,6 +523,10 @@ class vos2caom2(object):
         self.log.file('logdir = ' + self.logdir)
         self.log.console('log = ' + self.logfile)
         
+        if self.collection != self.args.collection and self.local:
+            self.log.console('When --major is a directory on disk, collection '
+                             'will be set to SANDBOX')
+            
         if self.minor:
             for minor in self.minor:
                 self.log.file('minor = ' + minor)
@@ -579,7 +600,8 @@ class vos2caom2(object):
                                 self.log,
                                 releasedir,
                                 filelist,
-                                self.filterfunc,
+                                lambda f: (self.dew.namecheck(f) and 
+                                           self.dew.sizecheck(f)),
                                 self.make_file_id))
                     else:
                         self.log.console('release is not a directory: ' +
@@ -650,8 +672,8 @@ class vos2caom2(object):
         container: a container of files to read 
         """
         self.metadict.clear()
-        self.data_storage.clear()
-        self.preview_storage.clear()
+        self.data_storage = []
+        self.preview_storage = []
         
         try:
             # sort the file_id_list
@@ -665,7 +687,7 @@ class vos2caom2(object):
                 self.log.file('In fillMetadict, use ' + file_id,
                               logging.DEBUG)
                 with container.use(file_id) as f:
-                    if self.mode == 'ingest':
+                    if self.ingest:
                         self.verifyFileInAD(f)
                     self.fillMetadictFromFile(file_id, f, container)
         finally:
@@ -698,7 +720,8 @@ class vos2caom2(object):
                 head.update('filepath', filepath)
                 if isinstance(container, vos_container):
                     head.update('DPRCINST', container.vosroot)
-                else:
+                elif not ('DPRCINST' in header and 
+                          header['DPRCINST'] != pyfits.card.UNDEFINED):
                     head.update('DPRCINST', container.name)
                 self.log.file('...got primary header from ' + filepath,
                               logging.DEBUG)
@@ -720,7 +743,7 @@ class vos2caom2(object):
     #************************************************************************
     # Format an observation URI for composite members
     #************************************************************************
-    def observationURI(self, collection, observationID, member=True):
+    def observationURI(self, collection, observationID):
         """
         Generic method to format an observation URI, i.e. the URI used to
         specify members in a composite observation.
@@ -728,22 +751,26 @@ class vos2caom2(object):
         Arguments:
         collection : the collection containing observationID
         observationID : the observationID of the URI
-        member : True => store in memberset
 
         Returns:
         the value of the observationURI
         """
+        mycollection = collection
+        if collection is None:
+            mycollection = ''
+        myobservationID = observationID
+        if observationID is None:
+            myobservationID = ''
+
         uri = ObservationURI('caom:' +
                              collection + '/' +
                              observationID)
-        if member:
-            self.memberset |= set([uri.uri])
         return uri
 
     #************************************************************************
     # Format a plane URI for provenance inputs
     #************************************************************************
-    def planeURI(self, collection, observationID, productID, input=True):
+    def planeURI(self, collection, observationID, productID):
         """
         Generic method to format a plane URI, i.e. the URI used to access
         a plane in the data repository.
@@ -752,26 +779,50 @@ class vos2caom2(object):
         collection : the collection containing observationID
         observationID : the observationID containing productID
         productID : the productID of the URI
-        input : True => store in inputset
 
         Returns:
         the value of the planeURI
         """
+        mycollection = collection
+        if collection is None:
+            mycollection = ''
+        myobservationID = observationID
+        if observationID is None:
+            myobservationID = ''
+        myproductID = productID
+        if productID is None:
+            myproductID = ''
+
         uri = PlaneURI('caom:' +
-                       collection + '/' +
-                       observationID + '/' +
-                       productID)
-        if input:
-            self.inputset |= set([uri.uri])
+                       mycollection + '/' +
+                       myobservationID + '/' +
+                       myproductID)
         return uri
 
+    #************************************************************************
+    # Add this fitsuri (file or extewnsion) to the local fitsuri dictionary
+    #************************************************************************
+    def add_fitsuri_dict(self, uri):
+        """
+        Add a key, value pair to the local fitsuri dictionary.  The method
+        will throw an exception if the value does not have a string type.
+
+        Arguments:
+        uri : the uri of this fits file or extension
+        key : a key in a string.Template
+        value : a string value to be substituted in a string.Template
+        """
+        self.uri = uri
+        if uri not in self.fitsuri_dict:
+            self.fitsuri_dict[uri] = OrderedDict()
+            self.fitsuri_dict[uri]['custom'] = OrderedDict()
+    
     #************************************************************************
     # Format a URI for data access
     #************************************************************************
     def fitsfileURI(self,
                     archive,
-                    file_id,
-                    fits2caom2=True):
+                    file_id):
         """
         Generic method to format an artifact URI, i.e. the URI used to access
         a file in AD.
@@ -787,13 +838,7 @@ class vos2caom2(object):
         Returns:
         the value of the fitsfileURI
         """
-        fileuri = 'ad:' + archive + '/' + file_id
-        if fits2caom2:
-            self.uri = fileuri
-            if fileuri not in self.fitsuri_dict:
-                self.fitsuri_dict[fileuri] = OrderedDict()
-                self.fitsuri_dict[fileuri]['custom'] = OrderedDict()
-        return fileuri
+        return ('ad:' + archive + '/' + file_id)
 
     #************************************************************************
     # Format a URI for data access
@@ -801,8 +846,7 @@ class vos2caom2(object):
     def fitsextensionURI(self,
                          archive,
                          file_id,
-                         extension_list,
-                         fits2caom2=True):
+                         extension_list):
         """
         Generic method to format a part URI, i.e. the URI used to access
         one or more extensions from a FITS file in AD.
@@ -822,7 +866,7 @@ class vos2caom2(object):
         Returns:
         the value of the fitsextensionURI
         """
-        fileuri = self.fitsfileURI(archive, file_id, fits2caom2=False)
+        fileuri = self.fitsfileURI(archive, file_id)
         elist = []
         for e in extension_list:
             if isinstance(e, int):
@@ -840,11 +884,6 @@ class vos2caom2(object):
         if elist:
             fexturi = fileuri + '#[' + ','.join(elist) + ']'
             
-        if fits2caom2:
-            self.uri = fileuri
-            if fexturi not in self.fitsuri_dict:
-                self.fitsuri_dict[fexturi] = OrderedDict()
-                self.fitsuri_dict[fexturi]['custom'] = OrderedDict()
         return fexturi
 
     #************************************************************************
@@ -1004,6 +1043,7 @@ class vos2caom2(object):
                     [productID]
                         ['uri_dict']
                         ['inputset']
+                        ['fileset']
                         ['plane_dict']
                         [fitsuri]
                             ['custom']
@@ -1037,7 +1077,7 @@ class vos2caom2(object):
         
         # In check mode, errors should not raise exceptions
         raise_exception = True
-        if self.mode in ('new', 'replace', 'check'):
+        if not (self.store or self.ingest) :
             raise_exception = False
         
         #If the plane_dict is completely empty, skip further processing
@@ -1122,12 +1162,24 @@ class vos2caom2(object):
             #*****************************************************************
             # If inputset is not empty, the provenance should be filled.
             # The inputset is the union of the inputsets from all the files
-            # in the plane
+            # in the plane.  Beware that files not yet classified into
+            # inputURI's may still remain in fileset, and will be 
+            # resolved if possible in checkProvenanceInputs.
             #*****************************************************************
             if 'inputset' not in thisPlane:
                 thisPlane['inputset'] = set([])
             if self.inputset:
                 thisPlane['inputset'] |= self.inputset
+
+            #*****************************************************************
+            # If inputset is not empty, the provenance should be filled.
+            # The inputset is the union of the inputsets from all the files
+            # in the plane
+            #*****************************************************************
+            if 'fileset' not in thisPlane:
+                thisPlane['fileset'] = set([])
+            if self.fileset:
+                thisPlane['fileset'] |= self.fileset
 
             #*****************************************************************
             # Record the uri and (optionally) the filepath 
@@ -1403,8 +1455,7 @@ class vos2caom2(object):
             thisCollection = self.metadict[collection]
             for observationID in thisCollection:
                 obsuri = self.observationURI(collection,
-                                             observationID,
-                                             member=False)
+                                             observationID)
                 with repository.process(obsuri) as xmlfile:
 
                     thisObservation = thisCollection[observationID]

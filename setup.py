@@ -23,7 +23,7 @@ setup(name="tools4caom2",
       packages=find_packages(exclude=['*.test']),
       test_suite='tools4caom2.test',
       install_requires = ['distribute', 
-                          'requests>=2.3.0', 
+                          'requests=2.3.0', 
                           'vos', 
-                          'astropy']
+                          'astropy=0.4.1']
 )
