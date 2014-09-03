@@ -13,7 +13,10 @@ import logging
 import optparse
 import os
 import os.path
-import pyfits
+try:
+    from astropy.io import fits as pyfits
+except:
+    import pyfits
 import re
 import shutil
 import stat
