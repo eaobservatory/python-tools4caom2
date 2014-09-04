@@ -198,11 +198,14 @@ class database(object):
     def get_credentials(self):
         """
         Read the users .dbrc file to get credentials, if dbrc_get is defined
+        and userconfig does not define cred_id and cred_key
         
         Arguments:
         <None>
         """
-        if sybase_defined and self.use:
+        if (sybase_defined and self.use
+            and not (self.cadc_id and self.cadc_key)):
+            
             try:
                 output = subprocess.check_output(['which', 'dbrc_get'],
                                                  stderr=subprocess.STDOUT)
