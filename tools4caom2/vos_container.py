@@ -56,6 +56,7 @@ class vos_container(basecontainer):
         self.dew = delayed_error_warning
         self.working_directory = working_directory
         self.make_file_id = make_file_id
+        self.vosclient = vosclient
         
         if self.vosclient.access(vosroot) and self.vosclient.isdir(vosroot):
             self.vosroot = vosroot
@@ -83,11 +84,17 @@ class vos_container(basecontainer):
         """
         pathlist = [uri + '/' + f for f in self.vosclient.listdir(uri, 
                                                                   force=True)]
+        self.log.file('pathlist = ' + repr(pathlist),
+                      logging.DEBUG)
         dirlist = sorted([f for f in pathlist if self.vosclient.isdir(f)])
+        self.log.file('dirlist = ' + repr(dirlist),
+                      logging.DEBUG)
         filelist = sorted([f for f in pathlist 
                            if self.vosclient.isfile(f)
                               and self.dew.sizecheck(f)
                               and self.dew.namecheck(f, report=False)])
+        self.log.file('filelist = ' + repr(filelist),
+                      logging.DEBUG)
         
         filecount = 0
         for f in filelist:
@@ -121,7 +128,7 @@ class vos_container(basecontainer):
 
         # This fetches only the header from the primary HDU, which
         # should result in significant performance improvements
-        if self.mode == 'ingest':
+        if self.ingest:
             # file should already be in AD
             # This gets ONLY the primary header
             filepath = self.dataweb.get(self.archive_name, 
@@ -136,6 +143,9 @@ class vos_container(basecontainer):
             # fetch the whole file from vos 
             filepath = self.filedict[file_id]
             filesize = self.vosclient.copy(self.vospath[file_id], filepath)
+            self.log.file('filepath = ' + filepath + '   vospath = ' +
+                          self.vospath[file_id],
+                          logging.DEBUG)
             if not filesize:
                 self.log.console('could not get ' + file_id + ' from ' + 
                                  filepath,

@@ -36,7 +36,7 @@ from caom2.caom2_plane_uri import PlaneURI
 
 from tools4caom2.database import connection
 from tools4caom2.data_web_client import data_web_client
-from tools4caom2.delayed_error_warning import delayed_error_warning as dew
+from tools4caom2.delayed_error_warning import delayed_error_warning
 from tools4caom2.filelist_container import filelist_container
 from tools4caom2.logger import logger
 from tools4caom2.tapclient import tapclient
@@ -740,7 +740,9 @@ class vos2caom2(object):
         self.file_id = file_id
         self.build_dict(head)
         self.build_metadict(filepath)
-        if len(self.dew.errors[filepath]) == 0:
+        if (filepath not in self.dew.errors 
+            or len(self.dew.errors[filepath]) == 0):
+            
             self.data_storage.append(filepath)
         
     #************************************************************************
@@ -1576,11 +1578,11 @@ class vos2caom2(object):
                 # or write is made.
                 with connection(self.userconfig, 
                                 self.log) as self.conn, \
-                     dew(self.log, 
-                         self.workdir, 
-                         self.archive,
-                         self.fileid_regex_dict,
-                         make_file_id).gather() as self.dew:
+                     delayed_error_warning(self.log, 
+                                           self.workdir,
+                                           self.archive,
+                                           self.fileid_regex_dict,
+                                           make_file_id).gather() as self.dew:
                     
                     self.commandLineContainers()
                     for c in self.containerlist:
