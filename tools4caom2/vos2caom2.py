@@ -173,7 +173,7 @@ class vos2caom2(object):
         self.sybase_defined = sybase_defined
         self.archive = None
         self.stream = None
-        self.schema = None
+        self.schema = 'dbo'
         self.collection_choices = ['SANDBOX']
         
         # routine to convert filepaths into file_ids
