@@ -30,7 +30,7 @@
 #*   Purpose:
 #*    Sybase connection for jcmt data in CAOM 2.0
 #*
-#+ Usage: from jcmt2caom2.database import database
+#+ Usage: from tools4caom2.database import database
 #+
 #+ Options:
 #*

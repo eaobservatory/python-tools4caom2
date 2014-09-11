@@ -6,7 +6,7 @@
 from datetime import datetime
 import re
 
-from jcmt2caom2.__version__ import version
+from tools4caom2.__version__ import version
 
 UTDATE_REGEX = r'stamp-(?P<stamp>(?P<stampdate>\d{8})[tT](?P<stamptime>\d{6}))'
 

@@ -17,7 +17,6 @@ from tools4caom2.logger import logger
 from tools4caom2.utdate_string import utdate_string
 
 from tools4caom2.__version__ import version as tools4caom2version
-from jcmt2caom2.__version__ import version as jcmt2caom2version
 
 """
 Python implementation of the CADC data web service documented at
