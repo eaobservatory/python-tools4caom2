@@ -20,6 +20,7 @@ import shutil
 import subprocess
 from subprocess import CalledProcessError
 import sys
+import tempfile
 import traceback
 
 try:
@@ -34,6 +35,7 @@ from caom2.caom2_composite_observation import CompositeObservation
 from caom2.caom2_observation_uri import ObservationURI
 from caom2.caom2_plane_uri import PlaneURI
 
+from tools4caom2.caom2repo_wrapper import Repository
 from tools4caom2.database import connection
 from tools4caom2.data_web_client import data_web_client
 from tools4caom2.delayed_error_warning import delayed_error_warning
@@ -199,6 +201,7 @@ class vos2caom2(object):
         self.major = ''
         self.minor = []
         self.replace = []
+        self.big = False
         self.store = False
         self.ingest = False
         self.local = False
@@ -1177,9 +1180,8 @@ class vos2caom2(object):
                 thisPlane['inputset'] |= self.inputset
 
             #*****************************************************************
-            # If inputset is not empty, the provenance should be filled.
-            # The inputset is the union of the inputsets from all the files
-            # in the plane
+            # The fileset is the set of input files that have not yet been 
+            # identified as being recorded in any plane yet. 
             #*****************************************************************
             if 'fileset' not in thisPlane:
                 thisPlane['fileset'] = set([])
@@ -1226,7 +1228,7 @@ class vos2caom2(object):
         Use the data_web client to verify that file_id is in self.archive
         """
         found = False
-        if self.data_web(self.archive, file_id):
+        if self.data_web.info(self.archive, file_id):
             found = True
         return found
     
@@ -1331,11 +1333,9 @@ class vos2caom2(object):
         # build the fits2caom2 command
 
         if self.big:
-            cmd = ('java -Xmx512m -jar ${CADC_ROOT}/lib/fits2caom2.jar ' + 
-                   self.local_args)
+            cmd = 'java -Xmx512m -jar ${CADC_ROOT}/lib/fits2caom2.jar '
         else:
-            cmd = ('java -Xmx128m -jar ${CADC_ROOT}/lib/fits2caom2.jar ' + 
-                   self.local_args)
+            cmd = 'java -Xmx128m -jar ${CADC_ROOT}/lib/fits2caom2.jar '
 
         cmd += ' --collection="' + collection + '"'
         cmd += ' --observationID="' + observationID + '"'
@@ -1365,6 +1365,7 @@ class vos2caom2(object):
         self.log.file("fits2caom2Interface: cmd = '" + cmd + "'")
         if not self.test:
             cwd = os.getcwd()
+            tempdir = None
             try:
                 # create a temporary working directory
                 tempdir = tempfile.mkdtemp(dir=self.workdir)
@@ -1387,7 +1388,8 @@ class vos2caom2(object):
             finally:
                 # clean up FITS files that were not present originally 
                 os.chdir(cwd)
-                shutil.rmtree(tempdir)
+                if tempdir:
+                    shutil.rmtree(tempdir)
 
     #************************************************************************
     # Add members to the observation xml
@@ -1487,7 +1489,7 @@ class vos2caom2(object):
                                                               productID)
 
                             #********************************************
-                            # Run fits2caom2 and record the planeID
+                            # Run fits2caom2
                             #********************************************
                             urilist = sorted(thisPlane['uri_dict'].keys())
                             if urilist:
@@ -1500,7 +1502,7 @@ class vos2caom2(object):
                             else:
                                 self.log.console('for ' + collection +
                                                  '/' + observationID +
-                                                 '/' + planeID + 
+                                                 '/' + productID + 
                                                  ', uri_dict is empty so '
                                                  'there is nothing to ingest',
                                                  logging.ERROR)
@@ -1516,7 +1518,7 @@ class vos2caom2(object):
                                                    uristring,
                                                    localstring,
                                                    arg=arg,
-                                                   debug=self.switches.debug)
+                                                   debug=self.debug)
                                 self.log.file('INGESTED: observationID=%s '
                                               'productID="%s"' %
                                                     (observationID, productID))
@@ -1527,7 +1529,8 @@ class vos2caom2(object):
                             for fitsuri in thisPlane:
                                 if fitsuri not in ('plane_dict',
                                                    'uri_dict',
-                                                   'inputset'):
+                                                   'inputset',
+                                                   'fileset'):
 
                                     self.build_fitsuri_custom(xmlfile,
                                                               collection,
@@ -1547,6 +1550,42 @@ class vos2caom2(object):
                 self.log.console('SUCCESS observationID="%s"' %
                                     (observationID))
 
+    #************************************************************************
+    # placeholders for archive-specific customization
+    #************************************************************************
+    def build_fitsuri_custom(self,
+                             xmlfile,
+                             collection,
+                             observationID,
+                             productID,
+                             fitsuri):
+        """
+        Customize as required
+        """
+        pass
+    
+    def build_plane_custom(self,
+                           xmlfile,
+                           collection,
+                           observationID,
+                           productID,
+                           fitsuri):
+        """
+        Customize as required
+        """
+        pass
+    
+    def build_observation_custom(self,
+                                 xmlfile,
+                                 collection,
+                                 observationID,
+                                 productID,
+                                 fitsuri):
+        """
+        Customize as required
+        """
+        pass
+    
     #************************************************************************
     # Run the program
     #************************************************************************
@@ -1590,10 +1629,11 @@ class vos2caom2(object):
                         self.fillMetadict(c)
                         self.checkMembers()
                         self.checkProvenanceInputs()
-                        if self.dew.error_count == 0:
+                        print self.dew.error_count()
+                        if self.dew.error_count() == 0:
                             if self.store:
                                 self.storeFiles()
-                            elif self.ingest:
+                            if self.ingest:
                                 self.ingestPlanesFromMetadict()
 
                 # if no errors, declare we are DONR
