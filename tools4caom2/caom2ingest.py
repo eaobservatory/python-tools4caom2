@@ -48,64 +48,52 @@ from tools4caom2.vos_container import vos_container
 from tools4caom2.__version__ import version as tools4caom2version
 
 __doc__ = """
-The vos2caom2 has been cloned from ingest2caom2 and customized to find 
-its lists of input files in a VOspace.  It organizes the testing and copying 
-of the files into the JSA, then ingests the files into CAOM-2.   
+Ingest processed data files into CAOM-2.  The caom2ingest module has been 
+cloned from ingest2caom2 and customized to find its lists of input files 
+in a directory that is either on disk or in a VOspace. This is intended to be a 
+base class for archive-specific ingestion routines with names like
+archive2caom2ingest.
+
+By default, it runs a set of file verification tests, creates a report of errors 
+and warnings and exits.  This is referred to as "check mode" and anyone can run 
+caom2ingest in check mode.  
+
+Check mode implements several of the checks that would be done during a CADC
+e-transfer operation, such as rejecting zero-length files, running fitsverify
+on FITS files to verify that they do not generate error messages,
+and verifying that names match the regex required for the archive.  Other checks 
+include metadata checks for mandatory keywords or keywords that must have one of
+a restricted set of values, and verifying whether the file is already present 
+in the archive (sometimes forbidden, sometimes mandatory).
+
+With the --store switch, caom2ingest will copy files from VOspace into archive 
+storage at the CADC.  This is a privileged operation; the account making the 
+request must have write permission in the VOspace transfer directory.
+
+The --store is a no-op if the files are on disk.  Such files must use an 
+alternative mechanism to move files into storage, such as a CADC e-transfer 
+stream or the CADC data web client.  
 
 The process of copying files  VOS -> CADC is in some respects modeled after the 
-CADC e-transfer service.  In particular, it implements several of the checks that 
-would normally be done during e-transfer, such as rejecting zero-length files,
-and verifying that names match those required  for the archive.  Other checks 
-include testing fits files with fitsverify and verifying whether the file is 
-present in the archive (sometimes forbidden, sometimes mandatory).   
+CADC e-transfer service.  A link is made in a specified VOspace directory and a
+discovery agent running at the will copy the linked file into the associated
+archive.  The CADC will implement its own verification for these files, as a 
+final check that stray files have not leaked into the data stream.  
 
-As with ingest2caom2, most of the ingestion logic is missing from this 
-module, and it is intended that an archive-specific subclass will be derived
-from vos2caom2 to supply the custom logic.  
+With the --ingest switch, caom2ingest will ingest the files into CAOM-2.  The 
+ingestion logic is mostly missing from this module, since it is extremely 
+archive-specific and must be implemented in a subclass derived from caom2ingest. 
+This is a privileged operation; the CADC must have granted read and write access 
+for the CAOM-2 repository to the account requesting the ingestion.
 
-This class specifically deprecates ingestion from directories on disk and tar 
-files.  Although it can, in principle, be used to re-ingest sets of files already 
-present in AD, they would first have to be copied into a VOspace and sorted into
-appropriate folders.
-
-This module provides a command-line interface that should be sufficiently 
-general to handle most archival needs.  The interface allows the program to 
-be run in several different modes:
-1) new - check metadata and report as errors any pre-existing observations, 
-         planes and files.
-2) check - check metadata without reporting pre-existing observations, planes 
-           and files
-3) replace - check metadata and report as errors any observations, planes and 
-             files that do not already exist.
-4) store - copy files from VOspace to AD using the CADC data web service
-5) ingest - ingest the files from AD.
-The mode must be selected explicitly using a command line argument to prevent 
-unintended ingestion, or failure to ingest, through the omission of a required 
-argument.  Ingestion is kept independent from the previous modes because it
-is the most time consuming step and might benefit from multiprocessing.
-
-In new/check/replace mode, stubs and generic code are provided to:
-- read all the files from a VOspace,
-- filter out any that are not candidates for ingestion,
-- apply basic validity tests:
-  - size is non-zero,
-  - files match naming rules, with functionality like the CADC namecheck,
-  - checks that the file_id is not already in use,
-  - FITS files pass fitsverify without warnings or errors,
-- a report is generated that can be passed back to the data providers.
-
-Store mode is the same except that after files have been checked the files will 
-be copied into CADC storage using the CADC data web service.
-
-Ingest mode will skip most of the validity tests and ingest the metadata into 
-CAOM-2 working from the copies of the files in storage.
-
-The vos2caom2 module is intended to be used at sites remote from the CADC, so
-uses only generic methods that should work over the internet to access and 
-store files. Access to the VOspace uses the CADC-supplied vos module.  Storage 
-of files in the CADC archives uses the data_web_client supplied as part of the
-python-tools4caom2 package, which gets, puts, gets info about, and deletes files
-through the CADC data web service. 
+The caom2ingest module is intended to be used at sites remote from the CADC.  
+If the CADC or JAC databases are accessible, caom2ingest can be cofigured to 
+use them to improve performance and gather more authoritative metadata, but
+otherwise it uses only generic methods that should work over the internet to 
+access and store files. Access to the VOspace uses the CADC-supplied vos module. 
+Access to existing observations, planes and artifacts in CAOM-2 uses the CADC 
+TAP service, and the caom2repo.py comand line script supplied with the CADC
+caom2repoClient package.
 """
 
 #************************************************************************
@@ -113,12 +101,11 @@ through the CADC data web service.
 #************************************************************************
 def make_file_id(filepath):
     """
-    An archive-specific routine to convert a file basename (without the
-    directory path) to the corressponding file_id used to identify the
-    file in CADC storage.  The default routine provided here picks out the
-    basename from the path, which can therefore be a path to a file on
-    disk, a VOspace urL, or a vos uri, then strips off the extension and 
-    forces the name into lower case.
+    An archive-specific routine to convert a filename to the corressponding 
+    file_id used to identify the file in CADC storage.  The default routine 
+    provided here picks out the basename from the path, which can therefore 
+    be a path to a file on disk, a VOspace urL, or a vos uri, then strips off 
+    the extension and forces the name into lower case.
 
     Arguments:
     filepath: path to the file
@@ -132,7 +119,7 @@ def make_file_id(filepath):
 #*******************************************************************************
 # Base class for ingestions from VOspace
 #*******************************************************************************
-class vos2caom2(object):
+class caom2ingest(object):
     """
     Base class to copy and ingest files from a VOspace into a CADC archive
     """
@@ -148,12 +135,14 @@ class vos2caom2(object):
         It is normally necessary to override __init__ in a derived class,
         supplying archive-specific values for some of the fields, e.g.
             def __init__(self):
-                vos2caom2.__init__(self)
+                caom2ingest.__init__(self)
                 self.archive  = <myarchive>
         """
         # config object optionally contains a user configuration object
         # this can be left undefined at the CADC, but is needed at other sites
         self.userconfig = SafeConfigParser()
+        # userconfigpath can be overridden on the command line or in a
+        # derived class
         self.userconfigpath = '~/.tools4caom2/tools4caom2.config'
 
         # -------------------------------------------
@@ -163,13 +152,14 @@ class vos2caom2(object):
         # Command line options
         self.progname = os.path.basename(os.path.splitext(sys.path[0])[0])
         self.exedir = os.path.abspath(os.path.dirname(sys.argv[0]))
+        # Derive the config path from the sript or bin directory path
         self.configpath = os.path.abspath(self.exedir + '/../config')
 
         # Argument parser
         self.ap = None
         self.args = None
         
-        # Database defaults, filled from userconfig 
+        # Database defaults, normally filled from userconfig 
         self.sybase_defined = sybase_defined
         self.archive = None
         self.stream = None
@@ -177,6 +167,7 @@ class vos2caom2(object):
         self.collection_choices = ['SANDBOX']
         
         # routine to convert filepaths into file_ids
+        # The default routine supplied here should work for most archives.
         self.make_file_id = make_file_id
 
         # temporary disk space for working files
@@ -189,22 +180,15 @@ class vos2caom2(object):
         self.debug = False
         self.log = None
 
-        # The filterfunc is a name checking function that returns True if
-        # a filename is valid for ingestion and False otherwise.
-        # The signature of filterfunc is filterfunc(filename), i.e. it
-        # operates on filenames rather than file_id's and can use the
-        # file extension to help determine if the file name is valid.
-        # By default, ingest only FITS files.
-
         # Ingestion parameters and structures
-        self.prefix = ''
-        self.major = ''
-        self.minor = []
-        self.replace = []
-        self.big = False
-        self.store = False
-        self.ingest = False
-        self.local = False
+        self.prefix = ''     # ingestible files must start with this prefix
+        self.major = ''      # path to major release directory
+        self.minor = []      # paths relative to major of minor release directories
+        self.replace = []    # paths of major releases being replaced
+        self.big = False     # use larger memory for fits2caom2 if needed
+        self.store = False   # store files from major/minor into the archive
+        self.ingest = False  # ingest files from major/minor into CAOM-2
+        self.local = False   # True if files are on disk rather than in VOspace
         
         # Archive-specific fits2caom2 config and default file paths
         self.config = None
@@ -214,28 +198,16 @@ class vos2caom2(object):
         self.vosclient = Client()
         self.vos = None
         self.local = False
-        # default fileid_regex_dict will pass all .fits files
+        # dictionary of lists of compiles regex expressions, keyed by extension
         self.fileid_regex_dict = None
         
-        # Working structures
-        # The metadata dictionary - fundamental structure for the entire class
-        # For the detailed structure of metadict, see the help text for
-        # fillMetadictFromFile()
+        # Working structures thatcollect metadata from each file to be saved
+        # in self.metadict
         self.collection = None
         self.observationID = None
         self.productID = None
         self.plane_dict = OrderedDict()
         self.fitsuri_dict = OrderedDict()
-        self.metadict = OrderedDict()
-        
-        # Lists of files to be stored, or to check are in storage
-        # Data files are added to data_storage iff they report no errors 
-        self.data_storage = []
-        # Preview candidates are added as they are encountered and removed
-        # if they do not match any planes.
-        self.preview_storage = []
-        
-        # local sets to be accumulated in a plane.
         # The memberset contains member time intervals for this plane.
         # The member_cache is a dict keyed bu observationURI that contains 
         # member/input for the whole collectioon on the expectation that the 
@@ -243,18 +215,30 @@ class vos2caom2(object):
         self.memberset = set()
         self.member_cache = dict()
         # The inputset is the set of planeURIs that are inputs for a plane
-        # The fileset is a set of files that have not yet been confirmed as 
-        # belonging to any particular input plane.
+        # The fileset is a set of input files that have not yet been confirmed 
+        # as belonging to any particular input plane.
         # The input cache is a dictionary giving the planeURI for each file_id
         # found in a member observation.
         self.inputset = set()
         self.fileset = set()
         self.input_cache = dict()
+        
+        # The metadata dictionary - fundamental structure for the entire class
+        # For the detailed structure of metadict, see the help text for
+        # fillMetadictFromFile()
+        self.metadict = OrderedDict()
+        
+        # Lists of files to be stored, or to check that they are in storage
+        # Data files are added to data_storage iff they report no errors 
+        self.data_storage = []
+        # Preview candidates are added as they are encountered and removed
+        # if they do not match any planes.
+        self.preview_storage = []
 
         # list of containers for input files
         self.containerlist = []
 
-        # Delayed errors and warnings discovered in files
+        # Delayed reporting of errors and warnings discovered in files
         self.dew = None
         
         # TAP client
@@ -273,7 +257,7 @@ class vos2caom2(object):
         
         Subclasses for specific archive can override this method to add new
         arguments, but should first call 
-           self.vos2caom2.defineCommandLineSwitches()
+           self.caom2ingest.defineCommandLineSwitches()
         to ensure that the standard arguments are always defined.
 
         Arguments:
@@ -517,7 +501,7 @@ class vos2caom2(object):
         """
         # Report switch values
         self.log.file(self.progname)
-        self.log.file('*** Arguments for vos2caom2 base class ***')
+        self.log.file('*** Arguments for caom2ingest base class ***')
         self.log.file('tools4caom2version = ' + tools4caom2version)
         self.log.file('configpath = ' + self.configpath)
         for attr in dir(self.args):
@@ -1038,7 +1022,7 @@ class vos2caom2(object):
         Generic routine to build the internal structure metadict (a nested set
         of ordered dictionaries) that will be used to control, sort and fill
         the override file templates.  The required metadata must already exist
-        in the internal structures of vos2caom2.
+        in the internal structures of caom2ingest.
 
         Arguments:
         filepath: path to file (may not exist if not local)
@@ -1649,5 +1633,5 @@ class vos2caom2(object):
                         pass
 
 if __name__ == '__main__':
-    vc = vos2caom2()
+    vc = caom2ingest()
     vc.run()
