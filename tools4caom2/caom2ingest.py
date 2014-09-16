@@ -804,7 +804,6 @@ class caom2ingest(object):
         key : a key in a string.Template
         value : a string value to be substituted in a string.Template
         """
-        self.uri = uri
         if uri not in self.fitsuri_dict:
             self.fitsuri_dict[uri] = OrderedDict()
             self.fitsuri_dict[uri]['custom'] = OrderedDict()
@@ -1409,18 +1408,18 @@ class caom2ingest(object):
         For the current plane, insert the full set of inputs in the plane_dict
         
         Arguments:
-        collection: the collection for this plane
-        observationID: the observationID for this plane
-        productID: the the productID for this plane
+        thisObservation: generic argument, not needed in this case
+        thsPlane: the plane structire in metadict to update
         """
+        # Need the provenance.name to create a provenance structure
         if 'provenance.name' in thisPlane['plane_dict']:
             inputset = thisPlane['inputset']
             self.log.console('replace_inputs: provenance.name = ' + 
                              thisPlane['plane_dict']['provenance.name'],
                              logging.DEBUG)
-                             
             self.log.console('inputset = ' + repr(list(inputset)),
                              logging.DEBUG)
+            
             if inputset:
                 thisPlane['plane_dict']['provenance.inputs'] = ' '.join(
                                             sorted(list(inputset)))
@@ -1479,7 +1478,7 @@ class caom2ingest(object):
                             if urilist:
                                 uristring = ','.join(urilist)
                                 localstring = ''
-                                if thisPlane['uri_dict'][urilist[0]]:
+                                if self.local:
                                     filepathlist = [thisPlane['uri_dict'][u] 
                                                     for u in urilist]
                                     localstring = ','.join(filepathlist)
