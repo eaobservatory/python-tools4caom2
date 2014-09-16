@@ -1272,8 +1272,9 @@ class caom2ingest(object):
             # Write artifact-specific overrides
             for fitsuri in thisPlane:
                 if fitsuri not in ('uri_dict',
-                                  'inputset',
-                                  'plane_dict'):
+                                   'inputset',
+                                   'fileset',
+                                   'plane_dict'):
                     thisFitsuri = thisPlane[fitsuri]
                     print >>OVERRIDE
                     print >>OVERRIDE, '?' + fitsuri
