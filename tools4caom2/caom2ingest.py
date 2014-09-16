@@ -467,16 +467,23 @@ class caom2ingest(object):
             os.makedirs(self.workdir)
 
         # Parse ingestion options 
-        self.major = self.args.major
-        if os.path.isdir(self.major):
-            self.local = True
-            self.collection = 'SANDBOX'
-        elif (self.vosclient.access(self.major) 
-              and self.vosclient.isdir(self.major)):
+        if (re.match(r'vos:.*', self.args.major)
+            and self.vosclient.access(self.major) 
+            and self.vosclient.isdir(self.major)):
+            
+            self.major = self.args.major
             self.local = False
         else:
-            self.log.console('major does not exist: ' + self.major,
-                             logging.ERROR)
+            # is this a local directorory on the disk?
+            majorpath = os.path.abspath(
+                            os.path.expandvars(
+                                os.path.expanduser(self.args.major)))
+            if os.path.isdir(majorpath):
+                self.major = majorpath
+                self.local = True
+            else:
+                self.log.console('major does not exist: ' + self.major,
+                                 logging.ERROR)
         
         if self.args.minor:
             self.minor = re.sub(r'/+', '/', 
@@ -674,12 +681,15 @@ class caom2ingest(object):
 
             # Gather metadata from each file in the container
             for file_id in file_id_list:
-                self.log.file('In fillMetadict, use ' + file_id,
-                              logging.DEBUG)
-                with container.use(file_id) as f:
-                    if self.ingest:
-                        self.verifyFileInAD(f)
-                    self.fillMetadictFromFile(file_id, f, container)
+                if self.ingest and not self.verifyFileInAD(file_id):
+                    self.dew.error(filename,
+                                   'Attempt to ingest ' + file_id +
+                                   ' which is not in AD')
+                else:
+                    self.log.file('In fillMetadict, use ' + file_id,
+                                  logging.DEBUG)
+                    with container.use(file_id) as f:
+                        self.fillMetadictFromFile(file_id, f, container)
         finally:
             container.close()
     
@@ -702,17 +712,14 @@ class caom2ingest(object):
         # If the file is not a FITS file or is in serious violation of the FITS
         # standard, substitute an empty dictionary for the headers.  This is
         # a silent replacement, not an error, to allow non-FITS files to be
-        # ingested allong with regular FITS files.
+        # ingested along with regular FITS files.
         if self.dew.namecheck(filepath, report=False):
             try:
                 head = pyfits.getheader(filepath, 0)
                 head.update('file_id', file_id)
                 head.update('filepath', filepath)
                 if isinstance(container, vos_container):
-                    head.update('DPRCINST', container.vosroot)
-                elif not ('DPRCINST' in header and 
-                          header['DPRCINST'] != pyfits.card.UNDEFINED):
-                    head.update('DPRCINST', container.name)
+                    head.update('VOSPATH', container.vosroot)
                 self.log.file('...got primary header from ' + filepath,
                               logging.DEBUG)
             except:
@@ -722,15 +729,16 @@ class caom2ingest(object):
                 self.log.file('...could not read primary header from ' + 
                               filepath,
                               logging.DEBUG)
+
+            self.file_id = file_id
+            self.build_dict(head)
+            self.build_metadict(filepath)
+            if (filepath not in self.dew.errors 
+                or len(self.dew.errors[filepath]) == 0):
+                
+                self.data_storage.append(filepath)
         else:
             self.preview_storage.append(filepath)
-        self.file_id = file_id
-        self.build_dict(head)
-        self.build_metadict(filepath)
-        if (filepath not in self.dew.errors 
-            or len(self.dew.errors[filepath]) == 0):
-            
-            self.data_storage.append(filepath)
         
     #************************************************************************
     # Format an observation URI for composite members

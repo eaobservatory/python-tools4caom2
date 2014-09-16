@@ -94,7 +94,7 @@ class delayed_error_warning(object):
         filename  : file name to examine 
         errormsg  : error message to report
         """
-        self.log.file('delayed_error_warning: error for filename' + filename)
+        self.log.file('delayed_error_warning: error for filename ' + filename)
         if filename not in self.errors:
             self.errors[filename] = []
         if errormsg not in self.errors[filename]:
@@ -108,7 +108,7 @@ class delayed_error_warning(object):
         filename  : file name to examine 
         warningmsg  : warning message to report
         """
-        self.log.file('delayed_error_warning: warning for filename' + filename)
+        self.log.file('delayed_error_warning: warning for filename ' + filename)
         if filename not in self.warnings:
             self.warnings[filename] = []
         if warningmsg not in self.warnings[filename]:
@@ -159,7 +159,7 @@ class delayed_error_warning(object):
         
         Returns True if the file has a non-zero length, False otherwise
         """
-        self.log.file('delayed_error_warning: sizecheck for filename' + filename)
+        self.log.file('delayed_error_warning: sizecheck for filename ' + filename)
         ok = False
         length = 0
         if re.match(r'vos:', filename):
@@ -187,7 +187,7 @@ class delayed_error_warning(object):
         
         Arguments:
         """
-        self.log.file('delayed_error_warning: namecheck for filename' + filename)
+        self.log.file('delayed_error_warning: namecheck for filename ' + filename)
         ext = os.path.splitext(filename)[1].lower()
         file_id = self.make_file_id(filename)
         ok = False
@@ -215,7 +215,7 @@ class delayed_error_warning(object):
                         acceptable for the file to be present (True) or absent 
                         (False) in the archive.
         """
-        self.log.file('delayed_error_warning: in_archive for filename' + 
+        self.log.file('delayed_error_warning: in_archive for filename ' + 
                       filename)
         ok = False
         file_id = self.make_file_id(filename)
@@ -253,7 +253,7 @@ class delayed_error_warning(object):
         
         If fitsverify is not installed, the test will pass by default.
         """
-        self.log.file('delayed_error_warning: fitsverify for filename' + 
+        self.log.file('delayed_error_warning: fitsverify for filename ' + 
                       filename)
         ok = False
         if self.fitsverifypath:
@@ -297,7 +297,7 @@ class delayed_error_warning(object):
         header   : FITS header from the primary HDU
         key      : mandatory keyword
         """
-        self.log.file('delayed_error_warning: expect_keyword for filename' + 
+        self.log.file('delayed_error_warning: expect_keyword for filename ' + 
                       filename)
         ok = False
         if key in header and header[key] != pyfits.card.UNDEFINED:
@@ -321,7 +321,7 @@ class delayed_error_warning(object):
         header     : FITS header from the primary HDU
         value_list : list of acceptable values
         """
-        self.log.file('delayed_error_warning: restricted_value for filename' + 
+        self.log.file('delayed_error_warning: restricted_value for filename ' + 
                       filename)
         ok = False
         if key in header and header[key] != pyfits.card.UNDEFINED:
