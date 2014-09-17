@@ -434,8 +434,8 @@ class caom2ingest(object):
         
         # Parse ingestion options 
         if (re.match(r'vos:.*', self.args.major)
-            and self.vosclient.access(self.major) 
-            and self.vosclient.isdir(self.major)):
+            and self.vosclient.access(self.args.major) 
+            and self.vosclient.isdir(self.args.major)):
             
             self.major = self.args.major
             self.local = False
@@ -447,9 +447,6 @@ class caom2ingest(object):
             if os.path.isdir(majorpath):
                 self.major = majorpath
                 self.local = True
-            else:
-                self.log.console('major does not exist: ' + self.major,
-                                 logging.ERROR)
         
         if self.args.minor:
             self.minor = re.sub(r'/+', '/', 
@@ -535,6 +532,10 @@ class caom2ingest(object):
                 self.log.console('--prefix is mandatory if --collection '
                                  'is not JCMT or SANDBOX')
 
+        if not self.major:
+            self.log.console('--major = ' + self.args.major + ' does not exist',
+                             logging.ERROR)
+        
         if self.minor:
             for minor in self.minor:
                 self.log.file('minor = ' + minor)
