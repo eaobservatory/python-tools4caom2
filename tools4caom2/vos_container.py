@@ -49,7 +49,7 @@ class vos_container(basecontainer):
         working_directory: directory to hold files from AD
         make_file_id:      function that turns a file uri/url/path into a file_id
         """
-        basecontainer.__init__(self, log, re.sub(r':', '_', vosroot))
+        basecontainer.__init__(self, log, re.sub(r'[:/]', '-', vosroot))
         self.dataweb = data_web_client
         self.archive_name = archive_name
         self.ingest = ingest

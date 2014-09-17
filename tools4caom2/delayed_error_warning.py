@@ -86,6 +86,12 @@ class delayed_error_warning(object):
         """
         return len(self.errors)
     
+    def warning_count(self):
+        """
+        Return number of files for which errors were reported
+        """
+        return len(self.warnings)
+    
     def error(self, filename, errormsg):
         """
         Record this file as having an error

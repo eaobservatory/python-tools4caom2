@@ -150,7 +150,7 @@ class caom2ingest(object):
         # -------------------------------------------
         # Command line interface for the ArgumentParser and arguments
         # Command line options
-        self.progname = os.path.basename(os.path.splitext(sys.path[0])[0])
+        self.progname = os.path.basename(os.path.splitext(sys.argv[0])[0])
         self.exedir = os.path.abspath(os.path.dirname(sys.argv[0]))
         # Derive the config path from the sript or bin directory path
         self.configpath = os.path.abspath(self.exedir + '/../config')
@@ -268,7 +268,7 @@ class caom2ingest(object):
         --proxy      : path to CADC proxy certificate
         
         # ingestion arguments
-        --prefix     : (required) prefix for FITS files to be stored/ingested
+        --prefix     : (required) prefix for files to be stored/ingested
         --major      : (required) major release directory
         --minor      : (optional) comma-separated list of directories relative to
                        the major release directory.
@@ -312,7 +312,7 @@ class caom2ingest(object):
 
         # Ingestion modes
         self.ap.add_argument('--prefix',
-                             help='file name prefix that identifies FITS files '
+                             help='file name prefix that identifies files '
                                   'to be ingested')
         self.ap.add_argument('--major',
                              required=True,
@@ -396,11 +396,15 @@ class caom2ingest(object):
                         os.path.expandvars(
                             os.path.expanduser(self.args.proxy)))
         
+        self.collection = self.args.collection
+        
         if self.args.prefix:
             self.prefix = self.args.prefix
             file_id_regex = re.compile(self.prefix + r'.*')
             self.fileid_regex_dict = {'.fits': [file_id_regex],
-                                      '.fit': [file_id_regex]}
+                                      '.fit': [file_id_regex],
+                                      '.log': [file_id_regex],
+                                      '.txt': [file_id_regex]}
         else:
             self.fileid_regex_dict = {'.fits': [re.compile(r'.*')],
                                       '.fit': [re.compile(r'.*')]}
@@ -428,44 +432,6 @@ class caom2ingest(object):
         else:
             self.workdir = os.getcwd()
         
-        if self.args.logdir:
-            self.logdir = os.path.abspath(
-                            os.path.expandvars(
-                                os.path.expanduser(self.args.logdir)))
-        else:
-            self.logdir = os.getcwd()
-
-        self.test = self.args.test
-
-        if self.args.debug:
-            self.loglevel = logging.DEBUG
-            self.debug = True
-
-        logbase = re.sub(r'[^a-zA-Z0-9]', r'_', 
-                         os.path.splitext(
-                             os.path.basename(
-                                 self.args.major))[0])
-        logbase += '_'
-
-        # log file name
-        # If the log file already exists, do not delete it on successful exit.
-        # Otherwise, the default behaviour will be to delete a log file that
-        # is created for this program on successful exit.
-        if self.args.log:
-            if os.path.dirname(self.args.log) == '':
-                self.logfile = os.path.join(self.logdir, self.args.log)
-            else:
-                self.logfile = os.path.abspath(self.args.log)
-        
-        if not self.logfile:
-            self.logfile = os.path.join(self.logdir,
-                                        logbase + utdate_string() + 
-                                        '.log')
-        
-        # create workdir if it does not already exist
-        if not os.path.exists(self.workdir):
-            os.makedirs(self.workdir)
-
         # Parse ingestion options 
         if (re.match(r'vos:.*', self.args.major)
             and self.vosclient.access(self.major) 
@@ -489,6 +455,49 @@ class caom2ingest(object):
             self.minor = re.sub(r'/+', '/', 
                                 self.args.minor.strip(' \t\n')).split(',')
         
+        if self.args.logdir:
+            self.logdir = os.path.abspath(
+                            os.path.expandvars(
+                                os.path.expanduser(self.args.logdir)))
+        else:
+            self.logdir = os.getcwd()
+
+        self.test = self.args.test
+
+        if self.args.debug:
+            self.loglevel = logging.DEBUG
+            self.debug = True
+
+        if self.local:
+            # substitute the value of dprcinst before saving the file
+            logbase = (self.progname + '_dprcinst')
+        else:
+            logbase = (self.progname + '_' + 
+                       re.sub(r'[^a-zA-Z0-9]', r'-', 
+                             os.path.splitext(
+                                 os.path.basename(
+                                     self.args.major))[0]))
+        logbase += '_'
+
+        # log file name
+        # If the log file already exists, do not delete it on successful exit.
+        # Otherwise, the default behaviour will be to delete a log file that
+        # is created for this program on successful exit.
+        if self.args.log:
+            if os.path.dirname(self.args.log) == '':
+                self.logfile = os.path.join(self.logdir, self.args.log)
+            else:
+                self.logfile = os.path.abspath(self.args.log)
+        
+        if not self.logfile:
+            self.logfile = os.path.join(self.logdir,
+                                        logbase + utdate_string() + 
+                                        '.log')
+        
+        # create workdir if it does not already exist
+        if not os.path.exists(self.workdir):
+            os.makedirs(self.workdir)
+
         if self.args.replace:
             self.replace = re.sub(r'/+', '/', 
                                 self.args.replace.strip(' \t\n')).split(',')
@@ -520,10 +529,12 @@ class caom2ingest(object):
         self.log.file('logdir = ' + self.logdir)
         self.log.console('log = ' + self.logfile)
         
-        if self.collection != self.args.collection and self.local:
-            self.log.console('When --major is a directory on disk, collection '
-                             'will be set to SANDBOX')
-            
+        if self.collection not in ('JCMT', 'SANDBOX'):
+            if not self.prefix:
+                errors = True
+                self.log.console('--prefix is mandatory if --collection '
+                                 'is not JCMT or SANDBOX')
+
         if self.minor:
             for minor in self.minor:
                 self.log.file('minor = ' + minor)
@@ -1579,6 +1590,18 @@ class caom2ingest(object):
         pass
     
     #************************************************************************
+    # Standard cleanup method, which can be customized in derived classes
+    #************************************************************************
+    def cleanup(self):
+        """
+        Cleanup actions to be done after closing the log. 
+        
+        Arguments:
+        <none>
+        """
+        pass
+    
+    #************************************************************************
     # Run the program
     #************************************************************************
     def run(self):
@@ -1621,12 +1644,15 @@ class caom2ingest(object):
                         self.fillMetadict(c)
                         self.checkMembers()
                         self.checkProvenanceInputs()
-                        print self.dew.error_count()
                         if self.dew.error_count() == 0:
                             if self.store:
                                 self.storeFiles()
                             if self.ingest:
                                 self.ingestPlanesFromMetadict()
+                        else:
+                            self.errors = True
+                        if self.dew.warning_count():
+                            self.warnings = True
 
                 # if no errors, declare we are DONR
                 self.log.console('DONE')
@@ -1639,6 +1665,7 @@ class caom2ingest(object):
                                          logging.ERROR)
                     except Exception as p:
                         pass
+        self.cleanup()
 
 if __name__ == '__main__':
     vc = caom2ingest()
