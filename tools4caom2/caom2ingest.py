@@ -467,13 +467,14 @@ class caom2ingest(object):
 
         if self.local:
             # substitute the value of dprcinst before saving the file
-            logbase = (self.progname + '_dprcinst')
-        else:
+            logbase = (self.progname + '_provenance_runid')
+        elif self.major and self.minor:
             logbase = (self.progname + '_' + 
                        re.sub(r'[^a-zA-Z0-9]', r'-', 
-                             os.path.splitext(
-                                 os.path.basename(
-                                     self.args.major))[0]))
+                              self.major + '/' + self.minor[0]))
+        elif self.major:
+            logbase = (self.progname + '_' + 
+                       re.sub(r'[^a-zA-Z0-9]', r'-', self.major))
         logbase += '_'
 
         # log file name
