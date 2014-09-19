@@ -303,7 +303,8 @@ class delayed_error_warning(object):
         header   : FITS header from the primary HDU
         key      : mandatory keyword
         """
-        self.log.file('delayed_error_warning: expect_keyword for filename ' + 
+        self.log.file('delayed_error_warning: expect_keyword ' + key + 
+                      ' for filename ' + 
                       filename)
         ok = False
         if key in header and header[key] != pyfits.card.UNDEFINED:
@@ -327,8 +328,8 @@ class delayed_error_warning(object):
         header     : FITS header from the primary HDU
         value_list : list of acceptable values
         """
-        self.log.file('delayed_error_warning: restricted_value for filename ' + 
-                      filename)
+        self.log.file('delayed_error_warning: restricted_value for ' + key +
+                      ' in  filename ' + filename)
         ok = False
         if key in header and header[key] != pyfits.card.UNDEFINED:
             if header[key] in value_list:

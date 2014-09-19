@@ -687,7 +687,7 @@ class caom2ingest(object):
         
         try:
             # sort the file_id_list
-            file_id_list = container.file_id_list()
+            file_id_list = sorted(container.file_id_list())
             self.log.file('in fillMetadict, file_id_list = ' +
                           repr(file_id_list),
                           logging.DEBUG)
