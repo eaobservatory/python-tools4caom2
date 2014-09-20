@@ -209,9 +209,11 @@ class caom2ingest(object):
         self.plane_dict = OrderedDict()
         self.fitsuri_dict = OrderedDict()
         # The memberset contains member time intervals for this plane.
-        # The member_cache is a dict keyed bu observationURI that contains 
-        # member/input for the whole collectioon on the expectation that the 
-        # same mebers will be used by multiple files.
+        # The member_cache is a dict keyed by the membership headers 
+        # MBR<n> or OBS<n> that contains the observationURI, date_obs, date_end
+        # and release_date for each member.  This is preserved for the whole
+        # container on the expectation that the same members will be used by 
+        # multiple files.
         self.memberset = set()
         self.member_cache = dict()
         # The inputset is the set of planeURIs that are inputs for a plane
@@ -1421,6 +1423,8 @@ class caom2ingest(object):
                 
                 thisPlane['plane_dict']['members'] = ' '.join(
                                             sorted(list(memberset)))
+            elif 'members' in thisPlane['plane_dict']:
+                del thisPlane['plane_dict']['members']
 
     #************************************************************************
     # Add inputs to a plane in an observation xml
@@ -1445,6 +1449,8 @@ class caom2ingest(object):
             if inputset:
                 thisPlane['plane_dict']['provenance.inputs'] = ' '.join(
                                             sorted(list(inputset)))
+            elif 'provenance.inputs' in thisPlane['plane_dict']:
+                del thisPlane['plane_dict']['provenance.inputs']
 
     #************************************************************************
     # Ingest planes from metadict, tracking members and inputs
