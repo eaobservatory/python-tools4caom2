@@ -33,7 +33,7 @@ class tapclient(object):
     count = table[0]['count']
     """
     
-    CADC_TAP_SERVICE = 'http://www1.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/tap/sync'
+    CADC_TAP_SERVICE = 'https://www1.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/tap/sync'
     
     def __init__(self, 
                  log, 
