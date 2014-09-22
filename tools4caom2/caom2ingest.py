@@ -1232,8 +1232,10 @@ class caom2ingest(object):
         Use the data_web client to verify that file_id is in self.archive
         """
         found = False
+        self.log.file('verify in AD: ' + file_id)
         if self.data_web.info(self.archive, file_id):
             found = True
+        self.log.file('found = ' + str(found) + ' for ' + file_id)
         return found
     
     def storeFiles(self):
