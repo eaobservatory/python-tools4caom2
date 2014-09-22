@@ -733,6 +733,10 @@ class caom2ingest(object):
                 head.update('filepath', filepath)
                 if isinstance(container, vos_container):
                     head.update('VOSPATH', container.vosroot)
+                    head.update('SRCPATH', container.uri(file_id))
+                else:
+                    head.update('SRCPATH', filepath)
+                
                 self.log.file('...got primary header from ' + filepath,
                               logging.DEBUG)
             except:
