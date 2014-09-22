@@ -666,9 +666,7 @@ class caom2ingest(object):
         self.plane_dict.clear()
         self.fitsuri_dict.clear()
         self.memberset.clear()
-        self.member_cache.clear()
         self.inputset.clear()
-        self.input_cache.clear()
         self.override_items = 0
         
     #************************************************************************
