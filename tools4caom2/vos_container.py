@@ -164,7 +164,7 @@ class vos_container(basecontainer):
             self.log.console('requesting bad file_id: ' + file_id +
                              ' from ' +repr(self.file_id_list()),
                              logging.ERROR)
-        return vospath[file_id]
+        return self.vospath[file_id]
 
     def cleanup(self, file_id):
         """
