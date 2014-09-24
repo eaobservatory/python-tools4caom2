@@ -694,15 +694,10 @@ class caom2ingest(object):
 
             # Gather metadata from each file in the container
             for file_id in file_id_list:
-                if self.ingest and not self.verifyFileInAD(file_id):
-                    self.dew.error(filename,
-                                   'Attempt to ingest ' + file_id +
-                                   ' which is not in AD')
-                else:
-                    self.log.file('In fillMetadict, use ' + file_id,
-                                  logging.DEBUG)
-                    with container.use(file_id) as f:
-                        self.fillMetadictFromFile(file_id, f, container)
+                self.log.file('In fillMetadict, use ' + file_id,
+                              logging.DEBUG)
+                with container.use(file_id) as f:
+                    self.fillMetadictFromFile(file_id, f, container)
         finally:
             container.close()
     
@@ -1678,6 +1673,10 @@ class caom2ingest(object):
                     except Exception as p:
                         pass
         self.cleanup()
+        if self.errors:
+            sys.exit(1)
+        else:
+            sys.exit(0)
 
 if __name__ == '__main__':
     vc = caom2ingest()
