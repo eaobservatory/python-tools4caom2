@@ -14,7 +14,7 @@ if sys.version_info[0] > 2:
 # debug.DEBUG=1
 
 setup(name="tools4caom2",
-      version='1.2.0',
+      version='1.2.1',
       description='Python tools to assist ingestions into CAOM-2, ' + \
                   'especially when using fits2caom2',
       author='Russell Redman',
