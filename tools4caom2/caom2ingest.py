@@ -775,8 +775,8 @@ class caom2ingest(object):
             myobservationID = ''
 
         uri = ObservationURI('caom:' +
-                             collection + '/' +
-                             observationID)
+                             mycollection + '/' +
+                             myobservationID)
         return uri
 
     #************************************************************************
@@ -1417,13 +1417,13 @@ class caom2ingest(object):
                              logging.DEBUG)
                              
             self.log.console('memberset = ' + 
-                             repr([m.uri() for m in list(memberset])),
+                             repr([m.uri for m in list(memberset)]),
                              logging.DEBUG)
             if (memberset and 
                 thisPlane['plane_dict']['algorithm.name'] != 'exposure'):
                 
                 thisPlane['plane_dict']['members'] = ' '.join(
-                                sorted([m.uri() for m in list(memberset)]))
+                                sorted([m.uri for m in list(memberset)]))
             elif 'members' in thisPlane['plane_dict']:
                 del thisPlane['plane_dict']['members']
 
@@ -1445,12 +1445,12 @@ class caom2ingest(object):
                              thisPlane['plane_dict']['provenance.name'],
                              logging.DEBUG)
             self.log.console('inputset = ' + 
-                             repr([i.uri() for i in list(inputset)]),
+                             repr([i.uri for i in list(inputset)]),
                              logging.DEBUG)
             
             if inputset:
                 thisPlane['plane_dict']['provenance.inputs'] = ' '.join(
-                                sorted([i.uri() for i in list(inputset)]))
+                                sorted([i.uri for i in list(inputset)]))
             elif 'provenance.inputs' in thisPlane['plane_dict']:
                 del thisPlane['plane_dict']['provenance.inputs']
 
