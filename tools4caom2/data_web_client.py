@@ -235,35 +235,6 @@ class data_web_client(object):
 
         return success
 
-    def delete(self, archive, file_id):
-        """
-        If the caller is authorized to access the archive, determine if the
-        file_id exists and if so return basic HTTP header information.
-        """
-        success = False
-        headerdict = {}
-        if file_id[:4] == 'http':
-            url = re.sub(r'http:', 'https:', file_id)
-        else:
-            url = '/'.join([data_web_client.CADC_URL, archive, file_id])
-        self.log.file('url = ' + url,
-                      logging.DEBUG)
-        
-        try:
-            r = requests.delete(url, cert=self.cadcproxy)
-            if r.status_code == 200:
-                success = True
-            else:
-                self.log.console(str(r.status_code) + ' = ' + 
-                                 httplib.responses[r.status_code],
-                                 logging.WARN)
-        except Exception as e:
-            self.log.console('FAILED to put ' + filepath + ': ' + 
-                             traceback.format_exc(),
-                             logging.WARN)
-
-        return success
-
 def run():
     """
     Provides a command line interface to file operations, to be used in
@@ -407,8 +378,10 @@ def run():
                            os.path.expanduser(
                                os.path.expandvars(a.file)))
 
+        log.console('create dwc', logging.DEBUG)
         dwc = data_web_client(workdir, log, proxy=a.proxy)
         
+        log.console('issue command', logging.DEBUG)
         if a.operation == 'info':
             for fileid in fileid_list:
                 headerdict = dwc.info(a.archive, fileid)
