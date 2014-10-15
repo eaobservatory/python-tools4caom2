@@ -319,10 +319,12 @@ class database(object):
             try:
                 with database.read_mutex:
                     self.get_read_connection()
-                    cursor = database.read_connection.cursor()
-                    cursor.execute(query, params)
-                    returnList = cursor.fetchall()
-                    cursor.close()
+                    try:
+                        cursor = database.read_connection.cursor()
+                        cursor.execute(query, params)
+                        returnList = cursor.fetchall()
+                    finally:
+                        cursor.close()
                     retry = False
                     # should be a no-op
                     # database.read_connection.commit()
@@ -356,18 +358,19 @@ class database(object):
         The query should not return any rows of output.
         """
         self.log.file(cmd)
-        returnList = [[]]
+        returnList = []
         number = 0
         retry = True
         while sybase_defined and retry:
             try:
                 with database.write_mutex:
                     self.get_write_connection()
-                    cursor = database.write_connection.cursor()
-                    cursor.execute(cmd, params)
-                    if result:
+                    try:
+                        cursor = database.write_connection.cursor()
+                        cursor.execute(cmd, params)
                         returnList = cursor.fetchall()
-                    cursor.close()
+                    finally:
+                        cursor.close()
                     retry = False
             except Exception as e:
                 # Do not know what kind of error we will get back
