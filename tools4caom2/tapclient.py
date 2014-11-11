@@ -87,7 +87,14 @@ class tapclient(object):
                 if query_status == 'ERROR':
                     self.log.console('TAP QUERY response: ' + query_content,
                                      logging.ERROR)
+                elif query_status != 'OK':
+                    if query_content:
+                        self.log.console('TAP QUERY_STATUS = ' + 
+                                         str(query_status) +
+                                         '  MESSAGE = ' + query_content,
+                                         logging.ERROR)
 
+                # Get here if the table is valid, so process the contents...
                 # copy dictionary for usage after r is closed
                 if format == 'table':
                     try:
