@@ -73,17 +73,32 @@ class tapclient(object):
                              params=params, 
                              cert=self.cadcproxy)
             if r.status_code == 200:
+                # The TAP service handled the query and returned a VOTable,
+                # but may not have run the query successfully.  Check for
+                # error messages.
+                vot = parse(StringIO.StringIO(r.content))
+                query_status = None
+                query_content = None
+                if vot.resources and vot.resources[0].type == 'results':
+                    for info in vot.resources[0].infos:
+                        if info.name == 'QUERY_STATUS':
+                            query_status = info.value
+                            query_content = info.content
+                if query_status == 'ERROR':
+                    self.log.console('TAP QUERY response: ' + query_content,
+                                     logging.ERROR)
+
                 # copy dictionary for usage after r is closed
-                table = parse(StringIO.StringIO(r.content))
                 if format == 'table':
                     try:
-                        table = table.get_first_table().to_table()
+                        table = vot.get_first_table().to_table()
                     except:
                         table = None
                 
             elif r.status_code != 404:
                 self.log.console(str(r.status_code) + ' = ' + 
-                                 httplib.responses[r.status_code],
+                                 httplib.responses[r.status_code] + 
+                                 ': ' + str(r.contents),
                                  logging.WARN)
         except Exception as e:
             self.log.console('FAILED to get reply for "' + adql + '": ' + 
@@ -126,7 +141,7 @@ def run():
     if a.values:
         adqlquery = adqlquery % tuple(a.values)
     if a.verbose:
-        print adqlquery
+        log.console(adqlquery)
     
     if a.votable:
         votable = tap.query(adqlquery, 'votable')
