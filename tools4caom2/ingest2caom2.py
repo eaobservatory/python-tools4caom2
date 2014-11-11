@@ -956,7 +956,7 @@ class ingest2caom2(object):
         --archive   : default normally set in __init__
         --stream'   : ad stream to use with --copytoarchive
 
-        --copytoarchive     : use data_web-client.put() to push files into ad
+        --copytoarchive     : use data_web_client.put() to push files into ad
 
         --server    : choices=['SYBASE','DEVSYBASE'], default='SYBASE'
         --database  : default normally set in __init__

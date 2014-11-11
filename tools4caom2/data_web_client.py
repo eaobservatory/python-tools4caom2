@@ -10,6 +10,7 @@ import os.path
 import re
 import requests
 import sys
+import time
 import traceback
 
 from tools4caom2.logger import logger
@@ -70,8 +71,26 @@ class data_web_client(object):
         
         headerdict = {}
         try:
-            r = requests.get(url, cert=self.cadcproxy)
-            if r.status_code == 200:
+            ok = False
+            retry = 0
+            r = None
+            while retry < 3 and not ok:
+                try:
+                    r = requests.head(url, cert=self.cadcproxy)
+                    ok = True
+                except KeyboardInterrupt:
+                    sys.exit(0)
+                except:
+                    retry += 1
+                    if retry < 3:
+                        self.log.file('retry info: ' + traceback.format_exc(),
+                                      logging.DEBUG)
+                    time.sleep(0.5)
+            if r is None:
+                self.log.console('data_web_client.info failed after retries=' +
+                                 str(retry),
+                                 logging.ERROR)
+            elif r.status_code == 200:
                 # copy dictionary for usage after r is closed
                 headerdict.update(r.headers)
                 
@@ -134,10 +153,24 @@ class data_web_client(object):
                       logging.DEBUG)
                 
         try:
-            r = requests.get(url,
-                             params=params,
-                             cert=self.cadcproxy,
-                             stream=True)
+            ok = False
+            retry = 0
+            while retry < 3 and not ok:
+                try:
+                    r = requests.get(url,
+                                     params=params,
+                                     cert=self.cadcproxy,
+                                     stream=True)
+                    ok = True
+                except KeyboardInterrupt:
+                    sys.exit(0)
+                except:
+                    retry += 1
+                    if retry < 3:
+                        self.log.file('retry info: ' + traceback.format_exc(),
+                                      logging.DEBUG)
+                    time.sleep(0.5)
+                    
             if r.status_code != 200:
                 self.log.console(str(r.status_code) + ' = ' + 
                                  httplib.responses[r.status_code],
@@ -148,7 +181,7 @@ class data_web_client(object):
             if filepath:
                 myfilepath = os.path.abspath(
                                 os.path.expandvars(
-                                    od.path.expanduser(filepath)))
+                                    os.path.expanduser(filepath)))
                 
             elif 'content-disposition' in r.headers:
                 filename = file_id
@@ -222,11 +255,27 @@ class data_web_client(object):
             headers['X-CADC-Stream'] = adstream
 
         with open(myfilepath, 'rb') as F:
-            r = requests.put(url,
-                             data=F,
-                             cert=self.cadcproxy,
-                             headers=headers)
-            if r.status_code == 201:
+            retry = 0
+            ok = False
+            while retry < 3 and not ok:
+                try:
+                    self.log.file('data_web_client.put: url=' + url)
+                    self.log.file('data_web_client.put: headers=' + repr(headers))
+                    r = requests.put(url,
+                                     data=F,
+                                     cert=self.cadcproxy,
+                                     headers=headers)
+                    ok = True
+                except KeyboardInterrupt:
+                    sys.exit(0)
+                except:
+                    retry += 1
+                    if retry < 3:
+                        self.log.file('retry info: ' + traceback.format_exc(),
+                                      logging.DEBUG)
+                    time.sleep(0.5)
+#            if r.status_code == 201:
+            if r.status_code in (200, 201):
                 success = True
             else:
                 self.log.console(str(r.status_code) + ' = ' + 

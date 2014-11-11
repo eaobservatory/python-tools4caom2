@@ -80,7 +80,8 @@ class testDataWebService(unittest.TestCase):
         hdulist.writeto(filepath)
         
         s = self.web_service.put(filepath, 'TEST', file_id, adstream='test')
-        logmsg = open(self.logfile,'r').read()
+        with open(self.logfile,'r') as L:
+            logmsg = L.read()
         self.assertTrue(s, 'failed to put ' + filepath + ' to TEST with ' +
                         ' file_id = ' + file_id + ': logmsg = ' + logmsg)
             
