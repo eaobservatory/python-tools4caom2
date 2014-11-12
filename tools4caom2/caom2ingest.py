@@ -181,14 +181,15 @@ class caom2ingest(object):
         self.log = None
 
         # Ingestion parameters and structures
-        self.prefix = ''     # ingestible files must start with this prefix
-        self.major = ''      # path to major release directory
-        self.minor = []      # paths relative to major of minor release directories
-        self.replace = []    # paths of major releases being replaced
-        self.big = False     # use larger memory for fits2caom2 if needed
-        self.store = False   # store files from major/minor into the archive
-        self.ingest = False  # ingest files from major/minor into CAOM-2
-        self.local = False   # True if files are on disk rather than in VOspace
+        self.prefix = ''         # ingestible files must start with this prefix
+        self.major = ''          # path to major release directory
+        self.minor = []          # regex's for paths minors relative to major
+        self.replace = []        # paths of major releases being replaced
+        self.big = False         # use larger memory for fits2caom2 if needed
+        self.store = False       # store files from major/minor into the archive
+        self.storemethod = None  # e-transfer or data web service 
+        self.ingest = False      # ingest files from major/minor into CAOM-2
+        self.local = False       # True if files are on disk rather than in VOspace
         
         # Archive-specific fits2caom2 config and default file paths
         self.config = None
@@ -332,6 +333,11 @@ class caom2ingest(object):
                              action='store_true',
                              help='store in AD files that are ready for '
                                   'ingestion if there are no errors')
+        self.ap.add_argument('--storemethod',
+                             choices=['push', 'pull'],
+                             default='pull',
+                             help='use e-transfer (pull) or data web service '
+                                  '(push) to store files in AD')
         self.ap.add_argument('--ingest',
                              action='store_true',
                              help='ingest from AD files that are ready for '
@@ -504,6 +510,7 @@ class caom2ingest(object):
         
         if self.args.store:
             self.store = self.args.store
+        self.storemethod = self.args.storemethod
         
         if self.args.ingest:
             self.ingest = self.args.ingest
@@ -1250,8 +1257,20 @@ class caom2ingest(object):
             for filelist in (self.data_storage, self.preview_storage):
                 for filepath in filelist:
                     basefile = os.path.basename(filepath)
-                    self.vosclient.link(filepath, 
-                                        transfer_dir + '/' + basefile)
+                    if self.storemethod == 'pull':
+                        self.vosclient.link(filepath, 
+                                            transfer_dir + '/' + basefile)
+                    elif self.storemethod == 'push':
+                        tempfile = os.path.join(self.workdir, basefile)
+                        try:
+                            self.vosclient.copy(filepath, tempfile)
+                            self.dataweb.put(tempfile,
+                                             self.archive,
+                                             file_id,
+                                             self.stream)
+                        finally:
+                            if os.path.exists(tempfile):
+                                os.remove(tempfile)
     
     def checkMembers(self):
         """
