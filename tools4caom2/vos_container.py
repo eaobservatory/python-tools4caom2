@@ -128,7 +128,7 @@ class vos_container(basecontainer):
 
         # This fetches only the header from the primary HDU, which
         # should result in significant performance improvements
-        if self.ingest:
+        if self.ingest and False:
             # file should already be in AD
             # This gets ONLY the primary header
             filepath = self.dataweb.get(self.archive_name, 

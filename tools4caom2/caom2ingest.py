@@ -758,9 +758,10 @@ class caom2ingest(object):
             if (filepath not in self.dew.errors 
                 or len(self.dew.errors[filepath]) == 0):
                 
-                self.data_storage.append(filepath)
-        else:
-            self.preview_storage.append(filepath)
+                self.data_storage.append(head['SRCPATH'])
+
+#        else:
+#            self.preview_storage.append(container.uri(file_id))
         
     #************************************************************************
     # Format an observation URI for composite members
@@ -1247,30 +1248,50 @@ class caom2ingest(object):
     
     def storeFiles(self):
         """
-        If files approved for storage are in vos, create a link in the
-        VOS pickup directory.  
+        If files approved for storage are in vos, move them into AD.
+        If storemethod == 'pull', use the VOspace e-transfer protocol.
+        If storemethod == 'push', copy the files into a local directory
+        and push them into AD using the data web service.
+        
+        This does not check that the transfer completes successfully.
         """
-        if (self.userconfig.has_section('vos')
+        transfer_dir = None
+        if (self.storemethod == 'pull'
+            and self.userconfig.has_section('vos')
             and self.userconfig.has_option('vos', 'transfer')):
+
             transfer_dir = self.userconfig.get('vos', 'transfer')
-            
-            for filelist in (self.data_storage, self.preview_storage):
-                for filepath in filelist:
-                    basefile = os.path.basename(filepath)
-                    if self.storemethod == 'pull':
-                        self.vosclient.link(filepath, 
-                                            transfer_dir + '/' + basefile)
-                    elif self.storemethod == 'push':
-                        tempfile = os.path.join(self.workdir, basefile)
-                        try:
-                            self.vosclient.copy(filepath, tempfile)
-                            self.dataweb.put(tempfile,
-                                             self.archive,
-                                             file_id,
-                                             self.stream)
-                        finally:
-                            if os.path.exists(tempfile):
-                                os.remove(tempfile)
+            if not self.vosclient.isdir(transfer_dir):
+                self.log.console('transfer_dir = ' + transfer_dir +
+                                 ' does not exist',
+                                 logging.ERROR)
+        
+        for filelist in (self.data_storage, self.preview_storage):
+            for filepath in filelist:
+                basefile = os.path.basename(filepath)
+                file_id = self.make_file_id(basefile)
+                self.log.console('PUT: ' + filepath)
+                if transfer_dir:
+                    self.vosclient.link(filepath, 
+                                        transfer_dir + '/' + basefile)
+                elif self.storemethod == 'push':
+                    tempfile = os.path.join(self.workdir, basefile)
+                    try:
+                        self.vosclient.copy(filepath, tempfile)
+                        if not self.data_web.put(tempfile,
+                                                 self.archive,
+                                                 file_id,
+                                                 self.stream):
+                            self.dew.error(filepath,
+                                           'failed to push into AD using the '
+                                           'data_web_client')
+                    finally:
+                        if os.path.exists(tempfile):
+                            os.remove(tempfile)
+                else:
+                    self.log.console('storemethod = ' + self.storemethod +
+                                     'has not been implemented',
+                                     logging.ERROR)
     
     def checkMembers(self):
         """
@@ -1682,10 +1703,11 @@ class caom2ingest(object):
                                 self.ingestPlanesFromMetadict()
                         else:
                             self.errors = True
+                            print 'errors were encountered: ' + self.dew.error_count()
                         if self.dew.warning_count():
                             self.warnings = True
 
-                # if no errors, declare we are DONR
+                # declare we are DONE
                 self.log.console('DONE')
             except Exception as e:
                 self.errors = True
