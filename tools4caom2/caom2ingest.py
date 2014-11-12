@@ -743,6 +743,9 @@ class caom2ingest(object):
                               logging.DEBUG)
 
             self.file_id = file_id
+            if self.ingest:
+                self.verifyFileInAD(filepath, file_id)
+            
             self.build_dict(head)
             self.build_metadict(filepath)
             if (filepath not in self.dew.errors 
@@ -1226,16 +1229,14 @@ class caom2ingest(object):
                     else:
                         thisFitsuri[key] = self.fitsuri_dict[fitsuri][key]
 
-    def verifyFileInAD(self, file_id):
+    def verifyFileInAD(self, filename, file_id):
         """
         Use the data_web client to verify that file_id is in self.archive
         """
-        found = False
-        self.log.file('verify in AD: ' + file_id)
-        if self.data_web.info(self.archive, file_id):
-            found = True
-        self.log.file('found = ' + str(found) + ' for ' + file_id)
-        return found
+        if not self.data_web.info(self.archive, file_id):
+            self.dew.error(filename, 
+                           'file_id = ' + file_id + 
+                           ' has not yet been stored in ' + self.archive)
     
     def storeFiles(self):
         """
@@ -1243,13 +1244,14 @@ class caom2ingest(object):
         VOS pickup directory.  
         """
         if (self.userconfig.has_section('vos')
-            and self.userconfig.has_option('vos', 'pickup')):
-            pickup = self.userconfig.get('vos', 'pickup')
+            and self.userconfig.has_option('vos', 'transfer')):
+            transfer_dir = self.userconfig.get('vos', 'transfer')
             
             for filelist in (self.data_storage, self.preview_storage):
                 for filepath in filelist:
                     basefile = os.path.basename(filepath)
-                    self.vosclient.link(filepath, pickup + '/' + basefile)
+                    self.vosclient.link(filepath, 
+                                        transfer_dir + '/' + basefile)
     
     def checkMembers(self):
         """
