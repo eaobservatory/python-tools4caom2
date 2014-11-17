@@ -1388,6 +1388,7 @@ class caom2ingest(object):
         cmd += ' --collection="' + collection + '"'
         cmd += ' --observationID="' + observationID + '"'
         cmd += ' --productID="' + productID + '"'
+        cmd += ' --ignorePartialWCS'
 
         if os.path.exists(xmlfile):
             cmd += ' --in="' + xmlfile + '"'
