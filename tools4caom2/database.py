@@ -162,22 +162,13 @@ class database(object):
             if userconfig.has_option('database', 'server'):
                 self.server = userconfig.get('database', 'server')
             
-            if userconfig.has_option('database', 'cred_db'):
-                self.cred_db = userconfig.get('database', 'cred_db')
-            elif userconfig.has_option('database', 'read_db'):
-                self.cred_db = userconfig.get('database', 'read_db')
-            
             if userconfig.has_option('database', 'read_db'):
                 self.read_db = userconfig.get('database', 'read_db')
-            elif userconfig.has_option('database', 'cred_db'):
-                self.read_db = userconfig.get('database', 'cred_db')
         
             if userconfig.has_option('database', 'write_db'):
-                self.read_db = userconfig.get('database', 'write_db')
-            elif userconfig.has_option('database', 'cred_db'):
-                self.read_db = userconfig.get('database', 'cred_db')
+                self.write_db = userconfig.get('database', 'write_db')
             elif userconfig.has_option('database', 'read_db'):
-                self.read_db = userconfig.get('database', 'read_db')
+                self.write_db = userconfig.get('database', 'read_db')
 
             if userconfig.has_option('database', 'cred_id'):
                 self.cadc_id = userconfig.get('database', 'cred_id')
@@ -186,7 +177,17 @@ class database(object):
         else:
             self.use = False
 
+        if self.server:
+            self.log.file('database server: ' + self.server, logging.DEBUG)
+        if self.read_db:
+            self.log.file('database read_db: ' + self.read_db, logging.DEBUG)
+        if self.write_db:
+            self.log.file('database write_db: ' + self.write_db, logging.DEBUG)
         self.pause_queue = [1.0, 2.0, 3.0]
+        if self.cred_id:
+            self.log.file('database cred_id: ' + self.cred_id, logging.DEBUG)
+        if self.cred_key:
+            self.log.file('database cred_key: ' + self.cred_key, logging.DEBUG)
         self.log = log
 
     def available(self):
