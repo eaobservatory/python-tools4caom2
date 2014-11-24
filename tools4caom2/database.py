@@ -186,6 +186,8 @@ class database(object):
         else:
             self.use = False
 
+        self.log.file('sybase_defined: ' + str(sybase_defined), logging.DEBUG)
+        self.log.file('database use: ' + str(self.use), logging.DEBUG)
         if self.server:
             self.log.file('database server: ' + self.server, logging.DEBUG)
         if self.read_db:
@@ -274,7 +276,8 @@ class database(object):
                                          logging.ERROR)
         else:
             self.log.file('cannot open a read_connection to a database '
-                          'because Sybase is not available')
+                          'because Sybase is not available',
+                          logging.ERROR)
 
             
     def get_write_connection(self, write_db):
@@ -309,7 +312,8 @@ class database(object):
                                          logging.ERROR)
         else:
             self.log.file('Could not open a write_connection to a database '
-                           'because Sybase is not available')
+                           'because Sybase is not available',
+                           logging.ERROR)
 
     def read(self, query, params={}):
         """
