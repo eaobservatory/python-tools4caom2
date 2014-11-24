@@ -157,8 +157,6 @@ class database(object):
         self.cred_db = None
         self.read_db = None
         self.write_db = None
-        self.cadc_id = None
-        self.cadc_key = None
 
         if userconfig.has_section('database'):
             if userconfig.has_option('database', 'server'):
@@ -185,6 +183,8 @@ class database(object):
                 self.cadc_id = userconfig.get('database', 'cred_id')
             if userconfig.has_option('database', 'cred_key'):
                 self.cadc_key = userconfig.get('database', 'cred_key')
+        else:
+            self.use = False
 
         self.pause_queue = [1.0, 2.0, 3.0]
         self.log = log
@@ -197,6 +197,7 @@ class database(object):
     
     def get_credentials(self):
         """
+        For use at the CADC only.  
         Read the users .dbrc file to get credentials, if dbrc_get is defined
         and userconfig does not define cred_id and cred_key
         
@@ -242,18 +243,18 @@ class database(object):
         """
         if sybase_defined and self.use:
             if not database.read_connection:
-                self.get_credentials()
+                # self.get_credentials()
                 self.log.file('have credentials')
                 # Check that credentials exist
-                if not (self.cadc_id and self.cadc_key):
+                if not (self.cred_id and self.cred_key):
                     
                     self.log.file('No user credentials, so omit '
                                   'opening connection to database')
                 else:
                     database.read_connection = \
                         Sybase.connect(self.server,
-                                       self.cadc_id,
-                                       self.cadc_key,
+                                       self.cred_id,
+                                       self.cred_key,
                                        database=self.read_db,
                                        auto_commit=1,
                                        datetime='python')
@@ -278,17 +279,17 @@ class database(object):
         """
         if sybase_defined and self.use:
             if not database.write_connection:
-                self.get_credentials()
+                # self.get_credentials()
                 # Check that credentials exist
-                if not (self.cadc_id and self.cadc_key):
+                if not (self.cred_id and self.cred_key):
                     
                     self.log.file('No user credentials, so omit '
                                   'opening connection to database')
                 else:
                     database.write_connection = \
                         Sybase.connect(self.server,
-                                       self.cadc_id,
-                                       self.cadc_key,
+                                       self.cred_id,
+                                       self.cred_key,
                                        database=self.write_db,
                                        auto_commit=0,
                                        datetime='python')
