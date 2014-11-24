@@ -155,11 +155,18 @@ class database(object):
             self.use = False
         self.log = log
 
+        # Database server to use for queries
         self.server = None
-        self.cred_db = None
+        
+        # Database account and password
+        self.cred_id = None
+        self.cred_key = None
+        
+        # Database to use for default read and write access
         self.read_db = None
         self.write_db = None
 
+        # Always read the userconfig to configure database connection
         if userconfig.has_section('database'):
             if userconfig.has_option('database', 'server'):
                 self.server = userconfig.get('database', 'server')
@@ -173,9 +180,9 @@ class database(object):
                 self.write_db = userconfig.get('database', 'read_db')
 
             if userconfig.has_option('database', 'cred_id'):
-                self.cadc_id = userconfig.get('database', 'cred_id')
+                self.cred_id = userconfig.get('database', 'cred_id')
             if userconfig.has_option('database', 'cred_key'):
-                self.cadc_key = userconfig.get('database', 'cred_key')
+                self.cred_key = userconfig.get('database', 'cred_key')
         else:
             self.use = False
 
