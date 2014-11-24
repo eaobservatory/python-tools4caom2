@@ -195,10 +195,10 @@ class database(object):
         if self.write_db:
             self.log.file('database write_db: ' + self.write_db, logging.DEBUG)
         self.pause_queue = [1.0, 2.0, 3.0]
-        if self.cred_id:
-            self.log.file('database cred_id: ' + self.cred_id, logging.DEBUG)
-        if self.cred_key:
-            self.log.file('database cred_key: ' + self.cred_key, logging.DEBUG)
+        # if self.cred_id:
+        #     self.log.file('database cred_id: ' + self.cred_id, logging.DEBUG)
+        # if self.cred_key:
+        #     self.log.file('database cred_key: ' + self.cred_key, logging.DEBUG)
 
     def available(self):
         """
