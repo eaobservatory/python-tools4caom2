@@ -153,6 +153,8 @@ class database(object):
             self.use = use
         else:
             self.use = False
+        self.log = log
+
         self.server = None
         self.cred_db = None
         self.read_db = None
@@ -188,7 +190,6 @@ class database(object):
             self.log.file('database cred_id: ' + self.cred_id, logging.DEBUG)
         if self.cred_key:
             self.log.file('database cred_key: ' + self.cred_key, logging.DEBUG)
-        self.log = log
 
     def available(self):
         """
