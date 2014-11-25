@@ -1704,7 +1704,6 @@ class caom2ingest(object):
                                 self.ingestPlanesFromMetadict()
                         else:
                             self.errors = True
-                            print 'errors were encountered: ' + self.dew.error_count()
                         if self.dew.warning_count():
                             self.warnings = True
 
