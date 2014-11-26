@@ -48,7 +48,8 @@ class data_web_client(object):
                             os.path.expandvars(
                                 os.path.expanduser(workdir)))
         if not os.path.isdir(self.workdir):
-            self.log.console('workdir is not a directory: ' + self.workdir)
+            self.log.console('workdir is not a directory: ' + self.workdir,
+                             logging.ERROR)
         self.cadcproxy = os.path.abspath(
                             os.path.expandvars(
                                 os.path.expanduser(proxy)))
@@ -325,12 +326,6 @@ def run():
                     help='get files from CADC (requires archive, '
                          'file, fileid and CADC authorization, '
                          'optionally stream)')
-    ap.add_argument('-d', '--delete',
-                    dest='operation',
-                    action='store_const',
-                    const='delete',
-                    help='delete a file from a CADC archive (requires '
-                         'archive, fileid and CADC authorization)')
 
     ap.add_argument('-a', '--archive',
                     help='archive containing file')
@@ -376,7 +371,7 @@ def run():
         log.console('log = ' + logpath)
         for attr in dir(a):
             if attr != 'id' and attr[0] != '_':
-                log.console('%-15s= %s' % (attr, getattr(a, attr)),
+                log.file('%-15s= %s' % (attr, getattr(a, attr)),
                             logging.DEBUG)
         
         if a.operation == 'put' and not a.file:
@@ -455,6 +450,3 @@ def run():
 
         elif a.operation == 'put':
             dwc.put(filepath, a.archive, a.fileid[0], adstream=a.stream)
-        
-        elif a.operation == 'delete':
-            dwc.delete(a.archive, a.fileid[0])

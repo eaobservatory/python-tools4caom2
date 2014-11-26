@@ -1,52 +1,9 @@
 #!/usr/bin/env python2.7
-#/*+
-#************************************************************************
-#****  C A N A D I A N   A S T R O N O M Y   D A T A   C E N T R E  *****
-#*
-#* (c) 2012.                  (c) 2012.
-#* National Research Council        Conseil national de recherches
-#* Ottawa, Canada, K1A 0R6         Ottawa, Canada, K1A 0R6
-#* All rights reserved            Tous droits reserves
-#*
-#* NRC disclaims any warranties,    Le CNRC denie toute garantie
-#* expressed, implied, or statu-    enoncee, implicite ou legale,
-#* tory, of any kind with respect    de quelque nature que se soit,
-#* to the software, including        concernant le logiciel, y com-
-#* without limitation any war-        pris sans restriction toute
-#* ranty of merchantability or        garantie de valeur marchande
-#* fitness for a particular pur-    ou de pertinence pour un usage
-#* pose.  NRC shall not be liable    particulier.  Le CNRC ne
-#* in any event for any damages,    pourra en aucun cas etre tenu
-#* whether direct or indirect,        responsable de tout dommage,
-#* special or general, consequen-    direct ou indirect, particul-
-#* tial or incidental, arising        ier ou general, accessoire ou
-#* from the use of the software.    fortuit, resultant de l'utili-
-#*                     sation du logiciel.
-#*
-#************************************************************************
-#*
-#*   Script Name:    database.py
-#*
-#*   Purpose:
-#*    Sybase connection for jcmt data in CAOM 2.0
-#*
-#+ Usage: from tools4caom2.database import database
-#+
-#+ Options:
-#*
-#*  SVN Fields:
-#*    $Revision: 1068 $
-#*    $Date: 2012-10-30 16:33:14 -0700 (Tue, 30 Oct 2012) $
-#*    $Author: redman $
-#*
-#****  C A N A D I A N   A S T R O N O M Y   D A T A   C E N T R E  *****
-#************************************************************************
-#-*/
+
 __author__ = "Russell O. Redman"
 
 
 import errno
-from ConfigParser import SafeConfigParser
 from contextlib import contextmanager
 import datetime
 import logging
@@ -74,16 +31,13 @@ Version: """ + __version__.version
 class database(object):
     """
     Manage connection to Sybase.
-    Credentials are read from the operator's .dbrc file or from the userconfig
-    dictionary.
+    Credentials are read from userconfig, which is a SafeConfigParser object.
     
     The userconfig dictionary can contain definitions for:
     'server': Sybase server
     
-    'cred_db': at the CADC, database for which credentials will be found
-    or
-    'cred_id': cadc account user_id
-    'cred_key': cadc account password
+    'cred_id': database user account
+    'cred_key': database user password
     
     'read_db': database to read by default ('cred_db' if absent)
     'write_db': database to write by default ('cred_db' if absent)
@@ -92,7 +46,6 @@ class database(object):
     
     Usage:
     userconfig['server'] = 'SYBASE'
-    userconfig['cred_db'] = 'jcmt'
     mylog = tools4caom2.logger("mylogfile.log")
     
     with database(userconfig, mylog) as db:
@@ -105,8 +58,8 @@ class database(object):
         with db.transaction():
             db.write(update_cmd)
     
-    This class creates a singleton connection and uses a mutex to control 
-    access to the connection, so should be thread-safe.
+    This class creates separate singleton connections for read and write
+    operations, protected with a mutex so the code should be thread-safe.
     """
     
     # class attributes read_mutex and write_mutex
@@ -139,7 +92,7 @@ class database(object):
         Create a new connection to the Sybase server
         
         Arguments:
-        userconfig: user configuration dictionary
+        userconfig: SafeConfigParser object
         log: the instance of tools4caom2.logger.logger to use
         
         Exceptions:
@@ -247,7 +200,8 @@ class database(object):
         """
         Create a singleton read connection if necessary.
         Only called from inside the read() method, this is protected by
-        the database.read_mutex of that method.
+        the database.read_mutex of that method.  It is an error to call
+        read if the database is not available.
         
         Arguments:
         <None>
@@ -284,7 +238,8 @@ class database(object):
         """
         Create a singleton write connection if necessary
         Only called from inside the write() method, this is protected by
-        the database.write_mutex of that method.
+        the database.write_mutex of that method.  It is an error to call
+        write if the database is not available.
         
         Arguments:
         <None>
