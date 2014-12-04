@@ -182,14 +182,12 @@ class caom2ingest(object):
 
         # Ingestion parameters and structures
         self.prefix = ''         # ingestible files must start with this prefix
-        self.major = ''          # path to major release directory
-        self.minor = []          # regex's for paths minors relative to major
-        self.replace = []        # paths of major releases being replaced
-        self.big = False         # use larger memory for fits2caom2 if needed
-        self.store = False       # store files from major/minor into the archive
+        self.indir = ''          # path to indir
+        self.big = False         # True to use larger memory for fits2caom2
+        self.store = False       # True to store files from indir
         self.storemethod = None  # e-transfer or data web service 
-        self.ingest = False      # ingest files from major/minor into CAOM-2
-        self.local = False       # True if files are on disk rather than in VOspace
+        self.ingest = False      # True to ingest files from indir into CAOM-2
+        self.local = False       # True if files are on a local disk
         
         # Archive-specific fits2caom2 config and default file paths
         self.config = None
@@ -198,7 +196,6 @@ class caom2ingest(object):
         # Current vos container
         self.vosclient = Client()
         self.vos = None
-        self.local = False
         # dictionary of lists of compiles regex expressions, keyed by extension
         self.fileid_regex_dict = None
         
@@ -272,13 +269,7 @@ class caom2ingest(object):
         
         # ingestion arguments
         --prefix     : (required) prefix for files to be stored/ingested
-        --major      : (required) major release directory
-        --minor      : (optional) comma-separated list of directories relative to
-                       the major release directory.
-        --replace    : (optional) comma-separated list of major release 
-                       directories whose contents may be replaced by the new 
-                       major release.  All major releases share the same minor 
-                       release directory structure.
+        --indir      : (required) directory or ad file containing the release
         --store      : (optional) store files in AD (requires CADC authorization)
         --ingest     : (optional) ingest new files (requires CADC authorization)
 
@@ -317,18 +308,10 @@ class caom2ingest(object):
         self.ap.add_argument('--prefix',
                              help='file name prefix that identifies files '
                                   'to be ingested')
-        self.ap.add_argument('--major',
+        self.ap.add_argument('--indir',
                              required=True,
-                             help='path to major release directory '
-                                  'containing files to store or ingest')
-        self.ap.add_argument('--minor',
-                             help='comma-separated list of minor release '
-                                  'directories relative to the major release '
-                                  'directory')
-        self.ap.add_argument('--replace',
-                             help='comma-separated list of major release '
-                                  'directories containing files that are '
-                                  'being replaced')
+                             help='path to release data (on disk, in vos, or '
+                                  'an ad file')
         self.ap.add_argument('--store',
                              action='store_true',
                              help='store in AD files that are ready for '
@@ -441,24 +424,20 @@ class caom2ingest(object):
             self.workdir = os.getcwd()
         
         # Parse ingestion options 
-        if (re.match(r'vos:.*', self.args.major)
-            and self.vosclient.access(self.args.major) 
-            and self.vosclient.isdir(self.args.major)):
+        if (re.match(r'vos:.*', self.args.indir)
+            and self.vosclient.access(self.args.indir) 
+            and self.vosclient.isdir(self.args.indir)):
             
-            self.major = self.args.major
+            self.indir = self.args.indir
             self.local = False
         else:
             # is this a local directorory on the disk?
-            majorpath = os.path.abspath(
+            indirpath = os.path.abspath(
                             os.path.expandvars(
-                                os.path.expanduser(self.args.major)))
-            if os.path.isdir(majorpath):
-                self.major = majorpath
+                                os.path.expanduser(self.args.indir)))
+            if os.path.isdir(indirpath):
+                self.indir = indirpath
                 self.local = True
-        
-        if self.args.minor:
-            self.minor = re.sub(r'/+', '/', 
-                                self.args.minor.strip(' \t\n')).split(',')
         
         if self.args.logdir:
             self.logdir = os.path.abspath(
@@ -476,13 +455,9 @@ class caom2ingest(object):
         # substitute the value of dprcinst before saving the file
         logbase = (self.progname + '_provenance_runid')
         if not self.local:
-            if self.major and self.minor:
+            if self.indir:
                 logbase = (self.progname + '_' + 
-                           re.sub(r'[^a-zA-Z0-9]', r'-', 
-                                  self.major + '/' + self.minor[0]))
-            elif self.major:
-                logbase = (self.progname + '_' + 
-                           re.sub(r'[^a-zA-Z0-9]', r'-', self.major))
+                           re.sub(r'[^a-zA-Z0-9]', r'-', self.indir))
         logbase += '_'
 
         # log file name
@@ -542,17 +517,9 @@ class caom2ingest(object):
                 self.log.console('--prefix is mandatory if --collection '
                                  'is not JCMT or SANDBOX')
 
-        if not self.major:
-            self.log.console('--major = ' + self.args.major + ' does not exist',
+        if not self.indir:
+            self.log.console('--indir = ' + self.args.indir + ' does not exist',
                              logging.ERROR)
-        
-        if self.minor:
-            for minor in self.minor:
-                self.log.file('minor = ' + minor)
-        
-        if self.replace:
-            for replace in self.replace:
-                self.log.file('replace = ' + replace)
         
         self.tap = tapclient(self.log, self.proxy)
         errors = False
@@ -580,77 +547,68 @@ class caom2ingest(object):
     
     def commandLineContainers(self):
         """
-        Process the list of vos containers (release directories) 
+        Process the input directory.  Unlike previous versions of this code,
+        caom2ingest handles only one container at a time.  This might revert
+        to processing multiple containers again in the future, so the 
+        container list is retained.
 
         Arguments:
         <None>
-
-        The list of release directories is passed through the attribute 
-        self.voslist. 
-        
-        If not specified, the name of the log file defaults to <database>.log.
-        Beware that log files are always opened in append.  Be sure to delete
-        any existing log files if it is important to have a clean record of the
-        current run.
         """
-        # Find the lists of release directories to ingest.
+        # Find the list of containers to ingest.
         self.containerlist = []
-        releasedirs = []
         try:
             if self.local:
-                if self.minor:
-                    for minor in self.minor:
-                        releasedirs.append(os.path.abspath(
-                                            os.path.expandvars(
-                                                os.path.expanduser(
-                                                    os.path.join(self.major, 
-                                                                 minor)))))
-                else:
-                    releasedirs.append(os.path.abspath(
-                                        os.path.expandvars(
-                                            os.path.expanduser(self.major))))
+                if os.path.isdir(self.indir):
+                    filelist = [os.path.join(self.indir, f)
+                               for f in os.listdir(self.indir)]
+                    self.containerlist.append(
+                        filelist_container(
+                            self.log,
+                            self.indir,
+                            filelist,
+                            lambda f: (self.dew.namecheck(f) and 
+                                       self.dew.sizecheck(f)),
+                            self.make_file_id))
                 
-                for releasedir in releasedirs:
-                    if os.path.isdir(releasedir):
-                        filelist = [os.path.join(releasedir, f)
-                                   for f in os.listdir(releasedir)]
-                        self.containerlist.append(
-                            filelist_container(
+                else:
+                    basename, ext = os.path.splitext(self.indir)
+                    if ext == '.ad':
+                        # self.indir points to an ad file
+                        self.container_list.append(
+                            adfile_container(
                                 self.log,
-                                releasedir,
-                                filelist,
-                                lambda f: (self.dew.namecheck(f) and 
-                                           self.dew.sizecheck(f)),
+                                self.dew,
+                                self.indir,
+                                self.workdir,
                                 self.make_file_id))
+                        
                     else:
-                        self.log.console('release is not a directory: ' +
-                                         releasedir,
+                        self.log.console('indir is not a directory and : '
+                                         'is not an ad file: ' +
+                                         self.indir,
                                          logging.ERROR)
+            
             else:
-                if self.minor:
-                    for minor in self.minor:
-                        releasedirs.append(self.major + '/' + minor)
-                else:
-                    releasedirs.append(self.major)
-                
-                for releasedir in releasedirs:
-                    if (self.vosclient.access(releasedir) 
-                        and self.vosclient.isdir(releasedir)):
+                # handle VOspace directories
+                if (self.vosclient.access(self.indir) 
+                    and self.vosclient.isdir(self.indir)):
 
-                        self.containerlist.append(
-                            vos_container(self.log, 
-                                          releasedir,
-                                          self.archive,
-                                          self.ingest,
-                                          self.workdir, 
-                                          self.dew,
-                                          self.vosclient,
-                                          self.data_web,
-                                          self.make_file_id))
-                    else:
-                        self.log.console('minor release is not a directory: ' +
-                                         minor_release,
-                                         logging.ERROR)
+                    self.containerlist.append(
+                        vos_container(self.log, 
+                                      self.indir,
+                                      self.archive,
+                                      self.ingest,
+                                      self.workdir, 
+                                      self.dew,
+                                      self.vosclient,
+                                      self.data_web,
+                                      self.make_file_id))
+                else:
+                    self.log.console('indir is not local and is not '
+                                     'a VOspace directory: ' +
+                                     self.indir,
+                                     logging.ERROR)
 
         except Exception as e:
             self.log.console(traceback.format_exc(),
