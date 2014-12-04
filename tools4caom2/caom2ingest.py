@@ -245,7 +245,7 @@ class caom2ingest(object):
         self.tap = None
 
     #************************************************************************
-    # Define the standardcommand line interface.
+    # Define the standard command line interface.
     # Be sure to maintain consistency amongst defineCommandLineSwitches,
     # processCommandLineSwitches, and logCommandLineSwitches.
     #************************************************************************
