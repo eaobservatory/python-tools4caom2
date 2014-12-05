@@ -153,10 +153,13 @@ class caom2ingest(object):
         self.progname = os.path.basename(os.path.splitext(sys.argv[0])[0])
         self.exedir = os.path.abspath(os.path.dirname(sys.path[0]))
         # Derive the config path from the script or bin directory path
-        self.configpath = os.path.abspath(
-                            os.path.join(
-                                os.path.expandvars('$CADC_ROOT'), 
-                                'config'))
+        if 'CADC_ROOT' in os.environ:
+            self.configpath = os.path.abspath(
+                                os.path.join(
+                                    os.path.expandvars('$CADC_ROOT'), 
+                                    'config'))
+        else:
+            self.configpath = os.path.join(self.exedir, 'config')
 
         # Argument parser
         self.ap = None
