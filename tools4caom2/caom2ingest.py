@@ -189,6 +189,8 @@ class caom2ingest(object):
         # Ingestion parameters and structures
         self.prefix = ''         # ingestible files must start with this prefix
         self.indir = ''          # path to indir
+        self.replace = False     # True if observations in JCMTLS or JCMTUSER 
+                                 # can replace each other
         self.big = False         # True to use larger memory for fits2caom2
         self.store = False       # True to store files from indir
         self.storemethod = None  # e-transfer or data web service 
@@ -276,6 +278,8 @@ class caom2ingest(object):
         # ingestion arguments
         --prefix     : (required) prefix for files to be stored/ingested
         --indir      : (required) directory or ad file containing the release
+        --replace    : (optional) observations in JCMTLS or JCMTUSER can replace
+                       existing observations
         --store      : (optional) store files in AD (requires CADC authorization)
         --ingest     : (optional) ingest new files (requires CADC authorization)
 
@@ -318,6 +322,10 @@ class caom2ingest(object):
                              required=True,
                              help='path to release data (on disk, in vos, or '
                                   'an ad file')
+        self.ap.add_argument('--replace',
+                             action='store_true',
+                             help='observations in JCMTLS and JCMTUSER can '
+                                  'replace existing observations')
         self.ap.add_argument('--store',
                              action='store_true',
                              help='store in AD files that are ready for '
@@ -445,6 +453,9 @@ class caom2ingest(object):
                 self.indir = indirpath
                 self.local = True
         
+        if self.args.replace:
+            self.replace = self.args.replace
+        
         if self.args.logdir:
             self.logdir = os.path.abspath(
                             os.path.expandvars(
@@ -485,10 +496,6 @@ class caom2ingest(object):
         if not os.path.exists(self.workdir):
             os.makedirs(self.workdir)
 
-        if self.args.replace:
-            self.replace = re.sub(r'/+', '/', 
-                                self.args.replace.strip(' \t\n')).split(',')
-        
         if self.args.store:
             self.store = self.args.store
         self.storemethod = self.args.storemethod
