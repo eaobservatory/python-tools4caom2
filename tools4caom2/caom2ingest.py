@@ -171,6 +171,7 @@ class caom2ingest(object):
         self.stream = None
         self.schema = 'dbo'
         self.collection_choices = ['SANDBOX']
+        self.collection_prefix = ['SANDBOX']
         
         # routine to convert filepaths into file_ids
         # The default routine supplied here should work for most archives.
@@ -524,11 +525,12 @@ class caom2ingest(object):
         self.log.file('logdir = ' + self.logdir)
         self.log.console('log = ' + self.logfile)
         
-        if self.collection not in ('JCMT', 'SANDBOX'):
+        if self.collection in self.collection_prefix:
             if not self.prefix:
                 errors = True
                 self.log.console('--prefix is mandatory if --collection '
-                                 'is not JCMT or SANDBOX')
+                                 'is in ' + repr(self.collection_prefix),
+                                 logging.ERROR)
 
         if not self.indir:
             self.log.console('--indir = ' + self.args.indir + ' does not exist',

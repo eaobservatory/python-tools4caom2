@@ -29,7 +29,7 @@ class vos_container(basecontainer):
                  working_directory,
                  delayed_error_warning,
                  vosclient, 
-                 data_web_client, 
+                 data_web, 
                  make_file_id):
         """
         Reads a list of files from a VOspace directory and subdirectories.
@@ -50,7 +50,7 @@ class vos_container(basecontainer):
         make_file_id:      function that turns a file uri/url/path into a file_id
         """
         basecontainer.__init__(self, log, re.sub(r'[:/]', '-', vosroot))
-        self.dataweb = data_web_client
+        self.dataweb = data_web
         self.archive_name = archive_name
         self.ingest = ingest
         self.dew = delayed_error_warning
@@ -128,7 +128,7 @@ class vos_container(basecontainer):
 
         # This fetches only the header from the primary HDU, which
         # should result in significant performance improvements
-        if self.ingest and False:
+        if self.ingest:
             # file should already be in AD
             # This gets ONLY the primary header
             filepath = self.dataweb.get(self.archive_name, 
@@ -143,14 +143,13 @@ class vos_container(basecontainer):
             # fetch the whole file from vos 
             filepath = self.filedict[file_id]
             filesize = self.vosclient.copy(self.vospath[file_id], filepath)
-            self.log.file('filepath = ' + filepath + '   vospath = ' +
-                          self.vospath[file_id],
-                          logging.DEBUG)
             if not filesize:
                 self.log.console('could not get ' + file_id + ' from ' + 
                                  filepath,
                                  logging.ERROR)
-        
+
+        self.log.file('filepath = ' + filepath,
+                      logging.DEBUG)
         return filepath
 
     def uri(self, file_id):
