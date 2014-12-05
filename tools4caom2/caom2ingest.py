@@ -151,9 +151,12 @@ class caom2ingest(object):
         # Command line interface for the ArgumentParser and arguments
         # Command line options
         self.progname = os.path.basename(os.path.splitext(sys.argv[0])[0])
-        self.exedir = os.path.abspath(os.path.dirname(sys.argv[0]))
-        # Derive the config path from the sript or bin directory path
-        self.configpath = os.path.abspath(self.exedir + '/../config')
+        self.exedir = os.path.abspath(os.path.dirname(sys.path[0]))
+        # Derive the config path from the script or bin directory path
+        self.configpath = os.path.abspath(
+                            os.path.join(
+                                os.path.expandvars('$CADC_ROOT'), 
+                                'config'))
 
         # Argument parser
         self.ap = None
