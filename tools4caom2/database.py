@@ -49,7 +49,7 @@ class database(object):
     mylog = tools4caom2.logger("mylogfile.log")
     
     with database(userconfig, mylog) as db:
-        cmd = 'SELECT max(utdate) from jcmtmd.dbo.COMMON'
+        cmd = 'SELECT max(utdate) from ' + jcmt_db + 'COMMON'
         max_utdate = db.read(cmd)[0][0]
     
         upodate_cmd = '''UPDATE state = "W"
