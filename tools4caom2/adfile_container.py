@@ -69,7 +69,7 @@ class adfile_container(basecontainer):
         with open(adfile, 'r') as ADF:
             filecount = 0
             for line in ADF:
-                match = re.search(r'ad:([A-Z]+)/([a-zA-Z0-9.\-_]+)',
+                match = re.match(r'^[|\s]*ad:([A-Z]+)/([a-zA-Z0-9.\-_]+)',
                                  line)
                 if match:
                     (archive, file_id) = match.group(1, 2)
