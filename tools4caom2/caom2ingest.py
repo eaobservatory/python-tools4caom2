@@ -171,7 +171,7 @@ class caom2ingest(object):
         self.stream = None
         self.schema = 'dbo'
         self.collection_choices = ['SANDBOX']
-        self.collection_prefix = ['SANDBOX']
+        self.external_collections = ['SANDBOX']
         
         # routine to convert filepaths into file_ids
         # The default routine supplied here should work for most archives.
@@ -525,11 +525,11 @@ class caom2ingest(object):
         self.log.file('logdir = ' + self.logdir)
         self.log.console('log = ' + self.logfile)
         
-        if self.collection in self.collection_prefix:
+        if self.collection in self.external_collections:
             if not self.prefix:
                 errors = True
                 self.log.console('--prefix is mandatory if --collection '
-                                 'is in ' + repr(self.collection_prefix),
+                                 'is in ' + repr(self.external_collections),
                                  logging.ERROR)
 
         if not self.indir:
@@ -1146,12 +1146,18 @@ class caom2ingest(object):
             thisPlane = thisObservation[self.productID]
 
             #*****************************************************************
-            # Items in the plane_dict accumulate, but the last item is used
+            # Items in the plane_dict accumulate so a key will be defined for
+            # the plane if it is defined by any file.  If a key is defined
+            # by several files, the definition from the last file is used.
             #*****************************************************************
             if 'plane_dict' not in thisPlane:
                 thisPlane['plane_dict'] = OrderedDict()
             if self.plane_dict:
                 for key in self.plane_dict:
+                    # Handle release_date as a special case
+                    if (key == 'release_date' and key in thisPlane and 
+                        self.plane_dict[key] <= thisPlane['plane_dict'][key]):
+                        continue
                     thisPlane['plane_dict'][key] = self.plane_dict[key]
 
             #*****************************************************************
