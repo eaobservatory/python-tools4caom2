@@ -452,13 +452,19 @@ class caom2ingest(object):
             self.indir = self.args.indir
             self.local = False
         else:
-            # is this a local directorory on the disk?
             indirpath = os.path.abspath(
                             os.path.expandvars(
                                 os.path.expanduser(self.args.indir)))
+            # is this a local directorory on the disk?
             if os.path.isdir(indirpath):
                 self.indir = indirpath
                 self.local = True
+
+            # is this an adfile?
+            elif (os.path.isfile(indirpath) and
+                  os.path.splitext(indirpath)[1] == '.ad'):
+                self.indir = indirpath
+                self.local = False
         
         if self.args.replace:
             self.replace = self.args.replace
