@@ -585,36 +585,35 @@ class caom2ingest(object):
         # Find the list of containers to ingest.
         self.containerlist = []
         try:
-            if self.local:
-                if os.path.isdir(self.indir):
-                    filelist = [os.path.join(self.indir, f)
-                               for f in os.listdir(self.indir)]
-                    self.containerlist.append(
-                        filelist_container(
+            if os.path.isdir(self.indir):
+                filelist = [os.path.join(self.indir, f)
+                           for f in os.listdir(self.indir)]
+                self.containerlist.append(
+                    filelist_container(
+                        self.log,
+                        self.indir,
+                        filelist,
+                        lambda f: (self.dew.namecheck(f) and 
+                                   self.dew.sizecheck(f)),
+                        self.make_file_id))
+            
+            elif os.path.isfile(self.indir):
+                basename, ext = os.path.splitext(self.indir)
+                if ext == '.ad':
+                    # self.indir points to an ad file
+                    self.container_list.append(
+                        adfile_container(
                             self.log,
+                            self.dew,
                             self.indir,
-                            filelist,
-                            lambda f: (self.dew.namecheck(f) and 
-                                       self.dew.sizecheck(f)),
+                            self.workdir,
                             self.make_file_id))
-                
+                    
                 else:
-                    basename, ext = os.path.splitext(self.indir)
-                    if ext == '.ad':
-                        # self.indir points to an ad file
-                        self.container_list.append(
-                            adfile_container(
-                                self.log,
-                                self.dew,
-                                self.indir,
-                                self.workdir,
-                                self.make_file_id))
-                        
-                    else:
-                        self.log.console('indir is not a directory and : '
-                                         'is not an ad file: ' +
-                                         self.indir,
-                                         logging.ERROR)
+                    self.log.console('indir is not a directory and : '
+                                     'is not an ad file: ' +
+                                     self.indir,
+                                     logging.ERROR)
             
             else:
                 # handle VOspace directories
