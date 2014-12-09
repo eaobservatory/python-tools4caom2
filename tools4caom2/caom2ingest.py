@@ -50,9 +50,9 @@ from tools4caom2.__version__ import version as tools4caom2version
 __doc__ = """
 Ingest processed data files into CAOM-2.  The caom2ingest module has been 
 cloned from ingest2caom2 and customized to find its lists of input files 
-in a directory that is either on disk or in a VOspace. This is intended to be a 
-base class for archive-specific ingestion routines with names like
-archive2caom2ingest.
+in a directory that is either on disk or in a VOspace, or in an adfile. 
+This is intended to be a base class for archive-specific ingestion routines 
+with names like archive2caom2ingest.
 
 By default, it runs a set of file verification tests, creates a report of errors 
 and warnings and exits.  This is referred to as "check mode" and anyone can run 
@@ -68,27 +68,33 @@ in the archive (sometimes forbidden, sometimes mandatory).
 
 With the --store switch, caom2ingest will copy files from VOspace into archive 
 storage at the CADC.  This is a privileged operation; the account making the 
-request must have write permission in the VOspace transfer directory.
+request must have appropriate write permissions.
 
-The --store is a no-op if the files are on disk.  Such files must use an 
-alternative mechanism to move files into storage, such as a CADC e-transfer 
-stream or the CADC data web client.  
+The --storemethod switch has one of two values, "pull" or "push" where "pull"
+is the default.  The "pull" method uses CADC e-transfer to move the files into
+ADS.  The "push" method uses the data web client to push the files into AD.  
 
-The process of copying files  VOS -> CADC is in some respects modeled after the 
-CADC e-transfer service.  A link is made in a specified VOspace directory and a
-discovery agent running at the will copy the linked file into the associated
-archive.  The CADC will implement its own verification for these files, as a 
-final check that stray files have not leaked into the data stream.  
+Either store method can be used for files in VOspace, provided the VOspace
+etransfer directory has been configured in the [transfer] section of the
+userconfig file.
 
-With the --ingest switch, caom2ingest will ingest the files into CAOM-2.  The 
-ingestion logic is mostly missing from this module, since it is extremely 
+Files on disk at the JAC can be transferred using the "push" method, but it 
+is likely that some other transfer mechanism will already be built into the
+data processing system, rendering it unnecessary.
+
+With the --ingest switch, caom2ingest will ingest the files into CAOM-2.  However
+it is managed, the transfer of files into AD must already have occurred before 
+--ingest is invoked.  In addition, all raw observations in the membership must
+already have been successfully ingested.  
+
+The ingestion logic is mostly missing from this module, since it is extremely 
 archive-specific and must be implemented in a subclass derived from caom2ingest. 
 This is a privileged operation; the CADC must have granted read and write access 
 for the CAOM-2 repository to the account requesting the ingestion.
 
 The caom2ingest module is intended to be used at sites remote from the CADC.  
-If the CADC or JAC databases are accessible, caom2ingest can be cofigured to 
-use them to improve performance and gather more authoritative metadata, but
+If metadata is available from a database, caom2ingest can be configured to 
+use it to improve performance and gather more authoritative metadata, but
 otherwise it uses only generic methods that should work over the internet to 
 access and store files. Access to the VOspace uses the CADC-supplied vos module. 
 Access to existing observations, planes and artifacts in CAOM-2 uses the CADC 
@@ -126,7 +132,7 @@ class caom2ingest(object):
 
     def __init__(self):
         """
-        Initialize the vos2cadc structure, especially the attributes
+        Initialize the caom2ingest structure, especially the attributes
         storing default values for command line arguments.
 
         Arguments:
