@@ -601,7 +601,7 @@ class caom2ingest(object):
                 basename, ext = os.path.splitext(self.indir)
                 if ext == '.ad':
                     # self.indir points to an ad file
-                    self.container_list.append(
+                    self.containerlist.append(
                         adfile_container(
                             self.log,
                             self.dew,
