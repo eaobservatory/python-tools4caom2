@@ -105,7 +105,7 @@ class tapclient(object):
             elif r.status_code != 404:
                 self.log.console(str(r.status_code) + ' = ' + 
                                  httplib.responses[r.status_code] + 
-                                 ': ' + str(r.contents),
+                                 ': ' + str(r.content),
                                  logging.WARN)
         except Exception as e:
             self.log.console('FAILED to get reply for "' + adql + '": ' + 
