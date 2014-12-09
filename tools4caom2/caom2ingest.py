@@ -39,6 +39,7 @@ from tools4caom2.caom2repo_wrapper import Repository
 from tools4caom2.database import connection
 from tools4caom2.data_web_client import data_web_client
 from tools4caom2.delayed_error_warning import delayed_error_warning
+from tools4caom2.adfile_container import adfile_container
 from tools4caom2.filelist_container import filelist_container
 from tools4caom2.logger import logger
 from tools4caom2.tapclient import tapclient
