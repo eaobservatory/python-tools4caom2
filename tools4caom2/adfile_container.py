@@ -10,6 +10,7 @@ import time
 
 from tools4caom2 import __version__
 from tools4caom2.basecontainer import basecontainer
+from tools4caom2.data_web_client import data_web_client
 from tools4caom2.logger import logger
 
 __doc__ = """
@@ -21,7 +22,7 @@ Version: """ + __version__.version
 class adfile_container(basecontainer):
     def __init__(self, 
                  log, 
-                 data_web_client, 
+                 dataweb, 
                  adfile, 
                  working_directory, 
                  filterfunc):
@@ -45,7 +46,7 @@ class adfile_container(basecontainer):
         
         Arguments:
         log:               a tools4caom2.logger object
-        data_web_client:   a tools4caom2.data_web_client object
+        dataweb:           a tools4caom2.data_web_client object
         adfile:            path to file containing a list of adURI's
         working_directory: directory to hold files from AD
         filterfunc:        returns True if a filename should be ingested
@@ -62,7 +63,7 @@ class adfile_container(basecontainer):
             self.log.console('not a directory: ' + working_directory,
                              logging.ERROR)
         
-        self.dataweb = data_web_client
+        self.dataweb = dataweb
 
         self.archive = {}
             

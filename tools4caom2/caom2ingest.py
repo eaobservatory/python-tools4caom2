@@ -605,7 +605,7 @@ class caom2ingest(object):
                     self.containerlist.append(
                         adfile_container(
                             self.log,
-                            self.dew,
+                            self.data_web,
                             self.indir,
                             self.workdir,
                             self.make_file_id))

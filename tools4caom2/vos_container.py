@@ -29,7 +29,7 @@ class vos_container(basecontainer):
                  working_directory,
                  delayed_error_warning,
                  vosclient, 
-                 data_web, 
+                 dataweb, 
                  make_file_id):
         """
         Reads a list of files from a VOspace directory and subdirectories.
@@ -50,7 +50,7 @@ class vos_container(basecontainer):
         make_file_id:      function that turns a file uri/url/path into a file_id
         """
         basecontainer.__init__(self, log, re.sub(r'[:/]', '-', vosroot))
-        self.dataweb = data_web
+        self.dataweb = dataweb
         self.archive_name = archive_name
         self.ingest = ingest
         self.dew = delayed_error_warning
