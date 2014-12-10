@@ -573,6 +573,25 @@ class caom2ingest(object):
             self.log.console('Exit due to error conditions',
                              logging.ERROR) 
     
+    def getfilelist(self, rootdir, check):
+        """
+        Return a list of files in the directory tree rooted at dirpath 
+        for which check(f) is True.
+        
+        Arguments:
+        rootdir: absolute path to the root of the directory tree
+        check: function that checks whether to include the file in the list
+        """
+        mylist = []
+        for dirpath, dirlist, filelist in os.walk(rootdir):
+            for f in filelist:
+                filepath = os.path.join(dirpath, f)
+                if check(filepath):
+                    mylist.append(filepath)
+            for d in dirlist:
+                mylist.extend(self.getfilelist(os.path.join(dirpath, d), check))
+        return mylist
+    
     def commandLineContainers(self):
         """
         Process the input directory.  Unlike previous versions of this code,
@@ -584,18 +603,18 @@ class caom2ingest(object):
         <None>
         """
         # Find the list of containers to ingest.
-        self.containerlist = []
+        self.containerlist = []        
         try:
             if os.path.isdir(self.indir):
-                filelist = [os.path.join(self.indir, f)
-                           for f in os.listdir(self.indir)]
+                check = lambda f: (self.dew.namecheck(f, report=False) 
+                                   and self.dew.sizecheck(f))
+                filelist = self.getfilelist(self.indir, check)
                 self.containerlist.append(
                     filelist_container(
                         self.log,
                         self.indir,
                         filelist,
-                        lambda f: (self.dew.namecheck(f) and 
-                                   self.dew.sizecheck(f)),
+                        lambda f : True,
                         self.make_file_id))
             
             elif os.path.isfile(self.indir):

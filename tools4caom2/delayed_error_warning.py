@@ -165,7 +165,8 @@ class delayed_error_warning(object):
         
         Returns True if the file has a non-zero length, False otherwise
         """
-        self.log.file('delayed_error_warning: sizecheck for filename ' + filename)
+        self.log.file('delayed_error_warning: sizecheck for filename ' + 
+                      filename)
         ok = False
         length = 0
         if re.match(r'vos:', filename):
@@ -193,7 +194,8 @@ class delayed_error_warning(object):
         
         Arguments:
         """
-        self.log.file('delayed_error_warning: namecheck for filename ' + filename)
+        self.log.file('delayed_error_warning: namecheck for filename ' + 
+                      filename)
         ext = os.path.splitext(filename)[1].lower()
         file_id = self.make_file_id(filename)
         ok = False
@@ -207,7 +209,8 @@ class delayed_error_warning(object):
             else:
                 if report:
                     self.error(filename, 'namecheck: should match (one of) ' +
-                               repr([r.pattern for r in fileid_regex_dict[ext]]))
+                               repr([r.pattern for r 
+                                     in self.fileid_regex_dict[ext]]))
                        
         return ok
 
@@ -310,12 +313,14 @@ class delayed_error_warning(object):
         if key in header and header[key] != pyfits.card.UNDEFINED:
             ok = True
         else:
-            qualifier = 'expected'
             if mandatory:
-                qualifier = 'mandatory'
-            self.error(filename, 
-                       qualifier + ' keyword "' + key + 
-                       '" is missing or undefined')
+                self.error(filename, 
+                           'mandatory keyword "' + key + 
+                           '" is missing or undefined')
+            else:
+                self.warning(filename, 
+                             'expected keyword "' + key + 
+                           '" is missing or undefined')
         return ok
 
     def restricted_value(self, filename, key, header, value_list):
