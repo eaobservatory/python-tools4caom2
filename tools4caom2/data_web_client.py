@@ -251,11 +251,8 @@ class data_web_client(object):
             url = re.sub(r'http:', 'https:', file_id)
         else:
             url = '/'.join([data_web_client.CADC_URL, archive, basename])
-            # url = '/'.join([data_web_client.CADC_URL, archive, file_id])
         
         headers = {}
-        # headers['Content-Disposition'] = ('inline; filename="' +
-        #                                   os.path.basename(filepath) + '"')
         if adstream:
             headers['X-CADC-Stream'] = adstream
 
