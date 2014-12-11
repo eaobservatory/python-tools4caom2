@@ -246,10 +246,12 @@ class data_web_client(object):
                              logging.WARN)
             return success
 
+        basename = os.path.basename(filepath)
         if file_id[:4] == 'http':
             url = re.sub(r'http:', 'https:', file_id)
         else:
-            url = '/'.join([data_web_client.CADC_URL, archive, file_id])
+            url = '/'.join([data_web_client.CADC_URL, archive, basename])
+            # url = '/'.join([data_web_client.CADC_URL, archive, file_id])
         
         headers = {}
         # headers['Content-Disposition'] = ('inline; filename="' +
