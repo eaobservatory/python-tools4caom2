@@ -252,6 +252,8 @@ class data_web_client(object):
             url = '/'.join([data_web_client.CADC_URL, archive, file_id])
         
         headers = {}
+        # headers['Content-Disposition'] = ('inline; filename="' +
+        #                                   os.path.basename(filepath) + '"')
         if adstream:
             headers['X-CADC-Stream'] = adstream
 
