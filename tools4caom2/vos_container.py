@@ -131,6 +131,9 @@ class vos_container(basecontainer):
         if self.ingest:
             # file should already be in AD
             # This gets ONLY the primary header
+            self.log.file('vos_container.get using data_web_client ' +
+                          self.archive_name + ' ' +
+                          file_id)
             filepath = self.dataweb.get(self.archive_name, 
                                         file_id,
                                         params=data_web_client.PrimaryHEADER)
@@ -142,6 +145,8 @@ class vos_container(basecontainer):
         else:
             # fetch the whole file from vos 
             filepath = self.filedict[file_id]
+            self.log.file('vos_container.get using vosclient ' +
+                          self.vospath[file_id])
             filesize = self.vosclient.copy(self.vospath[file_id], filepath)
             if not filesize:
                 self.log.console('could not get ' + file_id + ' from ' + 

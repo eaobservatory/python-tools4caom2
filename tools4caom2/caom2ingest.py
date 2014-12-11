@@ -1267,6 +1267,7 @@ class caom2ingest(object):
         """
         transfer_dir = None
         if (self.storemethod == 'pull'
+            and not self.local
             and self.userconfig.has_section('vos')
             and self.userconfig.has_option('vos', 'transfer')):
 
@@ -1276,18 +1277,27 @@ class caom2ingest(object):
                                  ' does not exist',
                                  logging.ERROR)
         
-        for filelist in (self.data_storage, self.preview_storage):
-            for filepath in filelist:
-                basefile = os.path.basename(filepath)
-                file_id = self.make_file_id(basefile)
-                self.log.console('PUT: ' + filepath)
-                if transfer_dir:
-                    self.vosclient.link(filepath, 
-                                        transfer_dir + '/' + basefile)
-                elif self.storemethod == 'push':
-                    tempfile = os.path.join(self.workdir, basefile)
-                    try:
+            for filelist in (self.data_storage, self.preview_storage):
+                for filepath in filelist:
+                    basefile = os.path.basename(filepath)
+                    file_id = self.make_file_id(basefile)
+                    self.log.console('LINK: ' + filepath)
+                    if transfer_dir:
+                        self.vosclient.link(filepath, 
+                                            transfer_dir + '/' + basefile)
+
+        elif self.storemethod == 'push':
+            for filelist in (self.data_storage, self.preview_storage):
+                for filepath in filelist:
+                    basefile = os.path.basename(filepath)
+                    file_id = self.make_file_id(basefile)
+                    self.log.console('PUT: ' + filepath)
+                    if self.local:
+                        tempfile = filepath
+                    else:
+                        tempfile = os.path.join(self.workdir, basefile)
                         self.vosclient.copy(filepath, tempfile)
+                    try:
                         if not self.data_web.put(tempfile,
                                                  self.archive,
                                                  file_id,
@@ -1296,12 +1306,12 @@ class caom2ingest(object):
                                            'failed to push into AD using the '
                                            'data_web_client')
                     finally:
-                        if os.path.exists(tempfile):
+                        if not self.local and os.path.exists(tempfile):
                             os.remove(tempfile)
-                else:
-                    self.log.console('storemethod = ' + self.storemethod +
-                                     'has not been implemented',
-                                     logging.ERROR)
+        else:
+            self.log.console('storemethod = ' + self.storemethod +
+                             'has not been implemented',
+                             logging.ERROR)
     
     def checkMembers(self):
         """
