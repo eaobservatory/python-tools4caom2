@@ -286,14 +286,28 @@ class database(object):
         number = 0
         while sybase_defined and retry:
             try:
+                self.log.file('acquiring read_mutex...', logging.DEBUG)
                 with database.read_mutex:
+                    self.log.file(
+                        'read_mutex acquired, obtaining connection...',
+                        logging.DEBUG)
                     self.get_read_connection()
+                    self.log.file(
+                        'read_connection obtained, obtaining cursor...',
+                        logging.DEBUG)
                     try:
                         cursor = database.read_connection.cursor()
+                        self.log.file('cursor obtained, exceuting query...',
+                                      logging.DEBUG)
                         cursor.execute(query, params)
+                        self.log.file('query executed, fetching results...',
+                                      logging.DEBUG)
                         returnList = cursor.fetchall()
+                        self.log.file('results fetched', logging.DEBUG)
                     finally:
+                        self.log.file('closing cursor...', logging.DEBUG)
                         cursor.close()
+                        self.log.file('cursor closed', logging.DEBUG)
                     retry = False
                     # should be a no-op
                     # database.read_connection.commit()
