@@ -1,14 +1,15 @@
 #!/usr/bin/env python2.7
 
-#################################
+# ###############################
 # Import required Python modules
-#################################
+# ###############################
 from datetime import datetime
 import re
 
 from tools4caom2.__version__ import version
 
 UTDATE_REGEX = r'stamp-(?P<stamp>(?P<stampdate>\d{8})[tT](?P<stamptime>\d{6}))'
+
 
 def utdate_string(time=datetime.utcnow()):
     """
@@ -24,4 +25,3 @@ def utdate_string(time=datetime.utcnow()):
                                                time.second)
 
     return utstr
-    

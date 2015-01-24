@@ -5,20 +5,20 @@ import thread
 from tools4caom2 import __version__
 
 __doc__ = """
-The timezone module defines the UTC class as a thread-safe singleton timezone 
+The timezone module defines the UTC class as a thread-safe singleton timezone
 object.
 
 Version: """ + __version__.version
-    
 
-#************************************************************************
+
+# ************************************************************************
 # A datetime.tzinfo object for UTC
-#************************************************************************
+# ************************************************************************
 class UTC(datetime.tzinfo):
     """
     UTC is a thread-safe tzinfo class for Coordinated Universal Time
     """
-    
+
     utc = None
 
     class _UTC_impl_(datetime.tzinfo):
@@ -34,15 +34,15 @@ class UTC(datetime.tzinfo):
     def __init__(self):
         """
         Initialize the UTC tzinfo singleton if necessary
-        
+
         Arguments:
         <None>
         """
-        if UTC.utc == None:
+        if UTC.utc is None:
             mylock = thread.allocate_lock()
             if mylock.acquire():
                 # Check again in case some other thread acquired the lock first
-                if UTC.utc == None:
+                if UTC.utc is None:
                     UTC.utc = UTC._UTC_impl_()
             if mylock.locked():
                 mylock.release()
@@ -50,7 +50,7 @@ class UTC(datetime.tzinfo):
     def utcoffset(self, dt):
         """
         return the utcoffset (i.e. 0) from the singleton
-    
+
         Arguments:
         dt:      a datetime
         """
@@ -59,7 +59,7 @@ class UTC(datetime.tzinfo):
     def tzname(self, dt):
         """
         return the tzname from the singleton
-    
+
         Arguments:
         dt:      a datetime
         """
@@ -68,7 +68,7 @@ class UTC(datetime.tzinfo):
     def dst(self, dt):
         """
         return the daylight savings time offset using the singleton
-    
+
         Arguments:
         dt:      a datetime
         """

@@ -18,13 +18,14 @@ from tools4caom2.utdate_string import utdate_string
 
 from tools4caom2.__version__ import version as tools4caom2version
 
+
 class tapclient(object):
     """
-    Query the CADC TAP (Table Access Protocol) service using ADQL to 
+    Query the CADC TAP (Table Access Protocol) service using ADQL to
     request data from the database.
-    
+
     Expected usage might be like:
-    
+
     tap = tapclient()
     adql = ("SELECT count(*) AS count"
             "FROM caom2.Observation AS Observation "
@@ -32,32 +33,32 @@ class tapclient(object):
     table = tap.query(adql)
     count = table[0]['count']
     """
-    
+
     CADC_TAP_SERVICE = 'https://www1.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/tap/sync'
-    
-    def __init__(self, 
-                 log, 
+
+    def __init__(self,
+                 log,
                  proxy='$HOME/.ssl/cadcproxy.pem'):
         """
         TAP queries using ADQL return a VOtable or an astropy Table
-        
+
         Arguments:
         log: an instance of a tools4caom2.logger
         proxy: (optional) path to a proxy certificate
         """
         self.log = log
         self.cadcproxy = os.path.abspath(
-                            os.path.expandvars(
-                                os.path.expanduser(proxy)))
+            os.path.expandvars(
+                os.path.expanduser(proxy)))
 
     def query(self, adql, format='table'):
         """
         Send an adql query to the service and store the response in a file-like
         object.
-        
+
         Arguments:
         adql: a text string containing and ADQL query
-        format: text string indicating whether the desired output format 
+        format: text string indicating whether the desired output format
                 should be an astropy.table.Table (default) or the raw votable
         """
         self.log.file(adql)
@@ -67,10 +68,10 @@ class tapclient(object):
                   'QUERY': query}
 
         table = None
-        
+
         try:
-            r = requests.get(tapclient.CADC_TAP_SERVICE, 
-                             params=params, 
+            r = requests.get(tapclient.CADC_TAP_SERVICE,
+                             params=params,
                              cert=self.cadcproxy)
             if r.status_code == 200:
                 # The TAP service handled the query and returned a VOTable,
@@ -89,7 +90,7 @@ class tapclient(object):
                                      logging.ERROR)
                 elif query_status != 'OK':
                     if query_content:
-                        self.log.console('TAP QUERY_STATUS = ' + 
+                        self.log.console('TAP QUERY_STATUS = ' +
                                          str(query_status) +
                                          '  MESSAGE = ' + query_content,
                                          logging.ERROR)
@@ -101,17 +102,18 @@ class tapclient(object):
                         table = vot.get_first_table().to_table()
                     except:
                         table = None
-                
+
             elif r.status_code != 404:
-                self.log.console(str(r.status_code) + ' = ' + 
-                                 httplib.responses[r.status_code] + 
+                self.log.console(str(r.status_code) + ' = ' +
+                                 httplib.responses[r.status_code] +
                                  ': ' + str(r.content),
                                  logging.WARN)
         except Exception as e:
-            self.log.console('FAILED to get reply for "' + adql + '": ' + 
+            self.log.console('FAILED to get reply for "' + adql + '": ' +
                              traceback.format_exc(),
                              logging.WARN)
         return table
+
 
 def run():
     """
@@ -130,26 +132,26 @@ def run():
     ap.add_argument('-v', '--verbose',
                     action='store_true',
                     help='output extra information')
-    ap.add_argument('values', 
+    ap.add_argument('values',
                     nargs='*',
                     help='values to be substituted in the format codes')
     a = ap.parse_args()
-    
+
     log = logger('tapclient_' + utdate_string() + '.log')
-    
+
     tap = tapclient(log)
-    
+
     if os.path.isfile(a.adql):
         with open(a.adql, 'r') as ADQL:
             adqlquery = ADQL.read()
     else:
         adqlquery = a.adql
-    
+
     if a.values:
         adqlquery = adqlquery % tuple(a.values)
     if a.verbose:
         log.console(adqlquery)
-    
+
     if a.votable:
         votable = tap.query(adqlquery, 'votable')
         if votable:
@@ -162,7 +164,7 @@ def run():
             OUTFILE = sys.stdout
         try:
             if table:
-                astropy.io.ascii.write(table, 
+                astropy.io.ascii.write(table,
                                        OUTFILE,
                                        Writer=astropy.io.ascii.FixedWidth)
         finally:

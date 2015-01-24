@@ -77,7 +77,7 @@ def write_fits(filepath,
     else:
         hdu.header.update('NOTA', False)
 
-    #Some extension-dependent headers
+    # Some extension-dependent headers
     hdu.header.update('FIELD4', 'BAD')
     hdu.header.update('FIELD5', 'GOOD')
 
@@ -128,6 +128,7 @@ def write_fits(filepath,
         hdulist.append(hdu)
 
     hdulist.writeto(filepath)
+
 
 class testIngest2caom2(unittest.TestCase):
     """
@@ -192,7 +193,7 @@ class testIngest2caom2(unittest.TestCase):
                                                        header[obsn],
                                                        fits2caom2=False)
                             (co, ob, pl) = self.findURI(fileURI)
-                            if co == None:
+                            if co is None:
                                 self.log.console(
                                     'ERROR: Could not find %s in %s'
                                     % (fileURI, repr(self.metadict)),
@@ -209,7 +210,7 @@ class testIngest2caom2(unittest.TestCase):
                                                        header[prvn],
                                                        fits2caom2=False)
                             (co, ob, pl) = self.findURI(fileURI)
-                            if co == None:
+                            if co is None:
                                 self.log.console(
                                     'ERROR: Could not find %s in %s'
                                     % (fileURI, repr(self.metadict)),
@@ -224,13 +225,13 @@ class testIngest2caom2(unittest.TestCase):
                                                          [extension])
                     extheader = pyfits.getheader(header['filepath'], extension)
                     self.add_to_fitsuri_dict(artifact_uri,
-                                              'extname', extheader['EXTNAME'])
+                                             'extname', extheader['EXTNAME'])
                     self.add_to_fitsuri_dict(artifact_uri,
-                                              'field4', extheader['FIELD4'])
+                                             'field4', extheader['FIELD4'])
 
                 artifact_uri = self.fitsfileURI('TEST', header['FILE-ID'])
                 self.add_to_fitsuri_dict(artifact_uri,
-                                          'field5', header['FIELD5'])
+                                         'field5', header['FIELD5'])
 
     def setUp(self):
         """
@@ -296,7 +297,7 @@ class testIngest2caom2(unittest.TestCase):
         self.testdir = tempfile.mkdtemp()
         # fake data
         fakedata = numpy.arange(10)
-        
+
         self.log = logger(os.path.join(self.testdir, 'testingest.log'))
         self.dataweb = data_web_client(self.testdir, self.log)
 
@@ -390,14 +391,14 @@ class testIngest2caom2(unittest.TestCase):
         self.testingest.config = os.path.join(self.testdir,
                                               'test.config')
         self.testingest.default = os.path.join(self.testdir,
-                                              'test.default')
+                                               'test.default')
 
         self.testingest.outdir = self.testdir
         self.testingest.test = True
         self.testingest.loglevel = logging.CRITICAL
         self.testingest.console_output = False
 
-        self.testingest.cmpfunc = cmp # sort alphabetically
+        self.testingest.cmpfunc = cmp  # sort alphabetically
 
         self.testingest.dirlist = []
         self.testingest.tarlist = []
@@ -476,7 +477,7 @@ class testIngest2caom2(unittest.TestCase):
         self.assertEqual(self.testingest.observationURI('CCC', 'dddd').uri,
                          'caom:CCC/dddd')
         self.assertEqual(self.testingest.memberset,
-                         set([ObservationURI('caom:A/B').uri, 
+                         set([ObservationURI('caom:A/B').uri,
                               ObservationURI('caom:CCC/dddd').uri]))
 
         # Verify that setting member=False does not update memberset
@@ -484,14 +485,14 @@ class testIngest2caom2(unittest.TestCase):
                                                         member=False).uri,
                          'caom:E/F')
         self.assertEqual(self.testingest.memberset,
-                         set([ObservationURI('caom:A/B').uri, 
+                         set([ObservationURI('caom:A/B').uri,
                               ObservationURI('caom:CCC/dddd').uri]))
 
         # verify that adding an existing member does not change memberset
         self.assertEqual(self.testingest.observationURI('A', 'B').uri,
                          'caom:A/B')
         self.assertEqual(self.testingest.memberset,
-                         set([ObservationURI('caom:A/B').uri, 
+                         set([ObservationURI('caom:A/B').uri,
                               ObservationURI('caom:CCC/dddd').uri]))
 
         self.testingest.clear()
@@ -509,27 +510,26 @@ class testIngest2caom2(unittest.TestCase):
         self.assertEqual(self.testingest.planeURI('CCC', 'dddd', 'ee').uri,
                          'caom:CCC/dddd/ee')
         self.assertEqual(self.testingest.inputset,
-                         set([PlaneURI('caom:A/B/c').uri, 
+                         set([PlaneURI('caom:A/B/c').uri,
                               PlaneURI('caom:CCC/dddd/ee').uri]))
 
         # Verify that setting inoput=False does not update inputset
-        self.assertEqual(self.testingest.planeURI('E', 'F', 'g', 
+        self.assertEqual(self.testingest.planeURI('E', 'F', 'g',
                                                   input=False).uri,
                          'caom:E/F/g')
         self.assertEqual(self.testingest.inputset,
-                         set([PlaneURI('caom:A/B/c').uri, 
+                         set([PlaneURI('caom:A/B/c').uri,
                               PlaneURI('caom:CCC/dddd/ee').uri]))
 
         # verify that adding an existing member does not change memberset
         self.assertEqual(self.testingest.planeURI('A', 'B', 'c').uri,
                          'caom:A/B/c')
         self.assertEqual(self.testingest.inputset,
-                         set([PlaneURI('caom:A/B/c').uri, 
+                         set([PlaneURI('caom:A/B/c').uri,
                               PlaneURI('caom:CCC/dddd/ee').uri]))
 
         self.testingest.clear()
         self.assertEqual(self.testingest.inputset, set([]))
-
 
     def test070_TestIngest_fitsfileURI(self):
         """
@@ -573,30 +573,31 @@ class testIngest2caom2(unittest.TestCase):
         self.assertEqual(self.testingest.uri, 'ad:A/B')
 
         self.assertEqual(
-            self.testingest.fitsextensionURI('CCC', 'dddd', [0, 1], 
+            self.testingest.fitsextensionURI('CCC', 'dddd', [0, 1],
                                              fits2caom2=False),
             'ad:CCC/dddd#[0,1]')
         self.assertEqual(self.testingest.uri, 'ad:A/B')
 
         self.assertEqual(
-            self.testingest.fitsextensionURI('CCC', 'dddd', [(0, 1)], 
+            self.testingest.fitsextensionURI('CCC', 'dddd', [(0, 1)],
                                              fits2caom2=False),
             'ad:CCC/dddd#[0-1]')
         self.assertEqual(
-            self.testingest.fitsextensionURI('CCC', 'dddd', [(0, 1), (3, 4), 6], 
+            self.testingest.fitsextensionURI('CCC', 'dddd',
+                                             [(0, 1), (3, 4), 6],
                                              fits2caom2=False),
             'ad:CCC/dddd#[0-1,3-4,6]')
-        
+
         self.assertRaises(logger.LoggerError,
                           self.testingest.fitsextensionURI,
-                          'A', 'b', [(1,2,3)])
+                          'A', 'b', [(1, 2, 3)])
         self.assertRaises(logger.LoggerError,
                           self.testingest.fitsextensionURI,
-                          'A', 'b', [[1,2]])
+                          'A', 'b', [[1, 2]])
         self.assertRaises(logger.LoggerError,
                           self.testingest.fitsextensionURI,
                           'A', 'b', [1.0, 2.0])
-                          
+
         self.testingest.clear()
         self.assertEqual(self.testingest.uri, '')
 
@@ -609,13 +610,11 @@ class testIngest2caom2(unittest.TestCase):
         self.testingest.add_to_plane_dict('a', 'b')
         self.assertEqual(self.testingest.plane_dict, {'a': 'b'})
         self.testingest.add_to_plane_dict('c', 'd')
-        self.assertEqual(self.testingest.plane_dict, {'a': 'b',
-                                                            'c': 'd'})
+        self.assertEqual(self.testingest.plane_dict, {'a': 'b', 'c': 'd'})
 
         # verify that using an already existing ket overwrites the value
         self.testingest.add_to_plane_dict('c', 'e')
-        self.assertEqual(self.testingest.plane_dict, {'a': 'b',
-                                                            'c': 'e'})
+        self.assertEqual(self.testingest.plane_dict, {'a': 'b', 'c': 'e'})
 
         # If an attempt is made to add a non-string value, a logger.LoggerError
         # is raised
@@ -656,8 +655,9 @@ class testIngest2caom2(unittest.TestCase):
 
         # If an attempt is made to add a non-string value, a logger.LoggerError
         # is raised
-        self.assertRaises(logger.LoggerError,
-                      self.testingest.add_to_fitsuri_dict, uri, 'c', 1)
+        self.assertRaises(
+            logger.LoggerError,
+            self.testingest.add_to_fitsuri_dict, uri, 'c', 1)
 
         self.testingest.clear()
         self.assertEqual(self.testingest.fitsuri_dict, {})
@@ -667,21 +667,21 @@ class testIngest2caom2(unittest.TestCase):
         Verify that findURI can find the collection, observation and plane
         for an fitsfileURI.
         """
-        uri_dict1 = \
-            OrderedDict([(self.testingest.fitsfileURI('TEST', 'file1',
-                                              fits2caom2=False), None),
-                         (self.testingest.fitsfileURI('TEST', 'file2',
-                                              fits2caom2=False), None)])
-        uri_dict2 = \
-            OrderedDict([(self.testingest.fitsfileURI('TEST', 'file3',
-                                              fits2caom2=False), None),
-                        (self.testingest.fitsfileURI('TEST', 'file4',
-                                              fits2caom2=False), None)])
-        uri_dict3 = \
-            OrderedDict([(self.testingest.fitsfileURI('TEST', 'file5',
-                                              fits2caom2=False), None),
-                         (self.testingest.fitsfileURI('TEST', 'file6',
-                                              fits2caom2=False), None)])
+        uri_dict1 = OrderedDict([
+            (self.testingest.fitsfileURI('TEST', 'file1',
+                                         fits2caom2=False), None),
+            (self.testingest.fitsfileURI('TEST', 'file2',
+                                         fits2caom2=False), None)])
+        uri_dict2 = OrderedDict([
+            (self.testingest.fitsfileURI('TEST', 'file3',
+                                         fits2caom2=False), None),
+            (self.testingest.fitsfileURI('TEST', 'file4',
+                                         fits2caom2=False), None)])
+        uri_dict3 = OrderedDict([
+            (self.testingest.fitsfileURI('TEST', 'file5',
+                                         fits2caom2=False), None),
+            (self.testingest.fitsfileURI('TEST', 'file6',
+                                         fits2caom2=False), None)])
 
         self.testingest.metadict = \
             {'TEST': {'obs1': {'a': {'uri_dict': uri_dict1},
@@ -695,14 +695,14 @@ class testIngest2caom2(unittest.TestCase):
                       'file5': ('TEST', 'obs2', 'c'),
                       'file6': ('TEST', 'obs2', 'c')}
 
-        #Verify that files in uri_dict can be found
+        # Verify that files in uri_dict can be found
         for file_id in testvalues:
             fileURI = \
                 self.testingest.fitsfileURI('TEST', file_id, fits2caom2=False)
             self.assertEqual(self.testingest.findURI(fileURI),
                              testvalues[file_id])
 
-        #Verify that bogus files return a tuple of Nones
+        # Verify that bogus files return a tuple of Nones
         fileURI = self.testingest.fitsfileURI('TEST', 'bogus',
                                               fits2caom2=False)
         self.assertEqual(self.testingest.findURI(fileURI),
@@ -735,13 +735,17 @@ class testIngest2caom2(unittest.TestCase):
                                      dictdict[obs][pl][key])
 
         # verify that we get KeyError for bat index values
-        self.assertRaises(KeyError,
+        self.assertRaises(
+            KeyError,
             self.testingest.get_plane_value, 'BOGUS', 'obs1', 'a', 'x')
-        self.assertRaises(KeyError,
+        self.assertRaises(
+            KeyError,
             self.testingest.get_plane_value, 'TEST', 'bogus', 'a', 'x')
-        self.assertRaises(KeyError,
+        self.assertRaises(
+            KeyError,
             self.testingest.get_plane_value, 'TEST', 'obs1', 'bogus', 'x')
-        self.assertRaises(KeyError,
+        self.assertRaises(
+            KeyError,
             self.testingest.get_plane_value, 'TEST', 'obs1', 'a', 'bogus')
 
     def test150_TestIngest_get_artifact_value(self):
@@ -774,22 +778,27 @@ class testIngest2caom2(unittest.TestCase):
                                                                pl,
                                                                uri,
                                                                key),
-                                     dictdict[obs][pl][uri][key])
+                            dictdict[obs][pl][uri][key])
 
         # verify that we get KeyError for bat index values
-        self.assertRaises(KeyError,
+        self.assertRaises(
+            KeyError,
             self.testingest.get_artifact_value,
             'BOGUS', 'obs1', 'a', 'uri1', 'x')
-        self.assertRaises(KeyError,
+        self.assertRaises(
+            KeyError,
             self.testingest.get_artifact_value,
             'TEST', 'bogus', 'a', 'uri1', 'x')
-        self.assertRaises(KeyError,
+        self.assertRaises(
+            KeyError,
             self.testingest.get_artifact_value,
             'TEST', 'obs1', 'bogus', 'uri1', 'x')
-        self.assertRaises(KeyError,
+        self.assertRaises(
+            KeyError,
             self.testingest.get_artifact_value,
             'TEST', 'obs1', 'a', 'bogus', 'x')
-        self.assertRaises(KeyError,
+        self.assertRaises(
+            KeyError,
             self.testingest.get_artifact_value,
             'TEST', 'obs1', 'a', 'uri1', 'bogus')
 
@@ -804,10 +813,10 @@ class testIngest2caom2(unittest.TestCase):
         self.assertEqual(self.testingest.copytoarchive, False)
         self.assertEqual(self.testingest.database, 'dummy')
         self.assertEqual(self.testingest.schema, 'dbo')
-        self.assertEqual(self.testingest.config, os.path.join(self.testdir,
-                                              'test.config'))
-        self.assertEqual(self.testingest.default, os.path.join(self.testdir,
-                                              'test.default'))
+        self.assertEqual(self.testingest.config, os.path.join(
+            self.testdir, 'test.config'))
+        self.assertEqual(self.testingest.default, os.path.join(
+            self.testdir, 'test.default'))
         self.assertEqual(self.testingest.outdir, self.testdir)
         self.assertEqual(self.testingest.test, True)
         self.assertEqual(self.testingest.loglevel, logging.CRITICAL)
@@ -930,7 +939,7 @@ class testIngest2caom2(unittest.TestCase):
         Verify that submitting all of the containers creates the expected
         number of csh files.  Note we have already verified the
         contents.
-        
+
         This command line contains three containers:
             tarfile_container = file5.tar.gz
             filelist_container = ./
@@ -1002,8 +1011,8 @@ class testIngest2caom2(unittest.TestCase):
 
     def test215_testIngest_build_metadict(self):
         """
-        Verify that build_dict correctly fills matadict from the metadata supplied
-        by the internal structures.
+        Verify that build_dict correctly fills matadict from the metadata
+        supplied by the internal structures.
         """
         self.testingest.collection = 'TEST'
         self.testingest.observationID = 'obs1'
@@ -1036,7 +1045,7 @@ class testIngest2caom2(unittest.TestCase):
                               'ad:TEST/file1#[0]',
                               'ad:TEST/file1']))
         self.assertEqual(pl['inputset'], set(['c', 'd']))
-        self.assertEqual(pl['uri_dict'], OrderedDict([('ad:TEST/file1', 
+        self.assertEqual(pl['uri_dict'], OrderedDict([('ad:TEST/file1',
                                                        'file1.fits')]))
 
         self.assertEqual(len(pl['plane_dict']), 1)
@@ -1072,7 +1081,8 @@ class testIngest2caom2(unittest.TestCase):
                               'uri_dict',
                               'ad:TEST/file1']))
         self.assertEqual(pl['inputset'], set([]))
-        self.assertEqual(pl['uri_dict'], OrderedDict([('ad:TEST/file1', None)]))
+        self.assertEqual(pl['uri_dict'],
+                         OrderedDict([('ad:TEST/file1', None)]))
 
         self.assertEqual(len(pl['plane_dict']), 3)
         self.assertEqual(pl['plane_dict']['field1'], 'F1A')
@@ -1136,11 +1146,11 @@ class testIngest2caom2(unittest.TestCase):
                               'inputset',
                               'uri_dict',
                               'ad:TEST/file2']))
-        self.assertEqual(pl['inputset'], 
+        self.assertEqual(pl['inputset'],
                          set([PlaneURI('caom:TEST/obs1/A').uri]))
-        
+
         file2path = os.path.join(self.testdir, 'file2.fits')
-        self.assertEqual(pl['uri_dict'], 
+        self.assertEqual(pl['uri_dict'],
                          OrderedDict([('ad:TEST/file2', file2path)]))
 
         self.assertEqual(len(pl['plane_dict']), 3)
@@ -1157,10 +1167,10 @@ class testIngest2caom2(unittest.TestCase):
                               'inputset',
                               'uri_dict',
                               'ad:TEST/file2_cat']))
-        self.assertEqual(pl['inputset'], 
+        self.assertEqual(pl['inputset'],
                          set([PlaneURI('caom:TEST/obs1/B').uri]))
         file2catpath = os.path.join(self.testdir, 'file2_cat.txt')
-        self.assertEqual(pl['uri_dict'], 
+        self.assertEqual(pl['uri_dict'],
                          OrderedDict([('ad:TEST/file2_cat', file2catpath)]))
 
     def test240_testIngest_fillMetadict_tarfile(self):
@@ -1197,7 +1207,7 @@ class testIngest2caom2(unittest.TestCase):
         self.assertEqual(set(md['TEST']['obs3'].keys()),
                          set(['memberset', 'C']))
         self.assertEqual(md['TEST']['obs3']['memberset'],
-                         set([ObservationURI('caom:TEST/obs1').uri, 
+                         set([ObservationURI('caom:TEST/obs1').uri,
                               ObservationURI('caom:TEST/obs2').uri]))
 
         pl = md['TEST']['obs3']['C']
@@ -1209,9 +1219,10 @@ class testIngest2caom2(unittest.TestCase):
                               'ad:TEST/file5#[2]',
                               'ad:TEST/file5']))
         self.assertEqual(pl['inputset'],
-                         set([PlaneURI('caom:TEST/obs1/B').uri, 
+                         set([PlaneURI('caom:TEST/obs1/B').uri,
                               PlaneURI('caom:TEST/obs2/B').uri]))
-        self.assertEqual(pl['uri_dict'], OrderedDict([('ad:TEST/file5', None)]))
+        self.assertEqual(pl['uri_dict'],
+                         OrderedDict([('ad:TEST/file5', None)]))
 
         self.assertEqual(len(pl['plane_dict']), 3)
         self.assertEqual(pl['plane_dict']['field1'], 'F1C')
@@ -1226,9 +1237,9 @@ class testIngest2caom2(unittest.TestCase):
         Verify that the example provided by TestIngest actually produces the
         expected dictionaries for the adfile_container.
         """
-        ###########################################
+        # #########################################
         # Set command line for ad file container
-        ###########################################
+        # #########################################
         sys.argv = ['TestIngest.py',
                     '--quiet',
                     'ad:' + os.path.join(self.testdir, 'file6.ad')]
@@ -1283,7 +1294,7 @@ class testIngest2caom2(unittest.TestCase):
                 elif plane == 'C':
                     self.assertEqual(pl['inputset'], set(['caom:TEST/obs4/B']))
 
-                self.assertEqual(pl['uri_dict'], OrderedDict([(myuri[plane], 
+                self.assertEqual(pl['uri_dict'], OrderedDict([(myuri[plane],
                                                                None)]))
 
                 self.assertEqual(len(pl['plane_dict']), 3)
@@ -1325,29 +1336,29 @@ class testIngest2caom2(unittest.TestCase):
         """
         self.testingest.metadict['TEST'] = OrderedDict()
         thisCollection = self.testingest.metadict['TEST']
-        
+
         thisCollection['obs3'] = OrderedDict()
         thisObservation = thisCollection['obs3']
         thisObservation['memberset'] = set([])
-        
+
         thisObservation['C'] = OrderedDict()
         thisPlane = thisObservation['C']
         thisPlane['inputset'] = set([])
         thisPlane['uri_dict'] = OrderedDict([('ad:TEST/file5', None)])
-        
+
         thisPlane['plane_dict'] = OrderedDict()
-        thisPlane['plane_dict']['key1'] = 'value1' 
-        
+        thisPlane['plane_dict']['key1'] = 'value1'
+
         thisPlane['ad:TEST/file5#[1]'] = OrderedDict()
         thisFitsuri = thisPlane['ad:TEST/file5#[1]']
         thisFitsuri['key2'] = 'value2'
         thisFitsuri['key3'] = 'value3'
-        
+
         thisPlane['ad:TEST/file5#[2]'] = OrderedDict()
         thisFitsuri = thisPlane['ad:TEST/file5#[2]']
         thisFitsuri['key3'] = 'value3'
         thisFitsuri['key4'] = 'value4'
-        
+
         thisPlane['ad:TEST/file5'] = OrderedDict()
         thisFitsuri = thisPlane['ad:TEST/file5']
         thisFitsuri['key2'] = 'value2'
@@ -1362,7 +1373,8 @@ class testIngest2caom2(unittest.TestCase):
         override = [l.strip() for l in override]
         override = [l for l in override if l]
 
-        self.assertEqual(override,
+        self.assertEqual(
+            override,
             ['key1                           = value1',
              '?ad:TEST/file5#[1]',
              'key2                           = value2',
@@ -1395,7 +1407,7 @@ class testIngest2caom2(unittest.TestCase):
         """
         Verify that calling ignore_artifact empties the plane_dict and
         that subsequent calls to build_metadict skip processing.
-        
+
         Beware that this does not actually verify that the plane is not
         ingested, since that would require processing an actual observation,
         and no suitable observation exists in the CAOM-2 repository.  The
@@ -1429,11 +1441,11 @@ class testIngest2caom2(unittest.TestCase):
                               'uri_dict',
                               'ad:TEST/file1']))
         self.assertEqual(pl['inputset'], set([]))
-        self.assertEqual(pl['uri_dict'], OrderedDict([('ad:TEST/file1', None)]))
+        self.assertEqual(pl['uri_dict'],
+                         OrderedDict([('ad:TEST/file1', None)]))
 
         self.assertTrue(ingest2caom2.REJECT in pl['plane_dict'])
 
 
 if __name__ == '__main__':
     unittest.main()
-

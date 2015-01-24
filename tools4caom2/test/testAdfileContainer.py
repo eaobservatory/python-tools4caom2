@@ -69,7 +69,7 @@ def write_fits(filepath,
     else:
         hdu.header.update('NOTA', False)
 
-    #Some extension-dependent headers
+    # Some extension-dependent headers
     hdu.header.update('FIELD4', 'BAD')
     hdu.header.update('FIELD5', 'GOOD')
 
@@ -121,13 +121,14 @@ def write_fits(filepath,
 
     hdulist.writeto(filepath)
 
+
 class testAdfileContainer(unittest.TestCase):
     """
     unit tests for tools4caom2.adfile_container class
     """
     def setUp(self):
         """
-        Create a set of fits files (file6, file7, file8) and store them 
+        Create a set of fits files (file6, file7, file8) and store them
         in an adfile container.  Include a non-FITS file file9.txt to verify
         that filtering works as intended.
         """
@@ -137,7 +138,7 @@ class testAdfileContainer(unittest.TestCase):
         # set up the test envirnonment
         self.testdir = tempfile.mkdtemp()
         self.log = logger(os.path.join(self.testdir, 'testadfile.log'),
-                           console_output=False)
+                          console_output=False)
 
         self.dataweb = data_web_client(self.testdir, self.log)
 
@@ -166,7 +167,7 @@ class testAdfileContainer(unittest.TestCase):
                    obsid='obs4',
                    product='C',
                    provenance='file7')
-        
+
         TEXT = open(os.path.join(self.testdir, 'file9.txt'), 'w')
         print >>TEXT, "This is some text"
         TEXT.close()
@@ -180,7 +181,7 @@ class testAdfileContainer(unittest.TestCase):
         for f in ['file6.fits', 'file7.fits', 'file8.fits', 'file9.txt']:
             filepath = os.path.join(self.testdir, f)
             file_id = make_file_id(f)
-            
+
             ok = self.dataweb.put(filepath, 'TEST', file_id, adstream='test')
             if not ok:
                 raise RuntimeError(cmd + ': ' + output,
@@ -217,22 +218,22 @@ class testAdfileContainer(unittest.TestCase):
         for fid in test_list:
             headers = self.dataweb.info('TEST', fid)
             if not headers:
-               self.log.console('ERROR: file not in ad: ' + fid +
-                                ': ' + output,
-                                logging.ERROR)
+                self.log.console('ERROR: file not in ad: ' + fid +
+                                 ': ' + output,
+                                 logging.ERROR)
 
         # Make a subdirectory in testdir to hold the files from ad for
         # comparison with the originals
         workdir = os.path.join(self.testdir, 'work')
         os.mkdir(workdir)
         test_file_list = [os.path.join(workdir, f) for f in
-                          ['file6.fits', 
-                           'file7.fits', 
-                           'file8.fits', 
+                          ['file6.fits',
+                           'file7.fits',
+                           'file8.fits',
                            'file9.txt']]
 
         # These files should all exist in ad so creation of an
-        #  adfile_container should succeed.  
+        #  adfile_container should succeed.
         # The filetrfunc in this test is None.
         fc = adfile_container(adfilepath,
                               workdir,
@@ -249,8 +250,8 @@ class testAdfileContainer(unittest.TestCase):
 
         for i, file_id in enumerate(test_list):
             filepath = fc.get(file_id)
-            # verify that the file path returned by get is identical to the path
-            # that was inserted
+            # verify that the file path returned by get is identical to the
+            # path that was inserted
             self.assertEquals(filepath, test_file_list[i],
                               'ERROR: %s != %s' %
                               (filepath, test_file_list[i]))
@@ -278,17 +279,17 @@ class testAdfileContainer(unittest.TestCase):
         for fid in test_list:
             headers = self.dataweb.info('TEST', fid)
             if not headers:
-               self.log.console('ERROR: file not in ad: ' + fid +
-                                ': ' + output,
-                                logging.ERROR)
+                self.log.console('ERROR: file not in ad: ' + fid +
+                                 ': ' + output,
+                                 logging.ERROR)
 
         # Make a subdirectory in testdir to hold the files from ad for
         # comparison with the originals
         workdir = os.path.join(self.testdir, 'work')
         os.mkdir(workdir)
         test_file_list = [os.path.join(workdir, f) for f in
-                          ['file6.fits', 
-                           'file7.fits', 
+                          ['file6.fits',
+                           'file7.fits',
                            'file8.fits']]
 
         # These files should all exist in ad so creation of an
@@ -309,8 +310,8 @@ class testAdfileContainer(unittest.TestCase):
 
         for i, file_id in enumerate(test_list):
             filepath = fc.get(file_id)
-            # verify that the file path returned by get is identical to the path
-            # that was inserted
+            # verify that the file path returned by get is identical to the
+            # path that was inserted
             self.assertEquals(filepath, test_file_list[i],
                               'ERROR: %s != %s' %
                               (filepath, test_file_list[i]))
@@ -338,17 +339,17 @@ class testAdfileContainer(unittest.TestCase):
         for fid in test_list:
             headers = self.dataweb.info('TEST', fid)
             if headers:
-               self.log.console('ERROR: file not in ad: ' + fid +
-                                ': ' + output,
-                                logging.ERROR)
+                self.log.console('ERROR: file not in ad: ' + fid +
+                                 ': ' + output,
+                                 logging.ERROR)
 
         # Make a subdirectory in testdir to hold the files from ad for
         # comparison with the originals
         workdir = os.path.join(self.testdir, 'work')
         os.mkdir(workdir)
         test_file_list = [os.path.join(workdir, f) for f in
-                          ['file6.fits', 
-                           'file7.fits', 
+                          ['file6.fits',
+                           'file7.fits',
                            'file8.fits']]
 
         # These files should all exist in ad so creation of an
@@ -373,7 +374,7 @@ class testAdfileContainer(unittest.TestCase):
             # Verify that cleanup removes the file
             self.assertTrue(not os.path.exists(filepath))
 
-        # If we ask for an adfile name with a different extension, 
+        # If we ask for an adfile name with a different extension,
         # the init should throw a LoggerError
         self.assertRaises(logger.LoggerError,
                           adfile_container,
@@ -381,7 +382,7 @@ class testAdfileContainer(unittest.TestCase):
                           self.testdir,
                           None)
 
-        # If the output directory does not exist, the init should throw a 
+        # If the output directory does not exist, the init should throw a
         # LoggerError
         self.assertRaises(logger.LoggerError,
                           adfile_container,
@@ -389,11 +390,11 @@ class testAdfileContainer(unittest.TestCase):
                           '/junk/bogus',
                           None)
 
-        # If we request a bogus file_id, this should raise a 
+        # If we request a bogus file_id, this should raise a
         # LoggerError
         self.assertRaises(logger.LoggerError,
                           fc.get, 'bogus')
 
+
 if __name__ == '__main__':
     unittest.main()
-

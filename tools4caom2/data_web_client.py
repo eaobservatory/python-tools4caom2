@@ -24,20 +24,21 @@ Python implementation of the CADC data web service documented at
 http://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/data/.
 """
 
+
 class data_web_client(object):
-    
+
     PrimaryHEADER = {'fhead': 'true', 'cutout': '[0]'}
     CADC_URL = 'https://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/data/pub'
-    
-    def __init__(self, 
+
+    def __init__(self,
                  workdir,
-                 log, 
+                 log,
                  proxy='$HOME/.ssl/cadcproxy.pem'):
         """
         Access to data in the Archive Directory is supplied at the CADC through
         a data web service documented at:
           http://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/data/
-        
+
         Arguments:
         workdir: Directory to hold files fetched through the service
         log: an instance of a tools4caom2.logger
@@ -45,14 +46,14 @@ class data_web_client(object):
         """
         self.log = log
         self.workdir = os.path.abspath(
-                            os.path.expandvars(
-                                os.path.expanduser(workdir)))
+            os.path.expandvars(
+                os.path.expanduser(workdir)))
         if not os.path.isdir(self.workdir):
             self.log.console('workdir is not a directory: ' + self.workdir,
                              logging.ERROR)
         self.cadcproxy = os.path.abspath(
-                            os.path.expandvars(
-                                os.path.expanduser(proxy)))
+            os.path.expandvars(
+                os.path.expanduser(proxy)))
 
     def info(self, archive, file_id):
         """
@@ -69,7 +70,7 @@ class data_web_client(object):
             url = '/'.join([data_web_client.CADC_URL, archive, file_id])
         self.log.file('url = ' + url,
                       logging.DEBUG)
-        
+
         headerdict = {}
         try:
             ok = False
@@ -94,33 +95,33 @@ class data_web_client(object):
             elif r.status_code == 200:
                 # copy dictionary for usage after r is closed
                 headerdict.update(r.headers)
-                
+
             elif r.status_code != 404:
-                self.log.console(str(r.status_code) + ' = ' + 
+                self.log.console(str(r.status_code) + ' = ' +
                                  httplib.responses[r.status_code],
                                  logging.WARN)
         except Exception as e:
-            self.log.console('FAILED to get info for ' + file_id + ': ' + 
+            self.log.console('FAILED to get info for ' + file_id + ': ' +
                              traceback.format_exc(),
                              logging.WARN)
-            
+
         return headerdict
 
-    def get(self, 
-            archive, 
-            file_id, 
-            filepath=None, 
-            params={}, 
+    def get(self,
+            archive,
+            file_id,
+            filepath=None,
+            params={},
             noclobber=False):
         """
-        Fetch a file from ad into the working directory.  
-        
-        URL parameters  are supplied through the dictionary params as key/value 
-        pairs.  To fetch just the HDU headers pass  
+        Fetch a file from ad into the working directory.
+
+        URL parameters  are supplied through the dictionary params as key/value
+        pairs.  To fetch just the HDU headers pass
           params={'fhead': 'true'}
         Similarly, for cutouts pass something like
           params={'cutout': '[1][1:100,1:200]'}
-        For the common case where only the headers from the primary HDU are 
+        For the common case where only the headers from the primary HDU are
         wanted, pass
           params={'fhead': 'true', 'cutout': '[0]'}
         This is defined as the class constant:
@@ -129,30 +130,30 @@ class data_web_client(object):
           pyfits.getheader(filepath, 0)
         Beware that cutouts modify the file name, so use the filepath returned
         from get().
-        
+
         See http://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/data/
         for more explanation and examples.
-        
+
         Arguments:
         archive: The archive from which the file should be fetched
         file_id: lower-case basename of the file
         filepath: (optional) path where file will be stored
         params: (optional) dictionary of URL parameters
         noclobber: If true and the requested file exists, do not overwrite
-        
+
         Returns:
         filepath: the file path of the new file on disk
         """
         myfilepath = None
         gzipped = False
-        
+
         if file_id[:4] == 'http':
             url = re.sub(r'http:', 'https:', file_id)
         else:
             url = '/'.join([data_web_client.CADC_URL, archive, file_id])
         self.log.file('url = ' + url,
                       logging.DEBUG)
-                
+
         try:
             ok = False
             retry = 0
@@ -171,29 +172,29 @@ class data_web_client(object):
                         self.log.file('retry info: ' + traceback.format_exc(),
                                       logging.DEBUG)
                     time.sleep(0.5)
-                    
+
             if r.status_code != 200:
-                self.log.console(str(r.status_code) + ' = ' + 
+                self.log.console(str(r.status_code) + ' = ' +
                                  httplib.responses[r.status_code],
                                  logging.ERROR)
-            
+
             # get the original filename
             myfilepath = os.path.join(self.workdir, file_id)
             if filepath:
                 myfilepath = os.path.abspath(
-                                os.path.expandvars(
-                                    os.path.expanduser(filepath)))
-                
+                    os.path.expandvars(
+                        os.path.expanduser(filepath)))
+
             elif 'content-disposition' in r.headers:
                 filename = file_id
-                m = re.match(r'^.*?filename=(.+)$', 
+                m = re.match(r'^.*?filename=(.+)$',
                              r.headers['content-disposition'])
                 if m:
                     filename = m.group(1)
-            
+
                 # restore the unzipped name if compressed
                 # gzipped = (r.encoding.find('gzipped') >= 0)
-                
+
                 # can the encoding and the file name be incompatible???
                 # possible source of trouble
                 unzipped, ext = os.path.splitext(filename)
@@ -204,9 +205,9 @@ class data_web_client(object):
                     filename = unzipped + '.fits'
                     gzipped = True
                 myfilepath = os.path.join(self.workdir, filename)
-                
+
             if noclobber and os.path.exists(myfilepath):
-                self.log.console('No download because file exists: ' + 
+                self.log.console('No download because file exists: ' +
                                  url,
                                  logging.WARN)
             else:
@@ -215,13 +216,13 @@ class data_web_client(object):
                         F.write(chunk)
                 # This message must match the format of the regex
                 # in run(), below
-                self.log.file('SUCCESS: got ' + file_id + ' as ' + 
+                self.log.file('SUCCESS: got ' + file_id + ' as ' +
                               myfilepath)
         except Exception as e:
-            self.log.console('FAILED to get ' + file_id + ': ' + 
+            self.log.console('FAILED to get ' + file_id + ': ' +
                              traceback.format_exc(),
                              logging.WARN)
-        
+
         return myfilepath
 
     def put(self, filepath, archive, file_id, adstream=None):
@@ -229,7 +230,7 @@ class data_web_client(object):
         If the caller is authorized to write to the archive, put the file
         from filepath into the requested archive and stream with the
         specified file_id.
-        
+
         Arguments:
         filepath: path the the local file on disk
         archive: The archive from which the file should be fetched
@@ -239,8 +240,8 @@ class data_web_client(object):
         # verify that the file exists
         success = False
         myfilepath = os.path.abspath(
-                        os.path.expanduser(
-                            os.path.expandvars(filepath)))
+            os.path.expanduser(
+                os.path.expandvars(filepath)))
         if not os.path.isfile(myfilepath):
             self.log.console('File Not Found ' + myfilepath,
                              logging.WARN)
@@ -251,7 +252,7 @@ class data_web_client(object):
             url = re.sub(r'http:', 'https:', file_id)
         else:
             url = '/'.join([data_web_client.CADC_URL, archive, basename])
-        
+
         headers = {}
         if adstream:
             headers['X-CADC-Stream'] = adstream
@@ -262,7 +263,8 @@ class data_web_client(object):
             while retry < 3 and not ok:
                 try:
                     self.log.file('data_web_client.put: url=' + url)
-                    self.log.file('data_web_client.put: headers=' + repr(headers))
+                    self.log.file('data_web_client.put: headers=' +
+                                  repr(headers))
                     r = requests.put(url,
                                      data=F,
                                      cert=self.cadcproxy,
@@ -280,29 +282,30 @@ class data_web_client(object):
             if r.status_code in (200, 201):
                 success = True
             else:
-                self.log.console(str(r.status_code) + ' = ' + 
+                self.log.console(str(r.status_code) + ' = ' +
                                  httplib.responses[r.status_code],
                                  logging.ERROR)
 
         return success
 
+
 def run():
     """
     Provides a command line interface to file operations, to be used in
     the cadcdata command.  If none of --get, --put or --delete is
-    specified, the default operation is 'info'.  Multiple fileid's 
-    can be requested only for info and get operations.  Put and delete 
-    operations require that the CADC authorize the user's account for 
+    specified, the default operation is 'info'.  Multiple fileid's
+    can be requested only for info and get operations.  Put and delete
+    operations require that the CADC authorize the user's account for
     those operations on the requested archive.
     """
     utdate_str = utdate_string()
-    
+
     ap = argparse.ArgumentParser('cadcdata',
                                  fromfile_prefix_chars='@')
     ap.add_argument('--proxy',
                     default='$HOME/.ssl/cadcproxy.pem',
                     help='path to CADC proxy')
-    
+
     ap.add_argument('--log',
                     default='cadcdata_' + utdate_str + '.log',
                     help='(optional) name of log file')
@@ -343,29 +346,29 @@ def run():
     ap.add_argument('fileid',
                     nargs='+',
                     help='list of fileid\'s, url\'s or files containing them')
-    
+
     a = ap.parse_args()
 
     # Open log and record switches
     cwd = os.path.abspath(
-                os.path.expanduser(
-                    os.path.expandvars('.')))
+        os.path.expanduser(
+            os.path.expandvars('.')))
 
     cadcproxy = os.path.abspath(
-                    os.path.expandvars(
-                        os.path.expanduser(a.proxy)))
-    
+        os.path.expandvars(
+            os.path.expanduser(a.proxy)))
+
     loglevel = logging.INFO
     if a.debug:
         loglevel = logging.DEBUG
-    
+
     if os.path.dirname(a.log):
         logpath = os.path.abspath(
-                    os.path.expanduser(
-                        os.path.expandvars(a.log)))
+            os.path.expanduser(
+                os.path.expandvars(a.log)))
     else:
         logpath = os.path.join(cwd, a.log)
-    
+
     with logger(logpath, loglevel).record() as log:
         log.file(sys.argv[0])
         log.file('tools4caom2version   = ' + tools4caom2version)
@@ -373,8 +376,8 @@ def run():
         for attr in dir(a):
             if attr != 'id' and attr[0] != '_':
                 log.file('%-15s= %s' % (attr, getattr(a, attr)),
-                            logging.DEBUG)
-        
+                         logging.DEBUG)
+
         if a.operation == 'put' and not a.file:
             log.console('existing file must be supplied for put',
                         logging.ERROR)
@@ -382,28 +385,28 @@ def run():
         workdir = cwd
         if a.workdir:
             workdir = os.path.abspath(
-                          os.path.expanduser(
-                              os.path.expandvars(a.workdir)))
+                os.path.expanduser(
+                    os.path.expandvars(a.workdir)))
             if not os.path.isdir(workdir):
                 log.console('requested workdir is not a directory: ' + workdir,
                             logging.ERROR)
-            
+
         fileid_list = []
         fileid_list.extend(a.fileid)
         # Remove any fileid that have already been transfered
         if a.retry:
             for retrylog in a.retry:
                 retry = os.path.abspath(
-                           os.path.expandvars(
-                                os.path.expanduser(retrylog)))
-                
+                    os.path.expandvars(
+                        os.path.expanduser(retrylog)))
+
                 if not os.path.isfile(retry):
-                    log.console('retry log is not a file ' + 
-                                     retry,
-                                     logging.ERROR)
+                    log.console('retry log is not a file ' +
+                                retry,
+                                logging.ERROR)
                 with open(retry, 'r') as RETRY:
                     for line in RETRY:
-                        # This must match the success message written 
+                        # This must match the success message written
                         # by get()
                         m = re.search(r'SUCCESS: got (\S+) ', line)
                         if m:
@@ -411,21 +414,21 @@ def run():
                             if fileid in fileid_list:
                                 fileid_list.remove(fileid)
                                 log.file('remove ' + fileid)
-                
+
         if a.file and len(a.fileid) != 1:
             log.console('if file is given, exactly one fileid must '
-                             'be supplied',
+                        'be supplied',
                         logging.ERROR)
-        
+
         filepath = None
         if a.file:
             filepath = os.path.abspath(
-                           os.path.expanduser(
-                               os.path.expandvars(a.file)))
+                os.path.expanduser(
+                    os.path.expandvars(a.file)))
 
         log.console('create dwc', logging.DEBUG)
         dwc = data_web_client(workdir, log, proxy=a.proxy)
-        
+
         log.console('issue command', logging.DEBUG)
         if a.operation == 'info':
             for fileid in fileid_list:
@@ -433,20 +436,20 @@ def run():
                 if headerdict:
                     log.console('fileid = ' + fileid)
                     for key in headerdict:
-                        log.console('    ' + key + ' = ' + 
-                                         headerdict[key])
-        
+                        log.console('    ' + key + ' = ' +
+                                    headerdict[key])
+
         elif a.operation == 'get':
             if filepath:
-                dwc.get(a.archive, 
-                        a.fileid[0], 
-                        filepath=filepath, 
+                dwc.get(a.archive,
+                        a.fileid[0],
+                        filepath=filepath,
                         noclobber=a.noclobber)
             else:
                 # Get all of the requested fileid
                 for fileid in fileid_list:
-                    dwc.get(a.archive, 
-                            fileid, 
+                    dwc.get(a.archive,
+                            fileid,
                             noclobber=a.noclobber)
 
         elif a.operation == 'put':

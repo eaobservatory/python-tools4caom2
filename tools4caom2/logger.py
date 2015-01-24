@@ -5,7 +5,8 @@ from contextlib import contextmanager
 from email.mime.text import MIMEText
 import exceptions
 import inspect
-import logging, logging.config
+import logging
+import logging.config
 import re
 import smtplib
 import string
@@ -48,10 +49,10 @@ class logger(object):
     exception, the log file will be considered complete.  If e-mail contact
     information has been configured, an e-mail message will be sent.
 
-    Logging a message with loglevel >= logging.ERROR will raise a 
-    logger.LoggerError, an internal exception type derived from RuntimeError.  
-    This will normally terminate the program.  If it should continue running, 
-    such messages should be logged in a try-except block to catch the 
+    Logging a message with loglevel >= logging.ERROR will raise a
+    logger.LoggerError, an internal exception type derived from RuntimeError.
+    This will normally terminate the program.  If it should continue running,
+    such messages should be logged in a try-except block to catch the
     exception:
         try:
             log.console('Serious Trouble', logging.ERROR)
@@ -60,13 +61,13 @@ class logger(object):
             pass
     Note that error messages should normally be logged to the console so that
     they are immediately visible and are included in the e-mail message.
-    
-    The record method has an internal try-except block that catches and logs 
-    to the console any unexpected exceptions before re-raising the exception.  
+
+    The record method has an internal try-except block that catches and logs
+    to the console any unexpected exceptions before re-raising the exception.
 
     The "console" is normally sys.stderr.  The code checks whether stderr is
     a tty and bypasses the write to stderr if it is not.  This ensures that
-    console messages still make it into the log file and e-mail message, even 
+    console messages still make it into the log file and e-mail message, even
     when running under a non-interactive shell (e.g. gridengine).
 
     If e-mail configuration (sender, to, smtphost and subject) are given, two
@@ -161,12 +162,12 @@ class logger(object):
 
         # the request for an e-mail copy of the consol log is signalled by
         # self.text != None
-        if (sender != None and (to != []) and
-                    smtphost != None and subject != None):
+        if (sender is not None and (to != []) and
+                smtphost is not None and subject is not None):
             self.text = ''
 
         # see http://www.python.org/dev/peps/pep-0282/
-        #logging.basicConfig(filename=filename,
+        # logging.basicConfig(filename=filename,
         #                    format='%(levelname)s %(asctime)s %(message)s',
         #                    datefmt='%Y-%m-%dT%H:%M:%S',
         #                    level=loglevel)
@@ -176,17 +177,17 @@ class logger(object):
         self.additional_loggers = {}
 
         # consoleHandler writes messages to sys.stderr
-        #self.consoleHandler = logging.StreamHandler()
-        #self.consoleHandler.setLevel(self.loglevel)
-        #self.formatter = logging.Formatter(
+        # self.consoleHandler = logging.StreamHandler()
+        # self.consoleHandler.setLevel(self.loglevel)
+        # self.formatter = logging.Formatter(
         #                           '%(levelname)s %(asctime)s %(message)s')
-        #self.consoleHandler.setFormatter(self.formatter)
+        # self.consoleHandler.setFormatter(self.formatter)
 
         # 'console' is a child of the root logger ''
         # messages passed to 'console' are also logged by ''
         self.additional_loggers['console'] = logging.getLogger('console')
-        #self.additional_loggers['console'].propagate = True
-        #self.additional_loggers['console'].addHandler(self.consoleHandler)
+        # self.additional_loggers['console'].propagate = True
+        # self.additional_loggers['console'].addHandler(self.consoleHandler)
 
     def get_text(self):
         """
@@ -195,7 +196,7 @@ class logger(object):
         Arguments:
         <none>
         """
-        if self.text == None:
+        if self.text is None:
             return ''
         else:
             return self.text
@@ -221,13 +222,13 @@ class logger(object):
         Beware that logging to the console can fail if the process does not
         have a console (e.g. running as a cron, condor or gridengine job).
         """
-        if not logsystem in self.additional_loggers.keys():
+        if logsystem not in self.additional_loggers.keys():
             self.additional_loggers[logsystem] = logging.getLogger(logsystem)
             self.additional_loggers[logsystem].propagate = True
             self.additional_loggers[logsystem].setLevel(self.loglevel)
             if console:
                 self.additional_loggers[logsystem].addHandler(
-                                                           self.consoleHandler)
+                    self.consoleHandler)
 
     def get_logger(self, logsystem):
         """
@@ -345,7 +346,7 @@ class logger(object):
     def send_email(self):
         """
         Send the current buffer of console messages by e-mail and reset the
-        buffer to empty, if the e-mail configuration has been supplied.  
+        buffer to empty, if the e-mail configuration has been supplied.
         Does nothing if e-mail has not been configured.
 
         Arguments:
@@ -392,11 +393,11 @@ class logger(object):
                 log.console(message)
                 log.file(message)
         The final action is to send the accumulated console messages (not the
-        log file on the disk) by e-mail, if e-mail contact information has 
+        log file on the disk) by e-mail, if e-mail contact information has
         been configured.
-        
-        LoggerError messages will already have been logged to the file, but 
-        unexpected exceptions will be caught by the try block and logged 
+
+        LoggerError messages will already have been logged to the file, but
+        unexpected exceptions will be caught by the try block and logged
         before exitting.
         """
         try:

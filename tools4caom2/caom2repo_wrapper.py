@@ -21,6 +21,7 @@ using the caom2repo.py script provided by caom2repoClient.
 
 Version: """ + __version__.version
 
+
 class Repository(object):
     """
     Wrapper manager class for the caom2repoClient utility.
@@ -79,10 +80,10 @@ class Repository(object):
         self.workdir = workdir
         self.log = log
         self.debug = debug
-        self.backoff =  backoff
+        self.backoff = backoff
 
     @contextmanager
-    def process( self, uri):
+    def process(self, uri):
         """
         Context manager to fetch and store  a CAOM-2 observation
 
@@ -127,7 +128,7 @@ class Repository(object):
             if (not self.debug and filepath and os.path.exists(filepath)):
                 os.remove(filepath)
 
-    def get( self, uri):
+    def get(self, uri):
         """
         Get an xml file from the CAOM-2 repository
 
@@ -149,9 +150,10 @@ class Repository(object):
             myuri = uri
         else:
             myuri = str(uri)
-        filepath = tempfile.mktemp(suffix='.xml',
-                                   prefix=re.sub(r'[^A-Za-z0-9]+',r'_', myuri),
-                                   dir=self.workdir)
+        filepath = tempfile.mktemp(
+            suffix='.xml',
+            prefix=re.sub(r'[^A-Za-z0-9]+', r'_', myuri),
+            dir=self.workdir)
         cmd = 'caom2repo.py --debug --retry=5 --get ' + myuri + ' ' + filepath
         self.log.file(cmd)
 
@@ -162,13 +164,13 @@ class Repository(object):
             exists = True
         except subprocess.CalledProcessError as e:
             if (not re.search(r'No such Observation found', e.output)):
-                # Recognizing that the observation does not exist is a 
+                # Recognizing that the observation does not exist is a
                 # success condition.  Otherwise, report the error.
                 self.log.console('Command "' + e.cmd +
-                                   ' " returned errno.' +
-                                   errno.errorcode[e.returncode] +
-                                   ' with output "' + e.output + '"',
-                                   logging.ERROR)
+                                 ' " returned errno.' +
+                                 errno.errorcode[e.returncode] +
+                                 ' with output "' + e.output + '"',
+                                 logging.ERROR)
         except Exception as e:
             retry = False
             self.log.console('caom2repo.py failed with an unexpected '
@@ -184,7 +186,8 @@ class Repository(object):
         if exists:
             self.log.console('PROGRESS: Observation ' + myuri + ' was found')
         else:
-            self.log.console('PROGRESS: Observation ' + myuri + ' was NOT found')
+            self.log.console(
+                'PROGRESS: Observation ' + myuri + ' was NOT found')
         return (filepath, exists)
 
     def put(self, uri, filepath, exists):
@@ -214,9 +217,11 @@ class Repository(object):
             myuri = str(uri)
 
         if exists:
-            cmd = 'caom2repo.py --debug --retry=5 --update ' + myuri + ' ' + filepath
+            cmd = 'caom2repo.py --debug --retry=5 --update ' + myuri + ' ' + \
+                filepath
         else:
-            cmd = 'caom2repo.py --debug --retry=5 --put ' + myuri + ' ' + filepath
+            cmd = 'caom2repo.py --debug --retry=5 --put ' + myuri + ' ' + \
+                filepath
         self.log.console('PROGRESS: "' + cmd + '"',
                          logging.DEBUG)
 
@@ -226,10 +231,10 @@ class Repository(object):
                                              shell=True)
         except subprocess.CalledProcessError as e:
             self.log.console('Command "' + e.cmd +
-                               ' " returned errno.' +
-                               errno.errorcode[e.returncode] +
-                               ' with output "' + e.output + '"',
-                               logging.ERROR)
+                             ' " returned errno.' +
+                             errno.errorcode[e.returncode] +
+                             ' with output "' + e.output + '"',
+                             logging.ERROR)
 
     def remove(self, uri):
         """
@@ -261,16 +266,17 @@ class Repository(object):
                          logging.DEBUG)
 
         try:
-            status = subprocess.check_output(cmd,
-                                         stderr=subprocess.STDOUT,
-                                         shell=True)
+            status = subprocess.check_output(
+                cmd,
+                stderr=subprocess.STDOUT,
+                shell=True)
         except subprocess.CalledProcessError as e:
-            if (e.returncode != errno.ENOENT or 
-                not re.search(r'No such Observation found', e.output)):
+            if (e.returncode != errno.ENOENT or
+                    not re.search(r'No such Observation found', e.output)):
                 # It is no problem if the observation does not exist,
                 # but otherwise log the error.
                 self.log.console('Command "' + e.cmd +
-                                   ' " returned errno.' +
-                                   errno.errorcode[e.returncode] +
-                                   ' with output "' + e.output + '"',
-                                   logging.ERROR)
+                                 ' " returned errno.' +
+                                 errno.errorcode[e.returncode] +
+                                 ' with output "' + e.output + '"',
+                                 logging.ERROR)

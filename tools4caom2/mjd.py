@@ -25,11 +25,11 @@ def utc2mjd(dt):
     """
     Convert a UTC datetime dt to MJD.
     If dt is not timezone-aware, assume it is already in UTC.
-    
+
     Arguments:
     dt:      a Python datetime
     """
-    if dt.tzinfo == None:
+    if dt.tzinfo is None:
         dtdelta = dt.replace(tzinfo=UTC()) - ORIGIN
     else:
         dtdelta = dt - ORIGIN
@@ -41,7 +41,7 @@ def utc2mjd(dt):
 def mjd2utc(mjd):
     """
     Convert an MJD to a UTC datetime.
-    
+
     Arguments:
     mjd:     a Modified Julian Date
     """
@@ -51,7 +51,7 @@ def mjd2utc(mjd):
 def str2mjd(dt_string, format='%Y-%m-%dT%H:%M:%S'):
     """
     Convert a string containing a datetime to MJD, accurate to seconds.
-    
+
     Arguments:
     dt_string: a datetime written as a string
     format:    the format needed to read the datetime
@@ -80,7 +80,7 @@ def str2mjd(dt_string, format='%Y-%m-%dT%H:%M:%S'):
 def mjd2str(mjd):
     """
     Convert an MJD to an ISO 8601 string.
-    
+
     Arguments:
     mjd:     a Modified Julian Date
     """

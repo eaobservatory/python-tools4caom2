@@ -22,6 +22,7 @@ from tools4caom2.basecontainer import basecontainer
 from tools4caom2.filelist_container import filelist_container
 from tools4caom2.logger import logger
 
+
 def write_fits(filepath,
                numexts,
                obsid,
@@ -66,7 +67,7 @@ def write_fits(filepath,
     else:
         hdu.header.update('NOTA', False)
 
-    #Some extension-dependent headers
+    # Some extension-dependent headers
     hdu.header.update('FIELD4', 'BAD')
     hdu.header.update('FIELD5', 'GOOD')
 
@@ -118,6 +119,7 @@ def write_fits(filepath,
 
     hdulist.writeto(filepath)
 
+
 class testFilelistContainer(unittest.TestCase):
     """
     unit tests for tools4caom2.file-container classe
@@ -131,7 +133,7 @@ class testFilelistContainer(unittest.TestCase):
 
         # set up the test envirnonment
         self.testdir = tempfile.mkdtemp()
-        self.log = logger(os.path.join(self.testdir, 'filelist.log'), 
+        self.log = logger(os.path.join(self.testdir, 'filelist.log'),
                           console_output=False)
         # fake data
         fakedata = numpy.arange(10)
@@ -163,7 +165,6 @@ class testFilelistContainer(unittest.TestCase):
         print >>TEXT, "This is some text"
         TEXT.close()
 
-
     def tearDown(self):
         """
         Delete the testdir and any files it contains.
@@ -187,9 +188,9 @@ class testFilelistContainer(unittest.TestCase):
         # These files should all exist so creation of a filelist_container
         # should succeed
         fc = filelist_container(self.log,
-                                'filelist', 
-                                test_file_list, 
-                                fitsfilter, 
+                                'filelist',
+                                test_file_list,
+                                fitsfilter,
                                 make_file_id)
 
         # Verify that the list of file_id's returned by fc1.file_id_list()
@@ -202,8 +203,8 @@ class testFilelistContainer(unittest.TestCase):
 
         for i, file_id in enumerate(test_file_id_list):
             filepath = fc.get(file_id)
-            # verify that the file path returned by get is identical to the path
-            # that was inserted
+            # verify that the file path returned by get is identical to the
+            # path that was inserted
             self.assertEquals(filepath, test_file_list[i],
                               'ERROR: %s != %s' %
                               (filepath, test_file_list[i]))
@@ -241,28 +242,28 @@ class testFilelistContainer(unittest.TestCase):
         test_file_list.append('bogus.file')
         self.assertRaises(logger.LoggerError,
                           filelist_container,
-                          self.log, 
-                          'filelist', 
-                          test_file_list, 
-                          None, 
+                          self.log,
+                          'filelist',
+                          test_file_list,
+                          None,
                           make_file_id)
 
     # Test filelist_container implementations
     def test020_filelist_container_no_filtering(self):
         test_file_id_list = ['file1', 'file2', 'file3', 'file9']
         test_file_list = [os.path.join(self.testdir, f) for f in
-                              ['file1.fits', 
-                              'file2.fits', 
-                              'file3.fits', 
-                              'file9.txt']]
+                          ['file1.fits',
+                           'file2.fits',
+                           'file3.fits',
+                           'file9.txt']]
 
         # These files should all exist so creation of a filelist_container
         # should succeed.
         # This container should include file9.txt, since the filterfunc is None
         fc = filelist_container(self.log,
-                                'filelist', 
-                                test_file_list, 
-                                None, 
+                                'filelist',
+                                test_file_list,
+                                None,
                                 make_file_id)
 
         # Verify that the list of file_id's returned by fc1.file_id_list()
@@ -275,8 +276,8 @@ class testFilelistContainer(unittest.TestCase):
 
         for i, file_id in enumerate(test_file_id_list):
             filepath = fc.get(file_id)
-            # verify that the file path returned by get is identical to the path
-            # that was inserted
+            # verify that the file path returned by get is identical to the
+            # path that was inserted
             self.assertEquals(filepath, test_file_list[i],
                               'ERROR: %s != %s' %
                               (filepath, test_file_list[i]))
@@ -307,18 +308,18 @@ class testFilelistContainer(unittest.TestCase):
     def test030_filelist_container_with_filtering(self):
         test_file_id_list = ['file1', 'file2', 'file3']
         test_file_list = [os.path.join(self.testdir, f) for f in
-                              ['file1.fits', 
-                              'file2.fits', 
-                              'file3.fits',
-                              'file9.txt']]
+                          ['file1.fits',
+                           'file2.fits',
+                           'file3.fits',
+                           'file9.txt']]
 
         # These files should all exist so creation of a filelist_container
         # should succeed.
         # This container should include file9.txt, since the filterfunc is None
         fc = filelist_container(self.log,
                                 'filelist',
-                                test_file_list, 
-                                fitsfilter, 
+                                test_file_list,
+                                fitsfilter,
                                 make_file_id)
 
         # Verify that the list of file_id's returned by fc1.file_id_list()
@@ -330,11 +331,11 @@ class testFilelistContainer(unittest.TestCase):
                            repr(sorted(fc.file_id_list()))))
 
         self.assertEqual(fc.name, 'filelist')
-        
+
         for i, file_id in enumerate(test_file_id_list):
             filepath = fc.get(file_id)
-            # verify that the file path returned by get is identical to the path
-            # that was inserted for each fits file
+            # verify that the file path returned by get is identical to the
+            # path that was inserted for each fits file
             if file_id != 'fits9':
                 self.assertEquals(filepath, test_file_list[i],
                                   'ERROR: %s != %s' %
@@ -346,7 +347,7 @@ class testFilelistContainer(unittest.TestCase):
                 # Verify that cleanup does nothing
                 fc.cleanup(file_id)
                 self.assertTrue(os.path.exists(filepath))
-            
+
             else:
                 # file9 is text and should have been filtered out
                 self.assertTrue(file_id not in fc.file_id_list(),
@@ -354,6 +355,6 @@ class testFilelistContainer(unittest.TestCase):
                                 'filtered out of the container, but is in ' +
                                 repr(fc.file_id_list()))
 
+
 if __name__ == '__main__':
     unittest.main()
-

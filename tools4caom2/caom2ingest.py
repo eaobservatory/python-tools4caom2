@@ -49,83 +49,86 @@ from tools4caom2.vos_container import vos_container
 from tools4caom2.__version__ import version as tools4caom2version
 
 __doc__ = """
-Ingest processed data files into CAOM-2.  The caom2ingest module has been 
-cloned from ingest2caom2 and customized to find its lists of input files 
-in a directory that is either on disk or in a VOspace, or in an adfile. 
-This is intended to be a base class for archive-specific ingestion routines 
+Ingest processed data files into CAOM-2.  The caom2ingest module has been
+cloned from ingest2caom2 and customized to find its lists of input files
+in a directory that is either on disk or in a VOspace, or in an adfile.
+This is intended to be a base class for archive-specific ingestion routines
 with names like archive2caom2ingest.
 
-By default, it runs a set of file verification tests, creates a report of errors 
-and warnings and exits.  This is referred to as "check mode" and anyone can run 
-caom2ingest in check mode.  
+By default, it runs a set of file verification tests, creates a report of
+errors and warnings and exits.  This is referred to as "check mode" and anyone
+can run caom2ingest in check mode.
 
 Check mode implements several of the checks that would be done during a CADC
 e-transfer operation, such as rejecting zero-length files, running fitsverify
 on FITS files to verify that they do not generate error messages,
-and verifying that names match the regex required for the archive.  Other checks 
-include metadata checks for mandatory keywords or keywords that must have one of
-a restricted set of values, and verifying whether the file is already present 
-in the archive (sometimes forbidden, sometimes mandatory).
+and verifying that names match the regex required for the archive.  Other
+checks include metadata checks for mandatory keywords or keywords that must
+have one of a restricted set of values, and verifying whether the file is
+already present in the archive (sometimes forbidden, sometimes mandatory).
 
-With the --store switch, caom2ingest will copy files from VOspace into archive 
-storage at the CADC.  This is a privileged operation; the account making the 
+With the --store switch, caom2ingest will copy files from VOspace into archive
+storage at the CADC.  This is a privileged operation; the account making the
 request must have appropriate write permissions.
 
 The --storemethod switch has one of two values, "pull" or "push" where "pull"
 is the default.  The "pull" method uses CADC e-transfer to move the files into
-ADS.  The "push" method uses the data web client to push the files into AD.  
+ADS.  The "push" method uses the data web client to push the files into AD.
 
 Either store method can be used for files in VOspace, provided the VOspace
 etransfer directory has been configured in the [transfer] section of the
 userconfig file.
 
-Files on disk at the JAC can be transferred using the "push" method, but it 
+Files on disk at the JAC can be transferred using the "push" method, but it
 is likely that some other transfer mechanism will already be built into the
 data processing system, rendering it unnecessary.
 
-With the --ingest switch, caom2ingest will ingest the files into CAOM-2.  However
-it is managed, the transfer of files into AD must already have occurred before 
---ingest is invoked.  In addition, all raw observations in the membership must
-already have been successfully ingested.  
+With the --ingest switch, caom2ingest will ingest the files into CAOM-2.
+However it is managed, the transfer of files into AD must already have occurred
+before --ingest is invoked.  In addition, all raw observations in the
+membership must already have been successfully ingested.
 
-The ingestion logic is mostly missing from this module, since it is extremely 
-archive-specific and must be implemented in a subclass derived from caom2ingest. 
-This is a privileged operation; the CADC must have granted read and write access 
-for the CAOM-2 repository to the account requesting the ingestion.
+The ingestion logic is mostly missing from this module, since it is extremely
+archive-specific and must be implemented in a subclass derived from
+caom2ingest.  This is a privileged operation; the CADC must have granted read
+and write access for the CAOM-2 repository to the account requesting the
+ingestion.
 
-The caom2ingest module is intended to be used at sites remote from the CADC.  
-If metadata is available from a database, caom2ingest can be configured to 
+The caom2ingest module is intended to be used at sites remote from the CADC.
+If metadata is available from a database, caom2ingest can be configured to
 use it to improve performance and gather more authoritative metadata, but
-otherwise it uses only generic methods that should work over the internet to 
-access and store files. Access to the VOspace uses the CADC-supplied vos module. 
-Access to existing observations, planes and artifacts in CAOM-2 uses the CADC 
-TAP service, and the caom2repo.py comand line script supplied with the CADC
-caom2repoClient package.
+otherwise it uses only generic methods that should work over the internet to
+access and store files. Access to the VOspace uses the CADC-supplied vos
+module.  Access to existing observations, planes and artifacts in CAOM-2 uses
+the CADC TAP service, and the caom2repo.py comand line script supplied with the
+CADC caom2repoClient package.
 """
 
-#************************************************************************
-#* Utility routines
-#************************************************************************
+
+# ***********************************************************************
+#  Utility routines
+# ***********************************************************************
 def make_file_id(filepath):
     """
-    An archive-specific routine to convert a filename to the corressponding 
-    file_id used to identify the file in CADC storage.  The default routine 
-    provided here picks out the basename from the path, which can therefore 
-    be a path to a file on disk, a VOspace urL, or a vos uri, then strips off 
+    An archive-specific routine to convert a filename to the corressponding
+    file_id used to identify the file in CADC storage.  The default routine
+    provided here picks out the basename from the path, which can therefore
+    be a path to a file on disk, a VOspace urL, or a vos uri, then strips off
     the extension and forces the name into lower case.
 
     Arguments:
     filepath: path to the file
-    
+
     Returns:
     file_id: string used to identify the file in storage
     This is a static method taking exactly one argument.
     """
     return os.path.splitext(os.path.basename(filepath))[0].lower()
 
-#*******************************************************************************
+
+# ******************************************************************************
 # Base class for ingestions from VOspace
-#*******************************************************************************
+# ******************************************************************************
 class caom2ingest(object):
     """
     Base class to copy and ingest files from a VOspace into a CADC archive
@@ -162,24 +165,22 @@ class caom2ingest(object):
         # Derive the config path from the script or bin directory path
         if 'CADC_ROOT' in os.environ:
             self.configpath = os.path.abspath(
-                                os.path.join(
-                                    os.path.expandvars('$CADC_ROOT'), 
-                                    'config'))
+                os.path.join(os.path.expandvars('$CADC_ROOT'), 'config'))
         else:
             self.configpath = os.path.join(self.exedir, 'config')
 
         # Argument parser
         self.ap = None
         self.args = None
-        
-        # Database defaults, normally filled from userconfig 
+
+        # Database defaults, normally filled from userconfig
         self.sybase_defined = sybase_defined
         self.archive = None
         self.stream = None
         self.schema = 'dbo'
         self.collection_choices = ['SANDBOX']
         self.external_collections = ['SANDBOX']
-        
+
         # routine to convert filepaths into file_ids
         # The default routine supplied here should work for most archives.
         self.make_file_id = make_file_id
@@ -197,24 +198,24 @@ class caom2ingest(object):
         # Ingestion parameters and structures
         self.prefix = ''         # ingestible files must start with this prefix
         self.indir = ''          # path to indir
-        self.replace = False     # True if observations in JCMTLS or JCMTUSER 
+        self.replace = False     # True if observations in JCMTLS or JCMTUSER
                                  # can replace each other
         self.big = False         # True to use larger memory for fits2caom2
         self.store = False       # True to store files from indir
-        self.storemethod = None  # e-transfer or data web service 
+        self.storemethod = None  # e-transfer or data web service
         self.ingest = False      # True to ingest files from indir into CAOM-2
         self.local = False       # True if files are on a local disk
-        
+
         # Archive-specific fits2caom2 config and default file paths
         self.config = None
         self.default = None
-        
+
         # Current vos container
         self.vosclient = Client()
         self.vos = None
         # dictionary of lists of compiles regex expressions, keyed by extension
         self.fileid_regex_dict = None
-        
+
         # Working structures thatcollect metadata from each file to be saved
         # in self.metadict
         self.collection = None
@@ -223,29 +224,29 @@ class caom2ingest(object):
         self.plane_dict = OrderedDict()
         self.fitsuri_dict = OrderedDict()
         # The memberset contains member time intervals for this plane.
-        # The member_cache is a dict keyed by the membership headers 
+        # The member_cache is a dict keyed by the membership headers
         # MBR<n> or OBS<n> that contains the observationURI, date_obs, date_end
         # and release_date for each member.  This is preserved for the whole
-        # container on the expectation that the same members will be used by 
+        # container on the expectation that the same members will be used by
         # multiple files.
         self.memberset = set()
         self.member_cache = dict()
         # The inputset is the set of planeURIs that are inputs for a plane
-        # The fileset is a set of input files that have not yet been confirmed 
+        # The fileset is a set of input files that have not yet been confirmed
         # as belonging to any particular input plane.
         # The input cache is a dictionary giving the planeURI for each file_id
         # found in a member observation.
         self.inputset = set()
         self.fileset = set()
         self.input_cache = dict()
-        
+
         # The metadata dictionary - fundamental structure for the entire class
         # For the detailed structure of metadict, see the help text for
         # fillMetadictFromFile()
         self.metadict = OrderedDict()
-        
+
         # Lists of files to be stored, or to check that they are in storage
-        # Data files are added to data_storage iff they report no errors 
+        # Data files are added to data_storage iff they report no errors
         self.data_storage = []
         # Preview candidates are added as they are encountered and removed
         # if they do not match any planes.
@@ -256,23 +257,23 @@ class caom2ingest(object):
 
         # Delayed reporting of errors and warnings discovered in files
         self.dew = None
-        
+
         # TAP client
         self.tap = None
 
-    #************************************************************************
+    # ***********************************************************************
     # Define the standard command line interface.
     # Be sure to maintain consistency amongst defineCommandLineSwitches,
     # processCommandLineSwitches, and logCommandLineSwitches.
-    #************************************************************************
+    # ***********************************************************************
     def defineCommandLineSwitches(self):
         """
         Generic routine to build the standard list of command line arguments.
         This routine has been split off from processing and logging to allow
         additional arguments to be defined for derived classes.
-        
+
         Subclasses for specific archive can override this method to add new
-        arguments, but should first call 
+        arguments, but should first call
            self.caom2ingest.defineCommandLineSwitches()
         to ensure that the standard arguments are always defined.
 
@@ -282,14 +283,16 @@ class caom2ingest(object):
         # user config arguments
         --userconfig : path to user configuration file
         --proxy      : path to CADC proxy certificate
-        
+
         # ingestion arguments
         --prefix     : (required) prefix for files to be stored/ingested
         --indir      : (required) directory or ad file containing the release
-        --replace    : (optional) observations in JCMTLS or JCMTUSER can replace
-                       existing observations
-        --store      : (optional) store files in AD (requires CADC authorization)
-        --ingest     : (optional) ingest new files (requires CADC authorization)
+        --replace    : (optional) observations in JCMTLS or JCMTUSER can
+                       replace existing observations
+        --store      : (optional) store files in AD (requires CADC
+                       authorization)
+        --ingest     : (optional) ingest new files (requires CADC
+                       authorization)
 
         # fits2caom2 arguments
         --collection : (required) collection to use for ingestion
@@ -313,12 +316,14 @@ class caom2ingest(object):
 
         # Optional user configuration
         if self.userconfigpath:
-            self.ap.add_argument('--userconfig',
+            self.ap.add_argument(
+                '--userconfig',
                 default=self.userconfigpath,
                 help='Optional user configuration file '
                      '(default=' + self.userconfigpath + ')')
-        
-        self.ap.add_argument('--proxy',
+
+        self.ap.add_argument(
+            '--proxy',
             default='~/.ssl/cadcproxy.pem',
             help='path to CADC proxy')
 
@@ -350,67 +355,77 @@ class caom2ingest(object):
 
         # Basic fits2caom2 options
         # Optionally, specify explicit paths to the config and default files
-        self.ap.add_argument('--collection',
+        self.ap.add_argument(
+            '--collection',
             required=True,
             choices=self.collection_choices,
             help='collection to use for ingestion')
-        self.ap.add_argument('--config',
+        self.ap.add_argument(
+            '--config',
             help='(optional) path to fits2caom2 config file')
-        self.ap.add_argument('--default',
+        self.ap.add_argument(
+            '--default',
             help='(optional) path to fits2caom2 default file')
 
         # Big jobs require extra memory
-        self.ap.add_argument('--big',
+        self.ap.add_argument(
+            '--big',
             action='store_true',
             help='(optional) request extra heap space and RAM')
-        
+
         # output directory
-        self.ap.add_argument('--workdir',
+        self.ap.add_argument(
+            '--workdir',
             help='output directory, (default = current directory')
 
         # debugging options
-        self.ap.add_argument('--logdir',
+        self.ap.add_argument(
+            '--logdir',
             help='(optional) directory to hold log file')
-        self.ap.add_argument('--log',
+        self.ap.add_argument(
+            '--log',
             help='(optional) name of the log file')
-        self.ap.add_argument('--test',
+        self.ap.add_argument(
+            '--test',
             action='store_true',
             help='(optional) simulate operation of fits2caom2')
-        self.ap.add_argument('--debug',
+        self.ap.add_argument(
+            '--debug',
             action='store_true',
             help='(optional) show all messages, pass --debug to fits2caom2,'
             ' and retain all xml and override files')
-    
+
     def processCommandLineSwitches(self):
         """
         Generic routine to process the command line arguments
         and create workdir if necessary.  This will check the values of the
         standard arguments defined in defineCommandLineSwitches and will
         leave the additional arguments in self.args.
-        
+
         Arguments:
         <None>
-        
+
         Returns:
         The set of command line arguments is stored in self.args and the
-        default arguments are interpreted and stored into individual attributes.
+        default arguments are interpreted and stored into individual
+        attributes.
         """
         # If the user configuration file exists, read it.
         if 'userconfig' in self.args:
             self.userconfigpath = os.path.abspath(
-                                    os.path.expanduser(
-                                        os.path.expandvars(
-                                            self.args.userconfig)))
+                os.path.expanduser(
+                    os.path.expandvars(
+                        self.args.userconfig)))
         if self.userconfigpath and os.path.isfile(self.userconfigpath):
             with open(self.userconfigpath) as UC:
                 self.userconfig.readfp(UC)
-        
+
         self.proxy = os.path.abspath(
-                        os.path.expandvars(
-                            os.path.expanduser(self.args.proxy)))
-        
+            os.path.expandvars(
+                os.path.expanduser(self.args.proxy)))
+
         self.collection = self.args.collection
-        
+
         if self.args.prefix:
             self.prefix = self.args.prefix
             file_id_regex = re.compile(self.prefix + r'.*')
@@ -428,34 +443,34 @@ class caom2ingest(object):
         # It is not necessary to check for their existance.
         if self.args.big:
             self.big = self.args.big
-        
+
         if self.args.config:
             self.config = os.path.abspath(
-                                os.path.expandvars(
-                                    os.path.expanduser(self.args.config)))
+                os.path.expandvars(
+                    os.path.expanduser(self.args.config)))
         if self.args.default:
             self.default = os.path.abspath(
-                                os.path.expandvars(
-                                    os.path.expanduser(self.args.default)))
+                os.path.expandvars(
+                    os.path.expanduser(self.args.default)))
 
         if self.args.workdir:
             self.workdir = os.path.abspath(
-                             os.path.expandvars(
-                                 os.path.expanduser(self.args.workdir)))
+                os.path.expandvars(
+                    os.path.expanduser(self.args.workdir)))
         else:
             self.workdir = os.getcwd()
-        
-        # Parse ingestion options 
+
+        # Parse ingestion options
         if (re.match(r'vos:.*', self.args.indir)
-            and self.vosclient.access(self.args.indir) 
-            and self.vosclient.isdir(self.args.indir)):
-            
+                and self.vosclient.access(self.args.indir)
+                and self.vosclient.isdir(self.args.indir)):
+
             self.indir = self.args.indir
             self.local = False
         else:
             indirpath = os.path.abspath(
-                            os.path.expandvars(
-                                os.path.expanduser(self.args.indir)))
+                os.path.expandvars(
+                    os.path.expanduser(self.args.indir)))
             # is this a local directorory on the disk?
             if os.path.isdir(indirpath):
                 self.indir = indirpath
@@ -466,14 +481,14 @@ class caom2ingest(object):
                   os.path.splitext(indirpath)[1] == '.ad'):
                 self.indir = indirpath
                 self.local = False
-        
+
         if self.args.replace:
             self.replace = self.args.replace
-        
+
         if self.args.logdir:
             self.logdir = os.path.abspath(
-                            os.path.expandvars(
-                                os.path.expanduser(self.args.logdir)))
+                os.path.expandvars(
+                    os.path.expanduser(self.args.logdir)))
         else:
             self.logdir = os.getcwd()
 
@@ -487,7 +502,7 @@ class caom2ingest(object):
         logbase = (self.progname + '_provenance_runid')
         if not self.local:
             if self.indir:
-                logbase = (self.progname + '_' + 
+                logbase = (self.progname + '_' +
                            re.sub(r'[^a-zA-Z0-9]', r'-', self.indir))
         logbase += '_'
 
@@ -500,12 +515,12 @@ class caom2ingest(object):
                 self.logfile = os.path.join(self.logdir, self.args.log)
             else:
                 self.logfile = os.path.abspath(self.args.log)
-        
+
         if not self.logfile:
             self.logfile = os.path.join(self.logdir,
-                                        logbase + utdate_string() + 
+                                        logbase + utdate_string() +
                                         '.log')
-        
+
         # create workdir if it does not already exist
         if not os.path.exists(self.workdir):
             os.makedirs(self.workdir)
@@ -513,10 +528,10 @@ class caom2ingest(object):
         if self.args.store:
             self.store = self.args.store
         self.storemethod = self.args.storemethod
-        
+
         if self.args.ingest:
             self.ingest = self.args.ingest
-        
+
     def logCommandLineSwitches(self):
         """
         Generic method to log the command line switch values
@@ -531,13 +546,13 @@ class caom2ingest(object):
         self.log.file('configpath = ' + self.configpath)
         for attr in dir(self.args):
             if attr != 'id' and attr[0] != '_':
-                self.log.file('%-15s= %s' % 
-                                 (attr, str(getattr(self.args, attr))))
+                self.log.file('%-15s= %s' %
+                              (attr, str(getattr(self.args, attr))))
         self.log.file('workdir = ' + self.workdir)
         self.log.file('local =  ' + str(self.local))
         self.log.file('logdir = ' + self.logdir)
         self.log.console('log = ' + self.logfile)
-        
+
         if self.collection in self.external_collections:
             if not self.prefix:
                 errors = True
@@ -546,38 +561,40 @@ class caom2ingest(object):
                                  logging.ERROR)
 
         if not self.indir:
-            self.log.console('--indir = ' + self.args.indir + ' does not exist',
-                             logging.ERROR)
-        
+            self.log.console(
+                '--indir = ' + self.args.indir + ' does not exist',
+                logging.ERROR)
+
         self.tap = tapclient(self.log, self.proxy)
         errors = False
         if not os.path.exists(self.proxy):
             errors = True
             self.log.console('ERROR: proxy does not exist: ' + self.proxy)
-        
+
         if not os.path.isdir(self.workdir):
             errors = True
-            self.log.console('ERROR: workdir is not a directory: ' + self.workdir)
-        
+            self.log.console(
+                'ERROR: workdir is not a directory: ' + self.workdir)
+
         if self.config and not os.path.isfile(self.config):
             errors = True
-            self.log.console('ERROR: config file does not exist: ' + 
+            self.log.console('ERROR: config file does not exist: ' +
                              str(self.config))
 
         if self.default and not os.path.isfile(self.default):
             errors = True
-            self.log.console('ERROR: default file does not exist: ' + 
+            self.log.console('ERROR: default file does not exist: ' +
                              str(self.default))
 
         if errors:
             self.log.console('Exit due to error conditions',
-                             logging.ERROR) 
-    
+                             logging.ERROR)
+
     def getfilelist(self, rootdir, check):
         """
-        Return a list of files in the directory tree rooted at dirpath 
+        Return a list of files in the directory tree rooted at dirpath
         for which check(f) is True.
-        
+
         Arguments:
         rootdir: absolute path to the root of the directory tree
         check: function that checks whether to include the file in the list
@@ -589,24 +606,25 @@ class caom2ingest(object):
                 if check(filepath):
                     mylist.append(filepath)
             for d in dirlist:
-                mylist.extend(self.getfilelist(os.path.join(dirpath, d), check))
+                mylist.extend(self.getfilelist(os.path.join(dirpath, d),
+                                               check))
         return mylist
-    
+
     def commandLineContainers(self):
         """
         Process the input directory.  Unlike previous versions of this code,
         caom2ingest handles only one container at a time.  This might revert
-        to processing multiple containers again in the future, so the 
+        to processing multiple containers again in the future, so the
         container list is retained.
 
         Arguments:
         <None>
         """
         # Find the list of containers to ingest.
-        self.containerlist = []        
+        self.containerlist = []
         try:
             if os.path.isdir(self.indir):
-                check = lambda f: (self.dew.namecheck(f, report=False) 
+                check = lambda f: (self.dew.namecheck(f, report=False)
                                    and self.dew.sizecheck(f))
                 filelist = self.getfilelist(self.indir, check)
                 self.containerlist.append(
@@ -614,9 +632,9 @@ class caom2ingest(object):
                         self.log,
                         self.indir,
                         filelist,
-                        lambda f : True,
+                        lambda f: True,
                         self.make_file_id))
-            
+
             elif os.path.isfile(self.indir):
                 basename, ext = os.path.splitext(self.indir)
                 if ext == '.ad':
@@ -628,24 +646,24 @@ class caom2ingest(object):
                             self.indir,
                             self.workdir,
                             self.make_file_id))
-                    
+
                 else:
                     self.log.console('indir is not a directory and : '
                                      'is not an ad file: ' +
                                      self.indir,
                                      logging.ERROR)
-            
+
             else:
                 # handle VOspace directories
-                if (self.vosclient.access(self.indir) 
-                    and self.vosclient.isdir(self.indir)):
+                if (self.vosclient.access(self.indir)
+                        and self.vosclient.isdir(self.indir)):
 
                     self.containerlist.append(
-                        vos_container(self.log, 
+                        vos_container(self.log,
                                       self.indir,
                                       self.archive,
                                       self.ingest,
-                                      self.workdir, 
+                                      self.workdir,
                                       self.dew,
                                       self.vosclient,
                                       self.data_web,
@@ -660,12 +678,13 @@ class caom2ingest(object):
             self.log.console(traceback.format_exc(),
                              logging.ERROR)
 
-    #************************************************************************
+    # ***********************************************************************
     # Clear the local plane and artifact dictionaries
-    #************************************************************************
+    # ***********************************************************************
     def clear(self):
         """
-        Clear the local plane and artifact dictionaries before each file is read.
+        Clear the local plane and artifact dictionaries before each file is
+        read.
 
         Arguments:
         <none>
@@ -679,23 +698,23 @@ class caom2ingest(object):
         self.memberset.clear()
         self.inputset.clear()
         self.override_items = 0
-        
-    #************************************************************************
+
+    # ***********************************************************************
     # Fill metadict using metadata from each file in the specified container
-    #************************************************************************
+    # ***********************************************************************
     def fillMetadict(self, container):
         """
         Generic routine to fill the metadict structure by iterating over
-        all containers, extracting the required metadata from each file 
+        all containers, extracting the required metadata from each file
         in turn using fillMetadictFromFile().
 
         Arguments:
-        container: a container of files to read 
+        container: a container of files to read
         """
         self.metadict.clear()
         self.data_storage = []
         self.preview_storage = []
-        
+
         try:
             # sort the file_id_list
             file_id_list = sorted(container.file_id_list())
@@ -711,7 +730,7 @@ class caom2ingest(object):
                     self.fillMetadictFromFile(file_id, f, container)
         finally:
             container.close()
-    
+
     def fillMetadictFromFile(self, file_id, filepath, container):
         """
         Generic routine to read metadata and fill the internal structure
@@ -724,9 +743,9 @@ class caom2ingest(object):
         """
         self.log.file('fillMetadictFromFile: ' + file_id + '  ' + filepath)
 
-        #*****************************************************************
+        # ****************************************************************
         # Call build_dict to fill plane_dict and fitsuri_dict
-        #*****************************************************************
+        # ****************************************************************
         self.clear()
         # If the file is not a FITS file or is in serious violation of the FITS
         # standard, substitute an empty dictionary for the headers.  This is
@@ -742,34 +761,34 @@ class caom2ingest(object):
                     head.update('SRCPATH', container.uri(file_id))
                 else:
                     head.update('SRCPATH', filepath)
-                
+
                 self.log.file('...got primary header from ' + filepath,
                               logging.DEBUG)
             except:
                 head = {}
                 head['file_id'] = file_id
                 head['filepath'] = filepath
-                self.log.file('...could not read primary header from ' + 
+                self.log.file('...could not read primary header from ' +
                               filepath,
                               logging.DEBUG)
 
             self.file_id = file_id
             if self.ingest:
                 self.verifyFileInAD(filepath, file_id)
-            
+
             self.build_dict(head)
             self.build_metadict(filepath)
-            if (filepath not in self.dew.errors 
-                or len(self.dew.errors[filepath]) == 0):
-                
+            if (filepath not in self.dew.errors
+                    or len(self.dew.errors[filepath]) == 0):
+
                 self.data_storage.append(head['SRCPATH'])
 
 #        else:
 #            self.preview_storage.append(container.uri(file_id))
-        
-    #************************************************************************
+
+    # ***********************************************************************
     # Format an observation URI for composite members
-    #************************************************************************
+    # ***********************************************************************
     def observationURI(self, collection, observationID):
         """
         Generic method to format an observation URI, i.e. the URI used to
@@ -794,9 +813,9 @@ class caom2ingest(object):
                              myobservationID)
         return uri
 
-    #************************************************************************
+    # ***********************************************************************
     # Format a plane URI for provenance inputs
-    #************************************************************************
+    # ***********************************************************************
     def planeURI(self, collection, observationID, productID):
         """
         Generic method to format a plane URI, i.e. the URI used to access
@@ -826,9 +845,9 @@ class caom2ingest(object):
                        myproductID)
         return uri
 
-    #************************************************************************
+    # ***********************************************************************
     # Add this fitsuri (file or extewnsion) to the local fitsuri dictionary
-    #************************************************************************
+    # ***********************************************************************
     def add_fitsuri_dict(self, uri):
         """
         Add a key, value pair to the local fitsuri dictionary.  The method
@@ -842,10 +861,10 @@ class caom2ingest(object):
         if uri not in self.fitsuri_dict:
             self.fitsuri_dict[uri] = OrderedDict()
             self.fitsuri_dict[uri]['custom'] = OrderedDict()
-    
-    #************************************************************************
+
+    # ***********************************************************************
     # Format a URI for data access
-    #************************************************************************
+    # ***********************************************************************
     def fitsfileURI(self,
                     archive,
                     file_id):
@@ -866,9 +885,9 @@ class caom2ingest(object):
         """
         return ('ad:' + archive + '/' + file_id)
 
-    #************************************************************************
+    # ***********************************************************************
     # Format a URI for data access
-    #************************************************************************
+    # ***********************************************************************
     def fitsextensionURI(self,
                          archive,
                          file_id,
@@ -884,8 +903,8 @@ class caom2ingest(object):
         Arguments:
         archive : the archive within ad that holds the file
         file_id : file_id of the file in ad
-        extension_list : list (or tuple) of integers or tuples containing 
-                        integer pairs for the extensions to be ingested; 
+        extension_list : list (or tuple) of integers or tuples containing
+                        integer pairs for the extensions to be ingested;
                         if omitted ingest all extensions
         fits2caom2 : True => store uri for use with fits2caom2
 
@@ -897,7 +916,7 @@ class caom2ingest(object):
         for e in extension_list:
             if isinstance(e, int):
                 elist.append(str(e))
-            elif (isinstance(e, tuple) and 
+            elif (isinstance(e, tuple) and
                   len(e) == 2 and
                   isinstance(e[0], int) and
                   isinstance(e[1], int)):
@@ -909,12 +928,12 @@ class caom2ingest(object):
                                  logging.ERROR)
         if elist:
             fexturi = fileuri + '#[' + ','.join(elist) + ']'
-            
+
         return fexturi
 
-    #************************************************************************
+    # ***********************************************************************
     # Add a key-value pair to the local plane dictionary
-    #************************************************************************
+    # ***********************************************************************
     def add_to_plane_dict(self, key, value):
         """
         Add a key, value pair to the local plane dictionary.  The method will
@@ -932,9 +951,9 @@ class caom2ingest(object):
         self.plane_dict[key] = value
         self.override_items += 1
 
-    #************************************************************************
+    # ***********************************************************************
     # Add a key-value pair to the local fitsuri dictionary
-    #************************************************************************
+    # ***********************************************************************
     def add_to_fitsuri_dict(self, uri, key, value):
         """
         Add a key, value pair to the local fitsuri dictionary.  The method
@@ -951,7 +970,7 @@ class caom2ingest(object):
                              (key, repr(value), type(value)),
                              logging.ERROR)
 
-        if not uri in self.fitsuri_dict:
+        if uri not in self.fitsuri_dict:
             self.log.console('Create the fitsuri before adding '
                              'key,value pairs to the fitsuri_dict: '
                              '["%s"]["%s"] = "%s")' % (uri, key, value),
@@ -960,12 +979,12 @@ class caom2ingest(object):
         self.fitsuri_dict[uri][key] = value
         self.override_items += 1
 
-    #************************************************************************
+    # ***********************************************************************
     # Add a key-value pair to the local fitsuri custom dictionary
-    #************************************************************************
+    # ***********************************************************************
     def add_to_fitsuri_custom_dict(self, uri, key, value):
         """
-        Add a key, value pair to the local fitsuri dictionary.  Unlike the 
+        Add a key, value pair to the local fitsuri dictionary.  Unlike the
         other dictionaries, the fitsuri custom dictionary can hold arbitray
         dictionary values, since the values will be processed using custom
         code and do not necessary get written into the override file.
@@ -975,19 +994,19 @@ class caom2ingest(object):
         key : a key
         value : an arbitrary data type
         """
-        if not uri in self.fitsuri_dict:
+        if uri not in self.fitsuri_dict:
             self.log.console('call fitfileURI before adding '
                              'key,value pairs to the fitsuri_dict: '
-                             '["%s"]["%s"] = "%s")' % (uri, key, 
+                             '["%s"]["%s"] = "%s")' % (uri, key,
                                                        repr(value)),
                              logging.ERROR)
 
         self.fitsuri_dict[uri]['custom'][key] = value
         self.override_items += 1
 
-    #************************************************************************
+    # ***********************************************************************
     # Fetch a previously entered value from a specified plane dictionary
-    #************************************************************************
+    # ***********************************************************************
     def findURI(self, uri):
         """
         Generic routine to find which collection, observationID and productID
@@ -1008,9 +1027,9 @@ class caom2ingest(object):
                             return (c, o, p)
         return (None, None, None)
 
-    #************************************************************************
+    # ***********************************************************************
     # Fetch a previously entered value from a specified plane dictionary
-    #************************************************************************
+    # ***********************************************************************
     def get_plane_value(self, collection, observationID, productID, key):
         """
         Return the value stored in the plane dictionary for a previously
@@ -1025,11 +1044,11 @@ class caom2ingest(object):
         KeyError exception will be raised.
         """
         return self.metadict[collection][observationID][productID
-                             ]['plane_dict'][key]
+                                                        ]['plane_dict'][key]
 
-    #************************************************************************
+    # ***********************************************************************
     # Fetch a previously entered value from a specified artifact dictionary
-    #************************************************************************
+    # ***********************************************************************
     def get_artifact_value(self,
                            collection,
                            observationID,
@@ -1049,7 +1068,8 @@ class caom2ingest(object):
         KeyError exception will be raised.
         """
         return self.metadict[collection][observationID][productID
-                             ]['fitsuri_dict'][uri][key]
+                                                        ]['fitsuri_dict'
+                                                          ][uri][key]
 
     def build_metadict(self, filepath):
         """
@@ -1081,8 +1101,8 @@ class caom2ingest(object):
               holding the set of members for the observation, which will be
               empty for a simple observation.
             - Each plane is an OrderedDict containing a set of fitsuri dicts.
-            - Each plane contains an element 'uri_dict' that holds an 
-              OrderedDict of input URIs to pass to fits2caom2.  The uri is the 
+            - Each plane contains an element 'uri_dict' that holds an
+              OrderedDict of input URIs to pass to fits2caom2.  The uri is the
               key into the dictionary, where the value is the path to the file
               if it is local or None if it should be fetched from AD.
             - Each plane contains an element 'inputset' that holds a set of
@@ -1100,17 +1120,17 @@ class caom2ingest(object):
         """
         self.log.file('build_metadict',
                       logging.DEBUG)
-        
+
         # In check mode, errors should not raise exceptions
         raise_exception = True
-        if not (self.store or self.ingest) :
+        if not (self.store or self.ingest):
             raise_exception = False
-        
-        #If the plane_dict is completely empty, skip further processing
+
+        # If the plane_dict is completely empty, skip further processing
         if self.override_items:
-            #*****************************************************************
+            # ****************************************************************
             # fetch the required keys from self.plane_dict
-            #*****************************************************************
+            # ****************************************************************
             if not self.collection:
                 if raise_exception:
                     self.log.console(filepath + ' does not define the required'
@@ -1129,9 +1149,10 @@ class caom2ingest(object):
 
             if not self.productID:
                 if raise_exception:
-                    self.log.console(filepath + ' does not define the required' +
-                                     ' key "productID"',
-                                     logging.ERROR)
+                    self.log.console(
+                        filepath + ' does not define the required' +
+                        ' key "productID"',
+                        logging.ERROR)
                 else:
                     return
 
@@ -1148,9 +1169,9 @@ class caom2ingest(object):
                                                 self.observationID,
                                                 self.productID))
 
-            #*****************************************************************
+            # ****************************************************************
             # Build the dictionary structure
-            #*****************************************************************
+            # ****************************************************************
             if self.collection not in self.metadict:
                 self.metadict[self.collection] = OrderedDict()
             thisCollection = self.metadict[self.collection]
@@ -1159,62 +1180,63 @@ class caom2ingest(object):
                 thisCollection[self.observationID] = OrderedDict()
             thisObservation = thisCollection[self.observationID]
 
-            #*****************************************************************
+            # ****************************************************************
             # If memberset is not empty, the observation is a composite.
             # The memberset is the union of the membersets from all the
             # files in the observation.
-            #*****************************************************************
+            # ****************************************************************
             if 'memberset' not in thisObservation:
                 thisObservation['memberset'] = set([])
             if self.memberset:
                 thisObservation['memberset'] |= self.memberset
 
-            #*****************************************************************
+            # ****************************************************************
             # Create the plane-level structures
-            #*****************************************************************
+            # ****************************************************************
             if self.productID not in thisObservation:
                 thisObservation[self.productID] = OrderedDict()
             thisPlane = thisObservation[self.productID]
 
-            #*****************************************************************
+            # ****************************************************************
             # Items in the plane_dict accumulate so a key will be defined for
             # the plane if it is defined by any file.  If a key is defined
             # by several files, the definition from the last file is used.
-            #*****************************************************************
+            # ****************************************************************
             if 'plane_dict' not in thisPlane:
                 thisPlane['plane_dict'] = OrderedDict()
             if self.plane_dict:
                 for key in self.plane_dict:
                     # Handle release_date as a special case
-                    if (key == 'release_date' and key in thisPlane and 
-                        self.plane_dict[key] <= thisPlane['plane_dict'][key]):
+                    if (key == 'release_date' and key in thisPlane and
+                            self.plane_dict[key] <=
+                            thisPlane['plane_dict'][key]):
                         continue
                     thisPlane['plane_dict'][key] = self.plane_dict[key]
 
-            #*****************************************************************
+            # ****************************************************************
             # If inputset is not empty, the provenance should be filled.
             # The inputset is the union of the inputsets from all the files
             # in the plane.  Beware that files not yet classified into
-            # inputURI's may still remain in fileset, and will be 
+            # inputURI's may still remain in fileset, and will be
             # resolved if possible in checkProvenanceInputs.
-            #*****************************************************************
+            # ****************************************************************
             if 'inputset' not in thisPlane:
                 thisPlane['inputset'] = set([])
             if self.inputset:
                 thisPlane['inputset'] |= self.inputset
 
-            #*****************************************************************
-            # The fileset is the set of input files that have not yet been 
-            # identified as being recorded in any plane yet. 
-            #*****************************************************************
+            # ****************************************************************
+            # The fileset is the set of input files that have not yet been
+            # identified as being recorded in any plane yet.
+            # ****************************************************************
             if 'fileset' not in thisPlane:
                 thisPlane['fileset'] = set([])
             if self.fileset:
                 thisPlane['fileset'] |= self.fileset
 
-            #*****************************************************************
-            # Record the uri and (optionally) the filepath 
-            #*****************************************************************
+            # ****************************************************************
+            # Record the uri and (optionally) the filepath
+            # ****************************************************************
             if 'uri_dict' not in thisPlane:
                 thisPlane['uri_dict'] = OrderedDict()
             if self.uri not in thisPlane['uri_dict']:
@@ -1223,21 +1245,21 @@ class caom2ingest(object):
                 else:
                     thisPlane['uri_dict'][self.uri] = None
 
-            #*****************************************************************
+            # ****************************************************************
             # Foreach fitsuri in fitsuri_dict, record the metadata
-            #*****************************************************************
+            # ****************************************************************
             for fitsuri in self.fitsuri_dict:
-                #*********************************************************
+                # ********************************************************
                 # Create the fitsuri-level structures
-                #*********************************************************
+                # ********************************************************
                 if fitsuri not in thisPlane:
                     thisPlane[fitsuri] = OrderedDict()
                     thisPlane[fitsuri]['custom'] = OrderedDict()
                 thisFitsuri = thisPlane[fitsuri]
 
-                #*********************************************************
+                # ********************************************************
                 # Copy the fitsuri dictionary
-                #*********************************************************
+                # ********************************************************
                 for key in self.fitsuri_dict[fitsuri]:
                     if key == 'custom':
                         thisCustom = thisFitsuri[key]
@@ -1252,38 +1274,38 @@ class caom2ingest(object):
         Use the data_web client to verify that file_id is in self.archive
         """
         if not self.data_web.info(self.archive, file_id):
-            self.dew.error(filename, 
-                           'file_id = ' + file_id + 
+            self.dew.error(filename,
+                           'file_id = ' + file_id +
                            ' has not yet been stored in ' + self.archive)
-    
+
     def storeFiles(self):
         """
         If files approved for storage are in vos, move them into AD.
         If storemethod == 'pull', use the VOspace e-transfer protocol.
         If storemethod == 'push', copy the files into a local directory
         and push them into AD using the data web service.
-        
+
         This does not check that the transfer completes successfully.
         """
         transfer_dir = None
         if (self.storemethod == 'pull'
-            and not self.local
-            and self.userconfig.has_section('vos')
-            and self.userconfig.has_option('vos', 'transfer')):
+                and not self.local
+                and self.userconfig.has_section('vos')
+                and self.userconfig.has_option('vos', 'transfer')):
 
             transfer_dir = self.userconfig.get('vos', 'transfer')
             if not self.vosclient.isdir(transfer_dir):
                 self.log.console('transfer_dir = ' + transfer_dir +
                                  ' does not exist',
                                  logging.ERROR)
-        
+
             for filelist in (self.data_storage, self.preview_storage):
                 for filepath in filelist:
                     basefile = os.path.basename(filepath)
                     file_id = self.make_file_id(basefile)
                     self.log.console('LINK: ' + filepath)
                     if transfer_dir:
-                        self.vosclient.link(filepath, 
+                        self.vosclient.link(filepath,
                                             transfer_dir + '/' + basefile)
 
         elif self.storemethod == 'push':
@@ -1312,7 +1334,7 @@ class caom2ingest(object):
             self.log.console('storemethod = ' + self.storemethod +
                              'has not been implemented',
                              logging.ERROR)
-    
+
     def checkMembers(self):
         """
         Checking membership will be archive-specific
@@ -1325,9 +1347,9 @@ class caom2ingest(object):
         """
         pass
 
-    #************************************************************************
+    # ***********************************************************************
     # Write the override file for a plane
-    #************************************************************************
+    # ***********************************************************************
     def writeOverrideFile(self, collection, observationID, productID):
         """
         Generic method to write override files for a plane specified
@@ -1368,19 +1390,19 @@ class caom2ingest(object):
                                 '%-30s = %s' % (key, thisFitsuri[key])
         return filepath
 
-    #************************************************************************
+    # ***********************************************************************
     # Run fits2caom2.
     # If an error occurs, rerun in debug mode.
-    #************************************************************************
+    # ***********************************************************************
     def runFits2caom2(self, collection,
-                            observationID,
-                            productID,
-                            xmlfile,
-                            overrideFile,
-                            uristring,
-                            localstring,
-                            arg='',
-                            debug=False):
+                      observationID,
+                      productID,
+                      xmlfile,
+                      overrideFile,
+                      uristring,
+                      localstring,
+                      arg='',
+                      debug=False):
         """
         Generic method to format and run the fits2caom2 command.
 
@@ -1450,24 +1472,25 @@ class caom2ingest(object):
                         self.log.console("fits2caom2 - rerun in debug mode")
                         cmd += ' --debug'
                         status, output = commands.getstatusoutput(cmd)
-                    self.log.console("output = '%s'" % (output), 
+                    self.log.console("output = '%s'" % (output),
                                      logging.ERROR)
                 elif debug:
                     self.log.file("output = '%s'" % (output))
             finally:
-                # clean up FITS files that were not present originally 
+                # clean up FITS files that were not present originally
                 os.chdir(cwd)
                 if tempdir:
                     shutil.rmtree(tempdir)
 
-    #************************************************************************
+    # ***********************************************************************
     # Add members to the observation xml
-    #************************************************************************
+    # ***********************************************************************
     def replace_members(self, thisObservation, thisPlane):
         """
-        For the current plane, insert the full set of members in the plane_dict.
-        The memberset should contain only caom2.ObservationURI objects.
-        
+        For the current plane, insert the full set of members in the
+        plane_dict.  The memberset should contain only caom2.ObservationURI
+        objects.
+
         Arguments:
         collection: the collection for this plane
         observationID: the observationID for this plane
@@ -1475,28 +1498,28 @@ class caom2ingest(object):
         """
         memberset = thisObservation['memberset']
         if 'algorithm.name' in thisPlane['plane_dict']:
-            self.log.console('replace_members: algorithm.name = ' + 
+            self.log.console('replace_members: algorithm.name = ' +
                              thisPlane['plane_dict']['algorithm.name'],
                              logging.DEBUG)
-                             
-            self.log.console('memberset = ' + 
+
+            self.log.console('memberset = ' +
                              repr([m.uri for m in list(memberset)]),
                              logging.DEBUG)
-            if (memberset and 
-                thisPlane['plane_dict']['algorithm.name'] != 'exposure'):
-                
+            if (memberset and
+                    thisPlane['plane_dict']['algorithm.name'] != 'exposure'):
+
                 thisPlane['plane_dict']['members'] = ' '.join(
-                                sorted([m.uri for m in list(memberset)]))
+                    sorted([m.uri for m in list(memberset)]))
             elif 'members' in thisPlane['plane_dict']:
                 del thisPlane['plane_dict']['members']
 
-    #************************************************************************
+    # ***********************************************************************
     # Add inputs to a plane in an observation xml
-    #************************************************************************
+    # ***********************************************************************
     def replace_inputs(self, thisObservation, thisPlane):
         """
         For the current plane, insert the full set of inputs in the plane_dict
-        
+
         Arguments:
         thisObservation: generic argument, not needed in this case
         thsPlane: the plane structire in metadict to update
@@ -1504,22 +1527,22 @@ class caom2ingest(object):
         # Need the provenance.name to create a provenance structure
         if 'provenance.name' in thisPlane['plane_dict']:
             inputset = thisPlane['inputset']
-            self.log.console('replace_inputs: provenance.name = ' + 
+            self.log.console('replace_inputs: provenance.name = ' +
                              thisPlane['plane_dict']['provenance.name'],
                              logging.DEBUG)
-            self.log.console('inputset = ' + 
+            self.log.console('inputset = ' +
                              repr([i.uri for i in list(inputset)]),
                              logging.DEBUG)
-            
+
             if inputset:
                 thisPlane['plane_dict']['provenance.inputs'] = ' '.join(
-                                sorted([i.uri for i in list(inputset)]))
+                    sorted([i.uri for i in list(inputset)]))
             elif 'provenance.inputs' in thisPlane['plane_dict']:
                 del thisPlane['plane_dict']['provenance.inputs']
 
-    #************************************************************************
+    # ***********************************************************************
     # Ingest planes from metadict, tracking members and inputs
-    #************************************************************************
+    # ***********************************************************************
     def ingestPlanesFromMetadict(self):
         """
         Generic routine to ingest the planes in metadict, keeping track of
@@ -1529,8 +1552,8 @@ class caom2ingest(object):
         <none>
         """
         # Try a backoff that is much longer than usual
-        repository = Repository(self.workdir, 
-                                self.log, 
+        repository = Repository(self.workdir,
+                                self.log,
                                 debug=self.debug,
                                 backoff=[10.0, 20.0, 40.0, 80.0])
 
@@ -1550,10 +1573,10 @@ class caom2ingest(object):
                                              'collection="%s"  '
                                              'observationID="%s" '
                                              'productID="%s"' %
-                                                    (collection,
-                                                     observationID,
-                                                     productID))
-                            
+                                             (collection,
+                                              observationID,
+                                              productID))
+
                             self.replace_members(thisObservation,
                                                  thisPlane)
 
@@ -1564,21 +1587,21 @@ class caom2ingest(object):
                                                               observationID,
                                                               productID)
 
-                            #********************************************
+                            # *******************************************
                             # Run fits2caom2
-                            #********************************************
+                            # *******************************************
                             urilist = sorted(thisPlane['uri_dict'].keys())
                             if urilist:
                                 uristring = ','.join(urilist)
                                 localstring = ''
                                 if self.local:
-                                    filepathlist = [thisPlane['uri_dict'][u] 
+                                    filepathlist = [thisPlane['uri_dict'][u]
                                                     for u in urilist]
                                     localstring = ','.join(filepathlist)
                             else:
                                 self.log.console('for ' + collection +
                                                  '/' + observationID +
-                                                 '/' + productID + 
+                                                 '/' + productID +
                                                  ', uri_dict is empty so '
                                                  'there is nothing to ingest',
                                                  logging.ERROR)
@@ -1597,7 +1620,7 @@ class caom2ingest(object):
                                                    debug=self.debug)
                                 self.log.file('INGESTED: observationID=%s '
                                               'productID="%s"' %
-                                                    (observationID, productID))
+                                              (observationID, productID))
                             finally:
                                 if not self.debug:
                                     os.remove(override)
@@ -1624,11 +1647,11 @@ class caom2ingest(object):
                                                   observationID)
 
                 self.log.console('SUCCESS observationID="%s"' %
-                                    (observationID))
+                                 (observationID))
 
-    #************************************************************************
+    # ***********************************************************************
     # placeholders for archive-specific customization
-    #************************************************************************
+    # ***********************************************************************
     def build_fitsuri_custom(self,
                              xmlfile,
                              collection,
@@ -1639,7 +1662,7 @@ class caom2ingest(object):
         Customize as required
         """
         pass
-    
+
     def build_plane_custom(self,
                            xmlfile,
                            collection,
@@ -1650,7 +1673,7 @@ class caom2ingest(object):
         Customize as required
         """
         pass
-    
+
     def build_observation_custom(self,
                                  xmlfile,
                                  collection,
@@ -1661,22 +1684,22 @@ class caom2ingest(object):
         Customize as required
         """
         pass
-    
-    #************************************************************************
+
+    # ***********************************************************************
     # Standard cleanup method, which can be customized in derived classes
-    #************************************************************************
+    # ***********************************************************************
     def cleanup(self):
         """
-        Cleanup actions to be done after closing the log. 
-        
+        Cleanup actions to be done after closing the log.
+
         Arguments:
         <none>
         """
         pass
-    
-    #************************************************************************
+
+    # ***********************************************************************
     # Run the program
-    #************************************************************************
+    # ***********************************************************************
     def run(self):
         """
         Generic method to run the checks or persistence
@@ -1689,7 +1712,7 @@ class caom2ingest(object):
         # metadata in a set of nested dictionaries.
         self.ap = argparse.ArgumentParser(self.progname)
         self.defineCommandLineSwitches()
-        
+
         self.args = self.ap.parse_args()
         self.processCommandLineSwitches()
 
@@ -1701,16 +1724,16 @@ class caom2ingest(object):
                 self.data_web = data_web_client(self.workdir, self.log)
                 # It is harmless to create a database connection object if it
                 # is not going to be used, since the actual connections use
-                # lazy initialization and are not opened until a call to read 
+                # lazy initialization and are not opened until a call to read
                 # or write is made.
-                with connection(self.userconfig, 
+                with connection(self.userconfig,
                                 self.log) as self.conn, \
-                     delayed_error_warning(self.log, 
-                                           self.workdir,
-                                           self.archive,
-                                           self.fileid_regex_dict,
-                                           make_file_id).gather() as self.dew:
-                    
+                    delayed_error_warning(self.log,
+                                          self.workdir,
+                                          self.archive,
+                                          self.fileid_regex_dict,
+                                          make_file_id).gather() as self.dew:
+
                     self.commandLineContainers()
                     for c in self.containerlist:
                         self.log.console('PROGRESS: container = ' + c.name)

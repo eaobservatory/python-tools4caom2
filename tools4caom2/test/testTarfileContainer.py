@@ -23,6 +23,7 @@ from tools4caom2.basecontainer import basecontainer
 from tools4caom2.tarfile_container import tarfile_container
 from tools4caom2.logger import logger
 
+
 def write_fits(filepath,
                numexts,
                obsid,
@@ -67,7 +68,7 @@ def write_fits(filepath,
     else:
         hdu.header.update('NOTA', False)
 
-    #Some extension-dependent headers
+    # Some extension-dependent headers
     hdu.header.update('FIELD4', 'BAD')
     hdu.header.update('FIELD5', 'GOOD')
 
@@ -119,6 +120,7 @@ def write_fits(filepath,
 
     hdulist.writeto(filepath)
 
+
 class testTarfileContainer(unittest.TestCase):
     """
     unit tests for tools4caom2.TarfileContainer classe
@@ -133,10 +135,10 @@ class testTarfileContainer(unittest.TestCase):
 
         # set up the test envirnonment
         self.testdir = tempfile.mkdtemp()
-        
+
         self.log = logger(os.path.join(self.testdir, 'testtarcontainer.log'),
-                           console_output=False)
-        
+                          console_output=False)
+
         # fake data
         fakedata = numpy.arange(10)
 
@@ -188,7 +190,7 @@ class testTarfileContainer(unittest.TestCase):
                        'file5.fits',
                        'file9.txt']
         tarfilestring = ' '.join(tarfilelist)
-                                 
+
         cmd = ('cd ' + self.testdir +
                '; tar cvzf file5.tar.gz ' + tarfilestring +
                '; rm ' + tarfilestring)
@@ -215,15 +217,15 @@ class testTarfileContainer(unittest.TestCase):
 
     # Test tarfile_container implementations
     def test010_tarfile_container_no_filtering(self):
-        test_file_id_list = ['file1', 
-                             'file2', 
-                             'file3', 
-                             'file4', 
-                             'file5', 
+        test_file_id_list = ['file1',
+                             'file2',
+                             'file3',
+                             'file4',
+                             'file5',
                              'file9']
         test_file_list = [os.path.join(self.testdir, f) for f in
-                          ['file1.fits', 
-                           'file2.fits', 
+                          ['file1.fits',
+                           'file2.fits',
                            'file3.fits',
                            'file4.fits',
                            'file5.fits',
@@ -233,9 +235,9 @@ class testTarfileContainer(unittest.TestCase):
         # The filterfunc is None.
         tarfilepath = os.path.join(self.testdir, 'file5.tar.gz')
         fc = tarfile_container(self.log,
-                               tarfilepath, 
-                               self.testdir, 
-                               None, 
+                               tarfilepath,
+                               self.testdir,
+                               None,
                                make_file_id)
 
         # Verify that the list of file_id's returned by fc1.file_id_list()
@@ -285,32 +287,32 @@ class testTarfileContainer(unittest.TestCase):
         # If we ask for a bogus tar file name, the init should throw an IOError
         self.assertRaises(IOError,
                           tarfile_container,
-                          self.log, 
-                          'bogus.file', 
-                          self.testdir, 
-                          True, 
+                          self.log,
+                          'bogus.file',
+                          self.testdir,
+                          True,
                           make_file_id)
 
-        # If the output directory does not exist, the init should throw a 
+        # If the output directory does not exist, the init should throw a
         # LoggerError
         self.assertRaises(logger.LoggerError,
                           tarfile_container,
-                          self.log, 
-                          tarfilepath, 
-                          '/junk/bogus', 
-                          True, 
+                          self.log,
+                          tarfilepath,
+                          '/junk/bogus',
+                          True,
                           make_file_id)
 
     # Test tarfile_container implementations
     def test020_tarfile_container_no_filtering(self):
-        test_file_id_list = ['file1', 
-                             'file2', 
-                             'file3', 
-                             'file4', 
+        test_file_id_list = ['file1',
+                             'file2',
+                             'file3',
+                             'file4',
                              'file5']
         test_file_list = [os.path.join(self.testdir, f) for f in
-                          ['file1.fits', 
-                           'file2.fits', 
+                          ['file1.fits',
+                           'file2.fits',
                            'file3.fits',
                            'file4.fits',
                            'file5.fits']]
@@ -319,9 +321,9 @@ class testTarfileContainer(unittest.TestCase):
         # The filterfunc is fitsfilter.
         tarfilepath = os.path.join(self.testdir, 'file5.tar.gz')
         fc = tarfile_container(self.log,
-                               tarfilepath, 
-                               self.testdir, 
-                               fitsfilter, 
+                               tarfilepath,
+                               self.testdir,
+                               fitsfilter,
                                make_file_id)
 
         # Verify that the list of file_id's returned by fc1.file_id_list()
@@ -365,4 +367,3 @@ class testTarfileContainer(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

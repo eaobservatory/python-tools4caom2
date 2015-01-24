@@ -16,6 +16,7 @@ in a tar file, which can be gzipped.
 
 Version: """ + __version__.version
 
+
 class tarfile_container(basecontainer):
     def __init__(self,
                  log,
@@ -38,8 +39,8 @@ class tarfile_container(basecontainer):
         Arguments:
         tarfilepath:       the path to a tar file
         working_directory: the directory into which files will be extracted
-        test:              if True, do not access archive or database 
-                           present for compatability with other containers, 
+        test:              if True, do not access archive or database
+                           present for compatability with other containers,
                            but ignored for tarfile_containers
         make_file_id:      function that converst a file name to a file_id
         """
@@ -72,9 +73,9 @@ class tarfile_container(basecontainer):
                              tarfilepath,
                              logging.ERROR)
         self.TAR = None
-        
+
         if file_count == 0:
-            self.log.console('tar file ' + tarfilepath + 
+            self.log.console('tar file ' + tarfilepath +
                              ' contains no valid files',
                              logging.ERROR)
 
@@ -82,7 +83,7 @@ class tarfile_container(basecontainer):
         """
         Extract a particular file identified by file_id from the tar file
         into the working directory.
-        
+
         Arguments:
         file_id:  the key for the file
         """
@@ -91,7 +92,7 @@ class tarfile_container(basecontainer):
 
         if file_id in self.tarfilemember and file_id in self.filedict:
             self.TAR.extract(self.tarfilemember[file_id],
-                                 self.directory)
+                             self.directory)
             return self.filedict[file_id]
         else:
             self.log.console(file_id + ' is not a member of the tar file ' +
@@ -101,7 +102,7 @@ class tarfile_container(basecontainer):
     def cleanup(self, file_id):
         """
         Delete the file from the working directory.
-        
+
         Arguments:
         file_id:  the key for the file
         """
@@ -119,5 +120,3 @@ class tarfile_container(basecontainer):
         if self.TAR:
             self.TAR.close()
         self.TAR = None
-
-

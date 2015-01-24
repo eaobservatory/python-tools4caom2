@@ -14,6 +14,7 @@ it has been used.
 
 Version: """ + __version__.version
 
+
 class filelist_container(basecontainer):
     def __init__(self,
                  log,
@@ -46,6 +47,6 @@ class filelist_container(basecontainer):
                                      logging.ERROR)
 
         if file_count == 0:
-            self.log.console('filelist ' + listname + ' contains no valid files',
+            self.log.console('filelist ' + listname +
+                             ' contains no valid files',
                              logging.ERROR)
-

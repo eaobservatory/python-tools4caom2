@@ -1,20 +1,19 @@
 #!/usr/bin/env python
-#************************************************************************
-#*
-#*   Script Name:    testVosContainer.py
-#*
-#*   Purpose:
-#+    Unit test module for tools4caom2.vos_container
-#*
-#*   Classes:
-#*
-#*   Functions:
-#*
-#*   Modification History:
-#*
-#****  C A N A D I A N   A S T R O N O M Y   D A T A   C E N T R E  *****
-#************************************************************************
-#-*/
+# ***********************************************************************
+#
+#    Script Name:    testVosContainer.py
+#
+#    Purpose:
+#     Unit test module for tools4caom2.vos_container
+#
+#    Classes:
+#
+#    Functions:
+#
+#    Modification History:
+#
+# ***  C A N A D I A N   A S T R O N O M Y   D A T A   C E N T R E  *****
+# ***********************************************************************
 __author__ = "Russell O. Redman"
 __version__ = "1.0"
 
@@ -88,7 +87,7 @@ def write_fits(filepath,
     else:
         hdu.header.update('NOTA', False)
 
-    #Some extension-dependent headers
+    # Some extension-dependent headers
     hdu.header.update('FIELD4', 'BAD')
     hdu.header.update('FIELD5', 'GOOD')
 
@@ -140,13 +139,14 @@ def write_fits(filepath,
 
     hdulist.writeto(filepath)
 
+
 class testVosContainer(unittest.TestCase):
     """
     unit tests for tools4caom2.vos_container class
     """
     def setUp(self):
         """
-        Create a set of fits files (file1, file2, file3) and store them 
+        Create a set of fits files (file1, file2, file3) and store them
         in an vos container.  Include a non-FITS file file4.txt to verify
         that filtering works as intended.
         """
@@ -156,7 +156,7 @@ class testVosContainer(unittest.TestCase):
         # set up the test envirnonment
         self.testdir = tempfile.mkdtemp()
         self.log = logger(os.path.join(self.testdir, 'testvos.log'),
-                           console_output=False)
+                          console_output=False)
 
         self.dataweb = data_web_client(self.testdir, self.log)
         self.vosclient = vos.Client()
@@ -189,18 +189,18 @@ class testVosContainer(unittest.TestCase):
                        obsid='obs1',
                        product='C',
                        provenance='file7')
-            
+
             TEXT = open(os.path.join(self.testdir, 'file4.txt'), 'w')
             print >>TEXT, "This is some text"
             TEXT.close()
-            
+
             # Push the files into vos:jsaops/unittest/testdata
             for f in ['file1.fits', 'file2.fits', 'file3.fits', 'file4.txt']:
                 filepath = os.path.join(self.testdir, f)
                 vospath = self.vostest + '/' + f
                 if not self.vosclient.isfile(vospath):
                     size = self.vosclient.copy(filepath, vospath)
-        
+
     def tearDown(self):
         """
         Delete the testdir and any files it contains.
@@ -231,9 +231,9 @@ class testVosContainer(unittest.TestCase):
         # create the basic vos_container
         voscontainer = vos_container(self.log,
                                      self.vostest,
-                                     'JCMT', # for existing test data
-                                     False,  # do not fetch files from 
-                                             # AD by default
+                                     'JCMT',  # for existing test data
+                                     False,   # do not fetch files from
+                                              # AD by default
                                      self.testdir,
                                      self.dew,
                                      self.vosclient,
@@ -261,12 +261,12 @@ class testVosContainer(unittest.TestCase):
             voscontainer.cleanup(file_id)
             self.assertTrue(not os.path.exists(filepath))
 
-        # If we request a bogus file_id, this should raise a 
+        # If we request a bogus file_id, this should raise a
         # LoggerError
         self.assertRaises(logger.LoggerError,
-                          voscontainer.get, 
+                          voscontainer.get,
                           'bogus')
-        
+
     def test020_vos_container_use(self):
         """
         Test vos_container implementation using use
@@ -281,8 +281,8 @@ class testVosContainer(unittest.TestCase):
         # create the basic vos_container
         voscontainer = vos_container(self.log,
                                      self.vostest,
-                                     'JCMT', # for existing test data
-                                     False,  # do not fetch files from 
+                                     'JCMT',  # for existing test data
+                                     False,  # do not fetch files from
                                              # AD by default
                                      self.testdir,
                                      self.dew,
@@ -302,7 +302,7 @@ class testVosContainer(unittest.TestCase):
 
             # Verify that cleanup removes the file
             self.assertTrue(not os.path.exists(filepath))
-        
+
     def test030_vos_container_errors(self):
         """
         Test vos_container implementation errors
@@ -314,31 +314,31 @@ class testVosContainer(unittest.TestCase):
                                          'JCMT',
                                          fileid_regex_dict,
                                          make_file_id)
-        # If we ask for an vos name that does not exist, 
+        # If we ask for an vos name that does not exist,
         # the init should throw a LoggerError
         self.assertRaises(logger.LoggerError,
                           vos_container,
                           self.log,
                           'vos:jsaops/bogus',
-                          'JCMT', # for existing test data
-                          False,  # do not fetch files from 
-                                  # AD by default
+                          'JCMT',  # for existing test data
+                          False,   # do not fetch files from
+                                   # AD by default
                           self.testdir,
                           self.dew,
                           self.vosclient,
                           self.dataweb,
                           make_file_id)
 
-        # If the output directory does not exist, the init should throw a 
+        # If the output directory does not exist, the init should throw a
         # LoggerError
         bogusdir = os.path.join(self.testdir, 'bogus')
         self.assertRaises(logger.LoggerError,
                           vos_container,
                           self.log,
                           self.vostest,
-                          'JCMT', # for existing test data
-                          False,  # do not fetch files from 
-                                  # AD by default
+                          'JCMT',  # for existing test data
+                          False,   # do not fetch files from
+                                   # AD by default
                           bogusdir,
                           self.dew,
                           self.vosclient,
@@ -359,9 +359,9 @@ class testVosContainer(unittest.TestCase):
         # create the basic vos_container
         voscontainer = vos_container(self.log,
                                      self.vosinad,
-                                     'JCMT', # for existing test data
-                                     True,  # do not fetch files from 
-                                             # AD by default
+                                     'JCMT',  # for existing test data
+                                     True,    # do not fetch files from
+                                              # AD by default
                                      self.testdir,
                                      self.dew,
                                      self.vosclient,
@@ -390,6 +390,6 @@ class testVosContainer(unittest.TestCase):
             voscontainer.cleanup(file_id)
             self.assertTrue(not os.path.exists(filepath))
 
+
 if __name__ == '__main__':
     unittest.main()
-
