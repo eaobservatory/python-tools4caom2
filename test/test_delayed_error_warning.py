@@ -1,7 +1,9 @@
 #!/usr/bin/env python2.7
+
+from __future__ import absolute_import
+
 __author__ = "Russell O. Redman"
 
-from datetime import datetime
 import logging
 import numpy
 import os
@@ -16,90 +18,11 @@ from tools4caom2.logger import logger
 from tools4caom2.data_web_client import data_web_client
 from tools4caom2.delayed_error_warning import delayed_error_warning
 
+from .write_fits import write_fits
+
 
 def make_file_id(filename):
     return os.path.basename(os.path.splitext(filename)[0]).lower()
-
-
-def write_fits(filepath,
-               numexts,
-               obsid,
-               product,
-               badheader=None):
-    """
-    Write a FITS test file with the requested PRODUCT keyword and number
-    of extensions.
-
-    Arguments:
-    filepath  : path to the new file
-    numexts   : number of extensions
-    product   : product type
-
-    In this example, inputs and provenance will be recorded using the file_id
-    of the input file.
-    """
-    data = numpy.arange(10)
-    datestring = datetime.utcnow().isoformat()
-    hdu = pyfits.PrimaryHDU(data)
-    # parse the filepath
-    filebase = os.path.basename(filepath)
-    file_id, ext = os.path.splitext(filebase)
-    hdu.header.update('FILE-ID', file_id)
-    hdu.header.update('COLLECT', 'TEST')
-    hdu.header.update('OBSID', obsid)
-
-    # DPDATE will be different every time the program runs, so it should be
-    # possible to verify that the files have been updated in AD by checking
-    # this header.
-    hdu.header.update('DPDATE', datestring)
-    hdu.header.update('PRODUCT', product)
-    hdu.header.update('NUMEXTS', numexts)
-    hdu.header.update('FIELD1', 'F1%s' % (product))
-    hdu.header.update('FIELD2', 'F2%s' % (product))
-
-    if badheader:
-        hdu.header.update(badheader[0], badheader[1])
-
-    # Some product-dependent headers
-    if product != 'A':
-        hdu.header.update('FIELD3', 'F3%s' % (product))
-        hdu.header.update('NOTA', True)
-    else:
-        hdu.header.update('NOTA', False)
-
-    # Some extension-dependent headers
-    hdu.header.update('FIELD4', 'BAD')
-    hdu.header.update('FIELD5', 'GOOD')
-
-    hdulist = pyfits.HDUList(hdu)
-
-    # Optionally add extensions
-    for extension in range(1, numexts + 1):
-        hdu = pyfits.ImageHDU(data)
-        hdu.header.update('EXTNAME', 'EXTENSION%d' % (extension))
-        hdu.header.update('OBSID', obsid)
-        hdu.header.update('PRODUCT', '%s%d' % (product, extension))
-        hdu.header.update('DPDATE', datestring)
-        hdu.header.update('FIELD1', 'F1%s%d' % (product, extension))
-        hdu.header.update('FIELD2', 'F2%s%d' % (product, extension))
-
-        # Product dependent headers
-        if product != 'A':
-            hdu.header.update('FIELD3', 'F3%s' % (product))
-            hdu.header.update('NOTA', True)
-        else:
-            hdu.header.update('NOTA', False)
-
-        # Extension-dependent headers
-        hdu.header.update('FIELD4', 'GOOD')
-        hdu.header.update('FIELD5', 'BAD')
-        # an extension-specific header
-        hdu.header.update('HEADER%d' % (extension),
-                          'H%s%d' % (product, extension))
-
-        hdulist.append(hdu)
-
-    hdulist.writeto(filepath)
 
 
 class test_delayed_error_warning(unittest.TestCase):
@@ -384,6 +307,3 @@ class test_delayed_error_warning(unittest.TestCase):
                                  ['TEST', 'JCMT'])
             dew.restricted_value(self.test_file, 'PRODUCT', header,
                                  ['X', 'Y', 'Z'])
-
-if __name__ == '__main__':
-    unittest.main()
