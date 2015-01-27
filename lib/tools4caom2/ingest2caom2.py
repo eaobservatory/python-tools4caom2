@@ -40,7 +40,7 @@ from tools4caom2 import __version__
 from tools4caom2.data_web_client import data_web_client
 from tools4caom2.database import database
 from tools4caom2.database import connection
-from tools4caom2.gridengine import gridengine
+from tools4caom2.obsolete.gridengine import gridengine
 from tools4caom2.logger import logger
 from tools4caom2.caom2repo_wrapper import Repository
 from tools4caom2.adfile_container import adfile_container
