@@ -167,16 +167,16 @@ class test_delayed_error_warning(unittest.TestCase):
             os.remove(os.path.join(self.tmpdir, f))
         os.rmdir(self.tmpdir)
 
-    def testZerolength(self):
+    def testSizecheck(self):
         """
-        Verify that the zerolength test detects zerolength files.
+        Verify that the size test detects empty files.
         """
         self.assertTrue(self.dew.errors == {},
-                        'start zerolength - errors is not empty')
+                        'start sizecheck - errors is not empty')
 
-        self.dew.zerolength(self.test_file)
-        self.dew.zerolength(self.empty_file)
-        self.dew.zerolength('vos:jsaops/unittest/empty_file.txt')
+        self.dew.sizecheck(self.test_file)
+        self.dew.sizecheck(self.empty_file)
+        self.dew.sizecheck('vos:jsaops/unittest/empty_file.txt')
 
         self.assertTrue(len(self.dew.errors) == 2,
                         'wrong number of errors: ' +
@@ -189,7 +189,8 @@ class test_delayed_error_warning(unittest.TestCase):
         for filename in self.dew.errors:
             self.assertTrue(filename in empty_files,
                             filename + ' not in ' + repr(empty_files))
-            self.assertEqual(self.dew.errors[filename], ['zerolength'])
+            self.assertEqual(self.dew.errors[filename],
+                             ['file has length = 0'])
 
     def testNamecheck(self):
         """
@@ -315,17 +316,17 @@ class test_delayed_error_warning(unittest.TestCase):
             self.assertTrue(re.match(r'fitsverify reported',
                                      self.dew.errors[filename][0]))
 
-    def testMissingMandatory(self):
+    def testExpectKeyword(self):
         """
-        Verify that missing_mandatory records files missing mandatory headers
+        Verify that expect_keyword records files missing mandatory headers
         """
         self.assertTrue(self.dew.errors == {},
                         'start in_archive_replace - errors is not empty')
 
         header = pyfits.getheader(self.test_file, 0)
-        self.dew.missing_mandatory(self.test_file, 'ASN_ID', header)
-        self.dew.missing_mandatory(self.test_file, 'PRODID', header)
-        self.dew.missing_mandatory(self.test_file, 'DPDATE', header)
+        self.dew.expect_keyword(self.test_file, 'ASN_ID', header, True)
+        self.dew.expect_keyword(self.test_file, 'PRODID', header, True)
+        self.dew.expect_keyword(self.test_file, 'DPDATE', header, True)
         missing_headers = r'(ASN_ID|PRODID)'
 
         self.assertTrue(self.dew.error_count() == 1,
@@ -361,9 +362,9 @@ class test_delayed_error_warning(unittest.TestCase):
         Verify that report does not crash
         """
         header = pyfits.getheader(self.test_file, 0)
-        self.dew.missing_mandatory(self.test_file, 'ASN_ID', header)
-        self.dew.missing_mandatory(self.test_file, 'PRODID', header)
-        self.dew.missing_mandatory(self.test_file, 'DPDATE', header)
+        self.dew.expect_keyword(self.test_file, 'ASN_ID', header, True)
+        self.dew.expect_keyword(self.test_file, 'PRODID', header, True)
+        self.dew.expect_keyword(self.test_file, 'DPDATE', header, True)
         self.dew.restricted_value(self.test_file, 'COLLECT', header,
                                   ['TEST', 'JCMT'])
         self.dew.restricted_value(self.test_file, 'PRODUCT', header,
@@ -376,9 +377,9 @@ class test_delayed_error_warning(unittest.TestCase):
         """
         with self.dew.gather() as dew:
             header = pyfits.getheader(self.test_file, 0)
-            dew.missing_mandatory(self.test_file, 'ASN_ID', header)
-            dew.missing_mandatory(self.test_file, 'PRODID', header)
-            dew.missing_mandatory(self.test_file, 'DPDATE', header)
+            dew.expect_keyword(self.test_file, 'ASN_ID', header, True)
+            dew.expect_keyword(self.test_file, 'PRODID', header, True)
+            dew.expect_keyword(self.test_file, 'DPDATE', header, True)
             dew.restricted_value(self.test_file, 'COLLECT', header,
                                  ['TEST', 'JCMT'])
             dew.restricted_value(self.test_file, 'PRODUCT', header,
