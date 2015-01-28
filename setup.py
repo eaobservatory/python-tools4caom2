@@ -7,7 +7,7 @@ import sys
 
 if sys.version_info[0] > 2:
     print 'The tools4caom2 package is only compatible with Python version 2.7'
-    sys.exit(-1)
+    sys.exit(1)
 
 # Uncomment the next line for debugging output
 # debug.DEBUG=1
