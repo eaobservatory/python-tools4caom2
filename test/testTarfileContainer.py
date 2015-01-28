@@ -17,8 +17,8 @@ import tarfile
 import tempfile
 import unittest
 
-from tools4caom2.ingest2caom2 import make_file_id
-from tools4caom2.ingest2caom2 import fitsfilter
+from tools4caom2.caom2ingest import make_file_id
+from tools4caom2.caom2ingest import fitsfilter
 from tools4caom2.basecontainer import basecontainer
 from tools4caom2.tarfile_container import tarfile_container
 from tools4caom2.logger import logger

@@ -102,6 +102,49 @@ access and store files. Access to the VOspace uses the CADC-supplied vos
 module.  Access to existing observations, planes and artifacts in CAOM-2 uses
 the CADC TAP service, and the caom2repo.py comand line script supplied with the
 CADC caom2repoClient package.
+
+Original documentation from ingest2caom2:
+
+The ingest2caom2 base class supplies a generic wrapper for fits2caom2.
+For each new archive, derive a new class that customizes the methods:
+ class archive2caom2(ingest2caom2):
+ - __init__         : supply archive-specific default values
+ - build_dict       : given the headers from a FITS file, define plane and
+                      uri dependent data structures
+Optionally, it may be useful to customize the methods:
+ - build_observation_custom : modify the xml file after all fits2caom2
+                              operations on an observation are complete
+ - build_plane_custom : modify the xml file after each fits2caom2
+                        operations is complete
+The latter two calls allow, for example, the time bounds derived from raw
+data to be added to the science chunks within a composite observation.
+
+It might also be useful to define filter and comparison functions (outside
+the class):
+ - archivefilter(f)                : return True if f is a file to ingest,
+                                            False otherwise
+ - archivegt(f1, f2)               : return True if f1 should come after f2,
+                                            False otherwise
+ - archivecompare(f1,f2)           : return 1 if f1 should come after f2,
+                                           -1 if f1 should come before f2, and
+                                            0 if the order is not significant
+These can be used to initialize the fields filterfunc and either gtfunc
+or cmpfunc in the __init__ method of the derived class.  The ingest2caom2
+module supplies examples of these functions that are adequate for mamny
+purposes:
+ - fitsfilter(f)                   : return True if f is a FITS file,
+                                            False otherwise
+ - nofilter(f)                     : return True always, i.e. no filtering
+ - nosort(f1, f2)                  : returns False always, i.e. no sorting
+The defaults for the filterfunc and cmpfunc use fitsfilter and nosort.
+
+It is sometimes also useful to supply a custom function
+ - make_file_id(f)                 : given a file name, return an AD file_id
+
+The commandLineSwitches method inherited from ingest2caom2 defines a common
+command line interface that should be adequate for all but the most complex
+archives.  By overriding this method, it is possible to add more switches
+that can be queried in the build routines.
 """
 
 
@@ -124,6 +167,49 @@ def make_file_id(filepath):
     This is a static method taking exactly one argument.
     """
     return os.path.splitext(os.path.basename(filepath))[0].lower()
+
+
+def fitsfilter(filename):
+    """
+    Return True if this file should be ingested, False otherwise.
+    By default, only ingest FITS files.  The filter will only be applied
+    to files in a directory, tar file or file list, not to file_id's in
+    an AD file.
+
+    Arguments:
+    filename : the file name to check for validity
+    This is a static method taking exactly one argument.
+    """
+    return (os.path.splitext(filename)[1].lower() in
+            ['.fits', '.fit'])
+
+
+def nofilter(filename):
+    """
+    Return True always, so no files are filered out.
+
+    Arguments:
+    filename : the file name to check for validity
+    This is a static method taking exactly one argument.
+    """
+    return True
+
+
+def nosort(file_id1, file_id2):
+    """
+    Compare two file_ids, returning True if file_id1 should appear after
+    file_id2 (analogous to a > operator).  See cgps2caom2 and
+    blast2caom2 for examples. Note that file_id's do not generally include
+    extensions.
+
+    Always returning False will leave the file_id's unsorted.
+
+    Arguments:
+    file_id1 : the first file_id
+    file_id2 : the second file_id
+    This is a static method taking exactly two arguments.
+    """
+    return False
 
 
 # ******************************************************************************

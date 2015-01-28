@@ -23,7 +23,7 @@ tools4caom2/
         - calculate X,Y,Z positions given long,lat,elev
     gridengine.py
         - wrapper to submit a job to CADC gridengine system
-    ingest2caom2.py
+    caom2ingest.py
         - base class for code to ingest FITS files into CAOM-2 
     logger.py
         - class implementing an enhanced logger
