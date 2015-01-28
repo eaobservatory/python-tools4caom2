@@ -21,8 +21,6 @@ tools4caom2/
         - wrapper for access to a copy of the JCMT databases
     geolocation.py
         - calculate X,Y,Z positions given long,lat,elev
-    gridengine.py
-        - wrapper to submit a job to CADC gridengine system
     caom2ingest.py
         - base class for code to ingest FITS files into CAOM-2 
     logger.py
