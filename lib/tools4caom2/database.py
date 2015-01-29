@@ -64,16 +64,6 @@ class database(object):
     # class attribute read_connection
     read_connection = None
 
-    # class constants for missing data of different types
-    NULL = {'query': {'string': '"NULL"',
-                      'integer': -9999,
-                      'float': -9999.0,
-                      'datetime': '"2199-01-01 00:00:00.0"'},
-            'value': {'string': 'NULL',
-                      'integer': -9999,
-                      'float': -9999.0,
-                      'datetime': datetime.datetime(2199, 01, 01, 0, 0, 0)}}
-
     def __init__(self, userconfig, use=True):
         """
         Create a new connection to the Sybase server
