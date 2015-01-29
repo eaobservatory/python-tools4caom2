@@ -74,13 +74,6 @@ class database(object):
                       'float': -9999.0,
                       'datetime': datetime.datetime(2199, 01, 01, 0, 0, 0)}}
 
-    class ConnectionError(Exception):
-        """
-        Report a connection error.
-        """
-        def __init__(self, value):
-            self.value = value
-
     def __init__(self, userconfig, use=True):
         """
         Create a new connection to the Sybase server
