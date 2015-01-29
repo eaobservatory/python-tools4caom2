@@ -44,7 +44,6 @@ class database(object):
     'cred_key': database user password
 
     'read_db': database to read by default ('cred_db' if absent)
-    'write_db': database to write by default ('cred_db' if absent)
 
     It is legitimate to omit all of these if no connection is needed.
 
@@ -55,23 +54,15 @@ class database(object):
         cmd = 'SELECT max(utdate) from ' + jcmt_db + 'COMMON'
         max_utdate = db.read(cmd)[0][0]
 
-        upodate_cmd = '''UPDATE state = "W"
-                         FROM jcmt_discovery
-                         WHERE discovery_id = ''' % (IDVALUE,)
-        with db.transaction():
-            db.write(update_cmd)
-
     This class creates separate singleton connections for read and write
     operations, protected with a mutex so the code should be thread-safe.
     """
 
-    # class attributes read_mutex and write_mutex
+    # class attribute read_mutex
     read_mutex = Lock()
-    write_mutex = Lock()
 
-    # class attributes read_connection and write_connection
+    # class attribute read_connection
     read_connection = None
-    write_connection = None
 
     # class constants for missing data of different types
     NULL = {'query': {'string': '"NULL"',
@@ -118,7 +109,6 @@ class database(object):
 
         # Database to use for default read and write access
         self.read_db = None
-        self.write_db = None
 
         # Always read the userconfig to configure database connection
         if userconfig.has_section('database'):
@@ -127,11 +117,6 @@ class database(object):
 
             if userconfig.has_option('database', 'read_db'):
                 self.read_db = userconfig.get('database', 'read_db')
-
-            if userconfig.has_option('database', 'write_db'):
-                self.write_db = userconfig.get('database', 'write_db')
-            elif userconfig.has_option('database', 'read_db'):
-                self.write_db = userconfig.get('database', 'read_db')
 
             if userconfig.has_option('database', 'cred_id'):
                 self.cred_id = userconfig.get('database', 'cred_id')
@@ -146,8 +131,6 @@ class database(object):
             logger.debug('database server: ' + self.server)
         if self.read_db:
             logger.debug('database read_db: ' + self.read_db)
-        if self.write_db:
-            logger.debug('database write_db: ' + self.write_db)
         self.pause_queue = [1.0, 2.0, 3.0]
         # if self.cred_id:
         #     self.log.file('database cred_id: ' + self.cred_id, logging.DEBUG)
@@ -233,40 +216,6 @@ class database(object):
             raise CAOMError('cannot open a read_connection to a database '
                             'because Sybase is not available')
 
-    def get_write_connection(self, write_db):
-        """
-        Create a singleton write connection if necessary
-        Only called from inside the write() method, this is protected by
-        the database.write_mutex of that method.  It is an error to call
-        write if the database is not available.
-
-        Arguments:
-        <None>
-        """
-        if sybase_defined and self.use:
-            if not database.write_connection:
-                # self.get_credentials()
-                # Check that credentials exist
-                if not (self.cred_id and self.cred_key):
-
-                    logger.info('No user credentials, so omit '
-                                'opening connection to database')
-                else:
-                    database.write_connection = \
-                        Sybase.connect(self.server,
-                                       self.cred_id,
-                                       self.cred_key,
-                                       database=self.write_db,
-                                       auto_commit=0,
-                                       datetime='python')
-                    if not database.write_connection:
-                        raise CAOMError('Could not connect to ' +
-                                        self.server + ':' +
-                                        self.write_db)
-        else:
-            raise CAOMError('Could not open a write_connection to a database '
-                            'because Sybase is not available')
-
     def read(self, query, params={}):
         """
         Run an sql query, multiple times if necessary, using read_connection.
@@ -320,79 +269,6 @@ class database(object):
                     raise
         return returnList
 
-    def write(self, cmd, params={}, result=False):
-        """
-        Run an sql query, multiple times if necessary, using write_connection.
-        Only one write can be active at a time, protected by the write_mutex.
-        Write operations should be done inside a transaction.
-
-        Arguments:
-        cmd: a properly formated SQL insert or select into command
-        params: dictionary of parameters to pass to execute
-
-        The query should not return any rows of output.
-        """
-        logger.info(cmd)
-        returnList = []
-        number = 0
-        retry = True
-        while sybase_defined and retry:
-            try:
-                with database.write_mutex:
-                    self.get_write_connection()
-                    try:
-                        cursor = database.write_connection.cursor()
-                        cursor.execute(cmd, params)
-                        returnList = cursor.fetchall()
-                    finally:
-                        cursor.close()
-                    retry = False
-            except Exception as e:
-                # Do not know what kind of error we will get back
-                # only the last one will be reported
-                if number < len(self.pause_queue):
-                    logger.warning('cursor returned error: '
-                                   'wait for %.1f seconds and retry',
-                                   self.pause_queue[number])
-                    t = Event()
-                    t.wait(self.pause_queue[number])
-                    number += 1
-                else:
-                    retry = False
-                    logger.exception('database write failed')
-                    raise
-        return returnList
-
-    @contextmanager
-    def transaction(self):
-        """
-        Start a database transaction using the write connection.  Only one
-        transaction can be executed at a time, protected using the
-        write_mutex, but it can comprise several select, insert and select into
-        statements.
-
-        Raising any exception other than a ConnectionError will cause the
-        transaction to be rolled back.  A ConnectionError indicates that the
-        connection has been dropped.  The transaction should have been
-        rolled back automatically.
-
-        Otherwise, the transaction will be commited.
-        """
-        if sybase_defined:
-            try:
-                self.write('BEGIN TRANSACTION')
-                yield
-            except database.ConnectionError as e:
-                raise CAOMError(
-                    'write_connection has failed BEGIN TRANSACTION:'
-                    + str(e))
-            except Exception as e:
-                self.write('ROLLBACK')
-                raise CAOMError('The write_connection has been rolled back:'
-                                + str(e))
-            else:
-                self.write('COMMIT')
-
     @classmethod
     def close(cls):
         """
@@ -405,10 +281,6 @@ class database(object):
             if database.read_connection:
                 database.read_connection.close()
                 database.read_connection = None
-
-            if database.write_connection:
-                database.write_connection.close()
-                database.write_connection = None
 
 
 @contextmanager
