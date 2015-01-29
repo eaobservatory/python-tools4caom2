@@ -8,8 +8,6 @@ tools4caom2/
         - base class for "containers" describing sets of files
     adfile_container.py
         - class for sets of files in CADC AD (archive directory)
-    dataproc_container.py
-        - class for set of output files from CADC data_proc system
     filelist_container.py
         - class for set of files on disk (including in a directory)
     tarfile_container.py
