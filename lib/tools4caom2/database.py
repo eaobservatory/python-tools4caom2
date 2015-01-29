@@ -144,43 +144,6 @@ class database(object):
         """
         return self.use
 
-    def get_credentials(self):
-        """
-        For use at the CADC only.
-        Read the users .dbrc file to get credentials, if dbrc_get is defined
-        and userconfig does not define cred_id and cred_key
-
-        Arguments:
-        <None>
-        """
-        if (sybase_defined and self.use
-                and not (self.cadc_id and self.cadc_key)):
-
-            try:
-                output = subprocess.check_output(['which', 'dbrc_get'],
-                                                 stderr=subprocess.STDOUT)
-                use_config = True
-            except:
-                use_config = False
-            if use_config:
-                try:
-                    credcmd = ['dbrc_get', self.server,  self.cred_db]
-                    credentials = subprocess.check_output(
-                        credcmd,
-                        stderr=subprocess.STDOUT)
-
-                    cred = re.split(r'\s+', credentials)
-                    if len(cred) < 2:
-                        raise CAOMError('cred = ' + repr(cred) +
-                                        ' should contain username, password')
-
-                    self.cadc_id = cred[0]
-                    self.cadc_key = cred[1]
-                except subprocess.CalledProcessError as e:
-                    raise CAOMError(
-                        'errno.' + errno.errorcode(e.returnvalue) +
-                        ': ' + credentials)
-
     def get_read_connection(self):
         """
         Create a singleton read connection if necessary.
@@ -193,7 +156,6 @@ class database(object):
         """
         if sybase_defined and self.use:
             if not database.read_connection:
-                # self.get_credentials()
                 logger.info('have credentials')
                 # Check that credentials exist
                 if not (self.cred_id and self.cred_key):
