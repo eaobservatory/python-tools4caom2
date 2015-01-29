@@ -4,7 +4,6 @@ from __future__ import absolute_import
 
 __author__ = "Russell O. Redman"
 
-import logging
 import numpy
 import os
 import os.path
@@ -14,7 +13,6 @@ import subprocess
 import tempfile
 import unittest
 
-from tools4caom2.logger import logger
 from tools4caom2.data_web_client import data_web_client
 from tools4caom2.delayed_error_warning import delayed_error_warning
 
@@ -34,18 +32,12 @@ class test_delayed_error_warning(unittest.TestCase):
         """
         self.tmpdir = tempfile.mktemp(dir='/tmp')
         os.mkdir(self.tmpdir)
-        self.logfile = os.path.join(self.tmpdir,
-                                    'test_delay_error_warning.log')
-        self.log = logger(self.logfile,
-                          loglevel=logging.DEBUG,
-                          console_output=False)
 
         fileid_regex_dict = {'.fits': [re.compile(r'test_.*'),
                                        re.compile(r'archive_.*')],
                              '.png': [re.compile(r'TEST_.*')]}
 
-        self.dew = delayed_error_warning(self.log,
-                                         self.tmpdir,
+        self.dew = delayed_error_warning(self.tmpdir,
                                          'JCMT',
                                          fileid_regex_dict,
                                          make_file_id)

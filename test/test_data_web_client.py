@@ -11,8 +11,6 @@ import re
 import tempfile
 import unittest
 
-from tools4caom2.logger import logger
-
 from tools4caom2.data_web_client import data_web_client
 
 
@@ -22,12 +20,7 @@ class testDataWebService(unittest.TestCase):
         Create a temp directory and data_web_client object
         """
         self.tmpdir = tempfile.mkdtemp()
-        self.logfile = 'web_data_service.log'
-        self.log = logger(self.logfile,
-                          loglevel=logging.DEBUG,
-                          console_output=False)
-        self.web_service = data_web_client(self.tmpdir,
-                                           self.log)
+        self.web_service = data_web_client(self.tmpdir)
 
     def tearDown(self):
         """
@@ -82,10 +75,8 @@ class testDataWebService(unittest.TestCase):
         hdulist.writeto(filepath)
 
         s = self.web_service.put(filepath, 'TEST', file_id, adstream='test')
-        with open(self.logfile, 'r') as L:
-            logmsg = L.read()
         self.assertTrue(s, 'failed to put ' + filepath + ' to TEST with ' +
-                        ' file_id = ' + file_id + ': logmsg = ' + logmsg)
+                        ' file_id = ' + file_id)
 
         d = self.web_service.info('TEST', file_id)
         self.assertTrue(d['content-disposition'].find(file_id) > 0)
@@ -109,9 +100,8 @@ class testDataWebService(unittest.TestCase):
         hdulist.writeto(filepath)
 
         s = self.web_service.put(filepath, 'TEST', file_id, adstream='test')
-        logmsg = open(self.logfile, 'r').read()
         self.assertTrue(s, 'failed to put ' + filepath + ' to TEST with ' +
-                        ' file_id = ' + file_id + ': logmsg = ' + logmsg)
+                        ' file_id = ' + file_id)
 
         d = self.web_service.get('TEST',
                                  file_id,

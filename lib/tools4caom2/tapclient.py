@@ -13,10 +13,13 @@ import StringIO
 import sys
 import traceback
 
-from tools4caom2.logger import logger
+from tools4caom2.error import CAOMError
 from tools4caom2.utdate_string import utdate_string
+from tools4caom2.util import configure_logger
 
 from tools4caom2.__version__ import version as tools4caom2version
+
+logger = logging.getLogger(__name__)
 
 
 class tapclient(object):
@@ -37,16 +40,13 @@ class tapclient(object):
     CADC_TAP_SERVICE = 'https://www1.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/tap/sync'
 
     def __init__(self,
-                 log,
                  proxy='$HOME/.ssl/cadcproxy.pem'):
         """
         TAP queries using ADQL return a VOtable or an astropy Table
 
         Arguments:
-        log: an instance of a tools4caom2.logger
         proxy: (optional) path to a proxy certificate
         """
-        self.log = log
         self.cadcproxy = os.path.abspath(
             os.path.expandvars(
                 os.path.expanduser(proxy)))
@@ -61,7 +61,7 @@ class tapclient(object):
         format: text string indicating whether the desired output format
                 should be an astropy.table.Table (default) or the raw votable
         """
-        self.log.file(adql)
+        logger.debug('ADQL: %s', adql)
         query = re.sub(r'\s+', ' ', adql.strip())
         params = {'REQUEST': 'doQuery',
                   'LANG': 'ADQL',
@@ -86,14 +86,14 @@ class tapclient(object):
                             query_status = info.value
                             query_content = info.content
                 if query_status == 'ERROR':
-                    self.log.console('TAP QUERY response: ' + query_content,
-                                     logging.ERROR)
+                    logger.error('TAP QUERY response: %s', query_content)
+                    raise CAOMError('Tap query failed with an error')
+
                 elif query_status != 'OK':
                     if query_content:
-                        self.log.console('TAP QUERY_STATUS = ' +
-                                         str(query_status) +
-                                         '  MESSAGE = ' + query_content,
-                                         logging.ERROR)
+                        logger.error('TAP QUERY_STATUS = %s  MESSAGE = %s',
+                                     query_status, query_content)
+                        raise CAOMError('Tap query status not OK')
 
                 # Get here if the table is valid, so process the contents...
                 # copy dictionary for usage after r is closed
@@ -104,14 +104,13 @@ class tapclient(object):
                         table = None
 
             elif r.status_code != 404:
-                self.log.console(str(r.status_code) + ' = ' +
-                                 httplib.responses[r.status_code] +
-                                 ': ' + str(r.content),
-                                 logging.WARN)
+                logger.warning('%s = %s: %s', r.status_code,
+                               httplib.responses[r.status_code],
+                               r.content)
         except Exception as e:
-            self.log.console('FAILED to get reply for "' + adql + '": ' +
-                             traceback.format_exc(),
-                             logging.WARN)
+            logger.warning('FAILED to get reply for "%s": %s', adql,
+                           traceback.format_exc())
+
         return table
 
 
@@ -137,9 +136,9 @@ def run():
                     help='values to be substituted in the format codes')
     a = ap.parse_args()
 
-    log = logger('tapclient_' + utdate_string() + '.log')
+    configure_logger()
 
-    tap = tapclient(log)
+    tap = tapclient()
 
     if os.path.isfile(a.adql):
         with open(a.adql, 'r') as ADQL:
@@ -150,7 +149,7 @@ def run():
     if a.values:
         adqlquery = adqlquery % tuple(a.values)
     if a.verbose:
-        log.console(adqlquery)
+        logger.info(adqlquery)
 
     if a.votable:
         votable = tap.query(adqlquery, 'votable')

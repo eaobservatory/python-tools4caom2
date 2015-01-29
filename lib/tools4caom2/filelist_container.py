@@ -5,6 +5,7 @@ import logging
 import os.path
 
 from tools4caom2 import __version__
+from tools4caom2.error import CAOMError
 from tools4caom2.basecontainer import basecontainer
 
 __doc__ = """
@@ -17,7 +18,6 @@ Version: """ + __version__.version
 
 class filelist_container(basecontainer):
     def __init__(self,
-                 log,
                  listname,
                  list_of_files,
                  filterfunc,
@@ -32,7 +32,7 @@ class filelist_container(basecontainer):
         filterfunc: returns True if file name should be ingested
         make_file_id: returns the file_id corresponding to file name
         """
-        basecontainer.__init__(self, log, listname)
+        basecontainer.__init__(self, listname)
         file_count = 0
         for f in list_of_files:
             if not filterfunc or filterfunc(f):
@@ -43,10 +43,8 @@ class filelist_container(basecontainer):
                     self.filedict[file_id] = filepath
                     file_count += 1
                 else:
-                    self.log.console('File not found: ' + f,
-                                     logging.ERROR)
+                    raise CAOMError('File not found: ' + f)
 
         if file_count == 0:
-            self.log.console('filelist ' + listname +
-                             ' contains no valid files',
-                             logging.ERROR)
+            raise CAOMError('filelist ' + listname +
+                            ' contains no valid files')

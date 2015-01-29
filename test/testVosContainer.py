@@ -23,7 +23,6 @@ __version__ = "1.0"
 import commands
 from datetime import datetime
 import filecmp
-import logging
 import numpy
 import os
 import os.path
@@ -42,7 +41,7 @@ from tools4caom2.basecontainer import basecontainer
 from tools4caom2.vos_container import vos_container
 from tools4caom2.data_web_client import data_web_client
 from tools4caom2.delayed_error_warning import delayed_error_warning
-from tools4caom2.logger import logger
+from tools4caom2.error import CAOMError
 
 from .write_fits import write_fits
 
@@ -62,10 +61,8 @@ class testVosContainer(unittest.TestCase):
 
         # set up the test envirnonment
         self.testdir = tempfile.mkdtemp()
-        self.log = logger(os.path.join(self.testdir, 'testvos.log'),
-                          console_output=False)
 
-        self.dataweb = data_web_client(self.testdir, self.log)
+        self.dataweb = data_web_client(self.testdir)
         self.vosclient = vos.Client()
         self.vostest = 'vos:jsaops/unittest/tempdata'
         self.vosinad = 'vos:jsaops/unittest/testdata'
@@ -130,14 +127,12 @@ class testVosContainer(unittest.TestCase):
         """
         fileid_regex = re.compile(r'file.*')
         fileid_regex_dict = {'.fits': [fileid_regex]}
-        self.dew = delayed_error_warning(self.log,
-                                         self.testdir,
+        self.dew = delayed_error_warning(self.testdir,
                                          'JCMT',
                                          fileid_regex_dict,
                                          make_file_id)
         # create the basic vos_container
-        voscontainer = vos_container(self.log,
-                                     self.vostest,
+        voscontainer = vos_container(self.vostest,
                                      'JCMT',  # for existing test data
                                      False,   # do not fetch files from
                                               # AD by default
@@ -170,7 +165,7 @@ class testVosContainer(unittest.TestCase):
 
         # If we request a bogus file_id, this should raise a
         # LoggerError
-        self.assertRaises(logger.LoggerError,
+        self.assertRaises(CAOMError,
                           voscontainer.get,
                           'bogus')
 
@@ -180,14 +175,12 @@ class testVosContainer(unittest.TestCase):
         """
         fileid_regex = re.compile(r'file.*')
         fileid_regex_dict = {'.fits': [fileid_regex]}
-        self.dew = delayed_error_warning(self.log,
-                                         self.testdir,
+        self.dew = delayed_error_warning(self.testdir,
                                          'JCMT',
                                          fileid_regex_dict,
                                          make_file_id)
         # create the basic vos_container
-        voscontainer = vos_container(self.log,
-                                     self.vostest,
+        voscontainer = vos_container(self.vostest,
                                      'JCMT',  # for existing test data
                                      False,  # do not fetch files from
                                              # AD by default
@@ -216,16 +209,14 @@ class testVosContainer(unittest.TestCase):
         """
         fileid_regex = re.compile(r'file.*')
         fileid_regex_dict = {'.fits': [fileid_regex]}
-        self.dew = delayed_error_warning(self.log,
-                                         self.testdir,
+        self.dew = delayed_error_warning(self.testdir,
                                          'JCMT',
                                          fileid_regex_dict,
                                          make_file_id)
         # If we ask for an vos name that does not exist,
         # the init should throw a LoggerError
-        self.assertRaises(logger.LoggerError,
+        self.assertRaises(CAOMError,
                           vos_container,
-                          self.log,
                           'vos:jsaops/bogus',
                           'JCMT',  # for existing test data
                           False,   # do not fetch files from
@@ -239,9 +230,8 @@ class testVosContainer(unittest.TestCase):
         # If the output directory does not exist, the init should throw a
         # LoggerError
         bogusdir = os.path.join(self.testdir, 'bogus')
-        self.assertRaises(logger.LoggerError,
+        self.assertRaises(CAOMError,
                           vos_container,
-                          self.log,
                           self.vostest,
                           'JCMT',  # for existing test data
                           False,   # do not fetch files from
@@ -258,14 +248,12 @@ class testVosContainer(unittest.TestCase):
         """
         fileid_regex = re.compile(r'jcmt.*')
         fileid_regex_dict = {'.fits': [fileid_regex]}
-        self.dew = delayed_error_warning(self.log,
-                                         self.testdir,
+        self.dew = delayed_error_warning(self.testdir,
                                          'JCMT',
                                          fileid_regex_dict,
                                          make_file_id)
         # create the basic vos_container
-        voscontainer = vos_container(self.log,
-                                     self.vosinad,
+        voscontainer = vos_container(self.vosinad,
                                      'JCMT',  # for existing test data
                                      True,    # do not fetch files from
                                               # AD by default

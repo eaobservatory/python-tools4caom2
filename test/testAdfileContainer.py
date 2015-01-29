@@ -7,7 +7,6 @@ __version__ = "1.0"
 
 import commands
 import filecmp
-import logging
 import numpy
 import os
 import os.path
@@ -22,7 +21,7 @@ from tools4caom2.caom2ingest import fitsfilter
 from tools4caom2.basecontainer import basecontainer
 from tools4caom2.adfile_container import adfile_container
 from tools4caom2.data_web_client import data_web_client
-from tools4caom2.logger import logger
+from tools4caom2.error import CAOMError
 
 from .write_fits import write_fits
 
@@ -42,10 +41,8 @@ class testAdfileContainer(unittest.TestCase):
 
         # set up the test envirnonment
         self.testdir = tempfile.mkdtemp()
-        self.log = logger(os.path.join(self.testdir, 'testadfile.log'),
-                          console_output=False)
 
-        self.dataweb = data_web_client(self.testdir, self.log)
+        self.dataweb = data_web_client(self.testdir)
 
         # fake data
         fakedata = numpy.arange(10)
@@ -89,8 +86,8 @@ class testAdfileContainer(unittest.TestCase):
 
             ok = self.dataweb.put(filepath, 'TEST', file_id, adstream='test')
             if not ok:
-                raise RuntimeError(cmd + ': ' + output,
-                                   logging.ERROR)
+                raise RuntimeError(cmd + ': ' + output)
+
             os.rename(filepath, os.path.join(self.savedir, f))
 
             print >>ADFILE, 'ad:TEST/' + file_id
@@ -123,9 +120,8 @@ class testAdfileContainer(unittest.TestCase):
         for fid in test_list:
             headers = self.dataweb.info('TEST', fid)
             if not headers:
-                self.log.console('ERROR: file not in ad: ' + fid +
-                                 ': ' + output,
-                                 logging.ERROR)
+                raise CAOMError('ERROR: file not in ad: ' + fid +
+                                ': ' + output)
 
         # Make a subdirectory in testdir to hold the files from ad for
         # comparison with the originals
@@ -184,9 +180,8 @@ class testAdfileContainer(unittest.TestCase):
         for fid in test_list:
             headers = self.dataweb.info('TEST', fid)
             if not headers:
-                self.log.console('ERROR: file not in ad: ' + fid +
-                                 ': ' + output,
-                                 logging.ERROR)
+                raise CAOMError('ERROR: file not in ad: ' + fid +
+                                ': ' + output)
 
         # Make a subdirectory in testdir to hold the files from ad for
         # comparison with the originals
@@ -244,9 +239,8 @@ class testAdfileContainer(unittest.TestCase):
         for fid in test_list:
             headers = self.dataweb.info('TEST', fid)
             if headers:
-                self.log.console('ERROR: file not in ad: ' + fid +
-                                 ': ' + output,
-                                 logging.ERROR)
+                raise CAOMError('ERROR: file not in ad: ' + fid +
+                                ': ' + output)
 
         # Make a subdirectory in testdir to hold the files from ad for
         # comparison with the originals
@@ -281,7 +275,7 @@ class testAdfileContainer(unittest.TestCase):
 
         # If we ask for an adfile name with a different extension,
         # the init should throw a LoggerError
-        self.assertRaises(logger.LoggerError,
+        self.assertRaises(CAOMError,
                           adfile_container,
                           'bogus.file',
                           self.testdir,
@@ -289,7 +283,7 @@ class testAdfileContainer(unittest.TestCase):
 
         # If the output directory does not exist, the init should throw a
         # LoggerError
-        self.assertRaises(logger.LoggerError,
+        self.assertRaises(CAOMError,
                           adfile_container,
                           adfilepath,
                           '/junk/bogus',
@@ -297,5 +291,5 @@ class testAdfileContainer(unittest.TestCase):
 
         # If we request a bogus file_id, this should raise a
         # LoggerError
-        self.assertRaises(logger.LoggerError,
+        self.assertRaises(CAOMError,
                           fc.get, 'bogus')

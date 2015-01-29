@@ -47,7 +47,7 @@ class basecontainer(object):
         mycontainer.close()
     """
 
-    def __init__(self, log, name):
+    def __init__(self, name):
         """
         Initialize the basecontainer class.  Every container must have a
         filedict whose keys are the file_id's for the set of files in the
@@ -57,7 +57,6 @@ class basecontainer(object):
         <None>
         """
         self.name = name
-        self.log = log
         self.filedict = {}
 
     def file_id_list(self):

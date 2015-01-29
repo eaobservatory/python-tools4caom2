@@ -39,9 +39,9 @@ from tools4caom2.caom2repo_wrapper import Repository
 from tools4caom2.database import connection
 from tools4caom2.data_web_client import data_web_client
 from tools4caom2.delayed_error_warning import delayed_error_warning
+from tools4caom2.error import CAOMError
 from tools4caom2.adfile_container import adfile_container
 from tools4caom2.filelist_container import filelist_container
-from tools4caom2.logger import logger
 from tools4caom2.tapclient import tapclient
 from tools4caom2.utdate_string import utdate_string
 from tools4caom2.vos_container import vos_container
@@ -146,6 +146,8 @@ command line interface that should be adequate for all but the most complex
 archives.  By overriding this method, it is possible to add more switches
 that can be queried in the build routines.
 """
+
+logger = logging.getLogger()
 
 
 # ***********************************************************************
@@ -274,13 +276,6 @@ class caom2ingest(object):
         # temporary disk space for working files
         self.workdir = None
 
-        # log handling
-        self.logdir = None
-        self.logfile = None
-        self.loglevel = logging.INFO
-        self.debug = False
-        self.log = None
-
         # Ingestion parameters and structures
         self.prefix = ''         # ingestible files must start with this prefix
         self.indir = ''          # path to indir
@@ -389,15 +384,9 @@ class caom2ingest(object):
         --workdir    : (optional) working directory (default = cwd)
 
         # debugging options
-        --log        : (optional) name of the log file
-        --logdir     : directory to hold log files
         --debug      : (optional) log all messages and retain temporary files
                        on error
         --test       : (optional) simulate operation of fits2caom2
-
-        Log files are always opened in append.  Be sure to delete
-        existing log files if it is important to have a clean record of the
-        current ingestion.
         """
 
         # Optional user configuration
@@ -465,12 +454,6 @@ class caom2ingest(object):
             help='output directory, (default = current directory')
 
         # debugging options
-        self.ap.add_argument(
-            '--logdir',
-            help='(optional) directory to hold log file')
-        self.ap.add_argument(
-            '--log',
-            help='(optional) name of the log file')
         self.ap.add_argument(
             '--test',
             action='store_true',
@@ -571,41 +554,11 @@ class caom2ingest(object):
         if self.args.replace:
             self.replace = self.args.replace
 
-        if self.args.logdir:
-            self.logdir = os.path.abspath(
-                os.path.expandvars(
-                    os.path.expanduser(self.args.logdir)))
-        else:
-            self.logdir = os.getcwd()
-
         self.test = self.args.test
 
         if self.args.debug:
-            self.loglevel = logging.DEBUG
+            logging.getLogger().setLevel(logging.DEBUG)
             self.debug = True
-
-        # substitute the value of dprcinst before saving the file
-        logbase = (self.progname + '_provenance_runid')
-        if not self.local:
-            if self.indir:
-                logbase = (self.progname + '_' +
-                           re.sub(r'[^a-zA-Z0-9]', r'-', self.indir))
-        logbase += '_'
-
-        # log file name
-        # If the log file already exists, do not delete it on successful exit.
-        # Otherwise, the default behaviour will be to delete a log file that
-        # is created for this program on successful exit.
-        if self.args.log:
-            if os.path.dirname(self.args.log) == '':
-                self.logfile = os.path.join(self.logdir, self.args.log)
-            else:
-                self.logfile = os.path.abspath(self.args.log)
-
-        if not self.logfile:
-            self.logfile = os.path.join(self.logdir,
-                                        logbase + utdate_string() +
-                                        '.log')
 
         # create workdir if it does not already exist
         if not os.path.exists(self.workdir):
@@ -626,55 +579,39 @@ class caom2ingest(object):
         <none>
         """
         # Report switch values
-        self.log.file(self.progname)
-        self.log.file('*** Arguments for caom2ingest base class ***')
-        self.log.file('tools4caom2version = ' + tools4caom2version)
-        self.log.file('configpath = ' + self.configpath)
+        logger.info(self.progname)
+        logger.info('*** Arguments for caom2ingest base class ***')
+        logger.info('tools4caom2version = %s', tools4caom2version)
+        logger.info('configpath = ' + self.configpath)
         for attr in dir(self.args):
             if attr != 'id' and attr[0] != '_':
-                self.log.file('%-15s= %s' %
-                              (attr, str(getattr(self.args, attr))))
-        self.log.file('workdir = ' + self.workdir)
-        self.log.file('local =  ' + str(self.local))
-        self.log.file('logdir = ' + self.logdir)
-        self.log.console('log = ' + self.logfile)
+                logger.info('%-15s= %s', attr, str(getattr(self.args, attr)))
+        logger.info('workdir = %s', self.workdir)
+        logger.info('local = %s', self.local)
 
         if self.collection in self.external_collections:
             if not self.prefix:
                 errors = True
-                self.log.console('--prefix is mandatory if --collection '
-                                 'is in ' + repr(self.external_collections),
-                                 logging.ERROR)
+                logger.error('--prefix is mandatory if --collection '
+                             'is in ' + repr(self.external_collections))
+                raise CAOMError('error in command line options')
 
         if not self.indir:
-            self.log.console(
-                '--indir = ' + self.args.indir + ' does not exist',
-                logging.ERROR)
+            raise CAOMError('--indir = ' + self.args.indir + ' does not exist')
 
-        self.tap = tapclient(self.log, self.proxy)
-        errors = False
+        self.tap = tapclient(self.proxy)
         if not os.path.exists(self.proxy):
-            errors = True
-            self.log.console('ERROR: proxy does not exist: ' + self.proxy)
+            raise CAOMError('proxy does not exist: ' + self.proxy)
 
         if not os.path.isdir(self.workdir):
-            errors = True
-            self.log.console(
-                'ERROR: workdir is not a directory: ' + self.workdir)
+            raise CAOMError('workdir is not a directory: ' + self.workdir)
 
         if self.config and not os.path.isfile(self.config):
-            errors = True
-            self.log.console('ERROR: config file does not exist: ' +
-                             str(self.config))
+            raise CAOMError('config file does not exist: ' + str(self.config))
 
         if self.default and not os.path.isfile(self.default):
-            errors = True
-            self.log.console('ERROR: default file does not exist: ' +
-                             str(self.default))
-
-        if errors:
-            self.log.console('Exit due to error conditions',
-                             logging.ERROR)
+            raise CAOMError('default file does not exist: ' +
+                            str(self.default))
 
     def getfilelist(self, rootdir, check):
         """
@@ -715,7 +652,6 @@ class caom2ingest(object):
                 filelist = self.getfilelist(self.indir, check)
                 self.containerlist.append(
                     filelist_container(
-                        self.log,
                         self.indir,
                         filelist,
                         lambda f: True,
@@ -727,17 +663,15 @@ class caom2ingest(object):
                     # self.indir points to an ad file
                     self.containerlist.append(
                         adfile_container(
-                            self.log,
                             self.data_web,
                             self.indir,
                             self.workdir,
                             self.make_file_id))
 
                 else:
-                    self.log.console('indir is not a directory and : '
-                                     'is not an ad file: ' +
-                                     self.indir,
-                                     logging.ERROR)
+                    raise CAOMError('indir is not a directory and: '
+                                    'is not an ad file: ' +
+                                    self.indir)
 
             else:
                 # handle VOspace directories
@@ -745,8 +679,7 @@ class caom2ingest(object):
                         and self.vosclient.isdir(self.indir)):
 
                     self.containerlist.append(
-                        vos_container(self.log,
-                                      self.indir,
+                        vos_container(self.indir,
                                       self.archive,
                                       self.ingest,
                                       self.workdir,
@@ -755,14 +688,13 @@ class caom2ingest(object):
                                       self.data_web,
                                       self.make_file_id))
                 else:
-                    self.log.console('indir is not local and is not '
-                                     'a VOspace directory: ' +
-                                     self.indir,
-                                     logging.ERROR)
+                    raise CAOMError('indir is not local and is not '
+                                    'a VOspace directory: ' +
+                                    self.indir)
 
         except Exception as e:
-            self.log.console(traceback.format_exc(),
-                             logging.ERROR)
+            logger.exception('Error configuring containers')
+            raise CAOMError(str(e))
 
     # ***********************************************************************
     # Clear the local plane and artifact dictionaries
@@ -804,14 +736,13 @@ class caom2ingest(object):
         try:
             # sort the file_id_list
             file_id_list = sorted(container.file_id_list())
-            self.log.file('in fillMetadict, file_id_list = ' +
-                          repr(file_id_list),
-                          logging.DEBUG)
+            logger.debug('in fillMetadict, file_id_list = %s',
+                         repr(file_id_list))
 
             # Gather metadata from each file in the container
             for file_id in file_id_list:
-                self.log.file('In fillMetadict, use ' + file_id,
-                              logging.DEBUG)
+                logger.debug('In fillMetadict, use %s', file_id)
+
                 with container.use(file_id) as f:
                     self.fillMetadictFromFile(file_id, f, container)
         finally:
@@ -827,7 +758,7 @@ class caom2ingest(object):
         file_id : must be added to the header
         filepath : absolute path to the file, must be added to the header
         """
-        self.log.file('fillMetadictFromFile: ' + file_id + '  ' + filepath)
+        logger.info('fillMetadictFromFile: %s %s', file_id, filepath)
 
         # ****************************************************************
         # Call build_dict to fill plane_dict and fitsuri_dict
@@ -848,15 +779,14 @@ class caom2ingest(object):
                 else:
                     head.update('SRCPATH', filepath)
 
-                self.log.file('...got primary header from ' + filepath,
-                              logging.DEBUG)
+                logger.debug('...got primary header from %s', filepath)
+
             except:
                 head = {}
                 head['file_id'] = file_id
                 head['filepath'] = filepath
-                self.log.file('...could not read primary header from ' +
-                              filepath,
-                              logging.DEBUG)
+                logger.debug('...could not read primary header from ',
+                             filepath)
 
             self.file_id = file_id
             if self.ingest:
@@ -1008,10 +938,11 @@ class caom2ingest(object):
                   isinstance(e[1], int)):
                 elist.append(str(e[0]) + '-' + str(e[1]))
             else:
-                self.log.console('extension_list must contain only integers '
-                                 'or tuples cntaining pairs of integers: ' +
-                                 repr(extension_list),
-                                 logging.ERROR)
+                logger.error('extension_list must contain only integers '
+                             'or tuples cntaining pairs of integers: %s',
+                             repr(extension_list))
+                raise CAOMError('invalid extension_list')
+
         if elist:
             fexturi = fileuri + '#[' + ','.join(elist) + ']'
 
@@ -1030,10 +961,11 @@ class caom2ingest(object):
         value : a string value to be substituted in a string.Template
         """
         if not isinstance(value, str):
-            self.log.console("in the (key, value) pair ('%s', '%s'),"
-                             " the value should have type 'str' but is %s" %
-                             (key, repr(value), type(value)),
-                             logging.ERROR)
+            logger.error("in the (key, value) pair ('%s', '%s'),"
+                         " the value should have type 'str' but is %s",
+                         key, repr(value), type(value))
+            raise CAOMError('non-str value being added to plane dict')
+
         self.plane_dict[key] = value
         self.override_items += 1
 
@@ -1051,16 +983,16 @@ class caom2ingest(object):
         value : a string value to be substituted in a string.Template
         """
         if not isinstance(value, str):
-            self.log.console("in the (key, value) pair ('%s', '%s'),"
-                             " the value should have type 'str' but is %s" %
-                             (key, repr(value), type(value)),
-                             logging.ERROR)
+            logger.error("in the (key, value) pair ('%s', '%s'),"
+                         " the value should have type 'str' but is %s",
+                         key, repr(value), type(value))
+            raise CAOMError('non-str value being added to fitsuri dict')
 
         if uri not in self.fitsuri_dict:
-            self.log.console('Create the fitsuri before adding '
-                             'key,value pairs to the fitsuri_dict: '
-                             '["%s"]["%s"] = "%s")' % (uri, key, value),
-                             logging.ERROR)
+            logger.error('Create the fitsuri before adding '
+                         'key,value pairs to the fitsuri_dict: '
+                         '["%s"]["%s"] = "%s")', uri, key, value)
+            raise CAOMError('trying to add pair for non-existent fitsuri')
 
         self.fitsuri_dict[uri][key] = value
         self.override_items += 1
@@ -1081,11 +1013,11 @@ class caom2ingest(object):
         value : an arbitrary data type
         """
         if uri not in self.fitsuri_dict:
-            self.log.console('call fitfileURI before adding '
-                             'key,value pairs to the fitsuri_dict: '
-                             '["%s"]["%s"] = "%s")' % (uri, key,
-                                                       repr(value)),
-                             logging.ERROR)
+            logger.error('call fitfileURI before adding '
+                         'key,value pairs to the fitsuri_dict: '
+                         '["%s"]["%s"] = "%s")',
+                         uri, key, repr(value))
+            raise CAOMError('trying to add pair for non-existent fitsuri')
 
         self.fitsuri_dict[uri]['custom'][key] = value
         self.override_items += 1
@@ -1204,8 +1136,7 @@ class caom2ingest(object):
               Archive-specific code should override the
               build_fitsuri_custom() method.
         """
-        self.log.file('build_metadict',
-                      logging.DEBUG)
+        logger.debug('build_metadict')
 
         # In check mode, errors should not raise exceptions
         raise_exception = True
@@ -1219,41 +1150,36 @@ class caom2ingest(object):
             # ****************************************************************
             if not self.collection:
                 if raise_exception:
-                    self.log.console(filepath + ' does not define the required'
-                                     ' key "collection"',
-                                     logging.ERROR)
+                    raise CAOMError(filepath + ' does not define the required'
+                                    ' key "collection"')
                 else:
                     return
 
             if not self.observationID:
                 if raise_exception:
-                    self.log.console(filepath + ' does not define the required'
-                                     ' key "observationID"',
-                                     logging.ERROR)
+                    raise CAOMError(filepath + ' does not define the required'
+                                    ' key "observationID"')
                 else:
                     return
 
             if not self.productID:
                 if raise_exception:
-                    self.log.console(
+                    raise CAOMError(
                         filepath + ' does not define the required' +
-                        ' key "productID"',
-                        logging.ERROR)
+                        ' key "productID"')
                 else:
                     return
 
             if not self.uri:
                 if raise_exception:
-                    self.log.console(filepath + ' does not call fitsfileURI()'
-                                     ' or fitsextensionURI()',
-                                     logging.ERROR)
+                    raise CAOMError(filepath + ' does not call fitsfileURI()'
+                                    ' or fitsextensionURI()')
                 else:
                     return
 
-            self.log.file(('PROGRESS: collection="%s" observationID="%s" '
-                           'productID="%s"') % (self.collection,
-                                                self.observationID,
-                                                self.productID))
+            logger.info(
+                'PROGRESS: collection="%s" observationID="%s" productID="%s"',
+                self.collection, self.observationID, self.productID)
 
             # ****************************************************************
             # Build the dictionary structure
@@ -1381,15 +1307,14 @@ class caom2ingest(object):
 
             transfer_dir = self.userconfig.get('vos', 'transfer')
             if not self.vosclient.isdir(transfer_dir):
-                self.log.console('transfer_dir = ' + transfer_dir +
-                                 ' does not exist',
-                                 logging.ERROR)
+                raise CAOMError('transfer_dir = ' + transfer_dir +
+                                ' does not exist')
 
             for filelist in (self.data_storage, self.preview_storage):
                 for filepath in filelist:
                     basefile = os.path.basename(filepath)
                     file_id = self.make_file_id(basefile)
-                    self.log.console('LINK: ' + filepath)
+                    logger.info('LINK: %s', filepath)
                     if transfer_dir:
                         self.vosclient.link(filepath,
                                             transfer_dir + '/' + basefile)
@@ -1399,7 +1324,7 @@ class caom2ingest(object):
                 for filepath in filelist:
                     basefile = os.path.basename(filepath)
                     file_id = self.make_file_id(basefile)
-                    self.log.console('PUT: ' + filepath)
+                    logger.info('PUT: %s', filepath)
                     if self.local:
                         tempfile = filepath
                     else:
@@ -1417,9 +1342,8 @@ class caom2ingest(object):
                         if not self.local and os.path.exists(tempfile):
                             os.remove(tempfile)
         else:
-            self.log.console('storemethod = ' + self.storemethod +
-                             'has not been implemented',
-                             logging.ERROR)
+            raise CAOMError('storemethod = ' + self.storemethod +
+                            'has not been implemented')
 
     def checkMembers(self):
         """
@@ -1529,9 +1453,6 @@ class caom2ingest(object):
         if self.local:
             cmd += ' --local="' + localstring + '"'
 
-        if self.logfile:
-            cmd += ' --log="' + self.logfile + '"'
-
         if debug:
             cmd += ' --debug'
 
@@ -1539,7 +1460,7 @@ class caom2ingest(object):
             cmd += ' ' + arg
 
         # run the command
-        self.log.file("fits2caom2Interface: cmd = '" + cmd + "'")
+        logger.info('fits2caom2Interface: cmd = "%s"', cmd)
         if not self.test:
             cwd = os.getcwd()
             tempdir = None
@@ -1553,15 +1474,16 @@ class caom2ingest(object):
                 # --debug to capture the full error message
                 if status:
                     self.errors = True
-                    self.log.console("fits2caom2 return status %d" % (status))
+                    logger.info('fits2caom2 return status %d', status)
                     if not debug:
-                        self.log.console("fits2caom2 - rerun in debug mode")
+                        logger.info('fits2caom2 - rerun in debug mode')
                         cmd += ' --debug'
                         status, output = commands.getstatusoutput(cmd)
-                    self.log.console("output = '%s'" % (output),
-                                     logging.ERROR)
+                    logger.error('output = "%s"', output)
+                    raise CAOMError('fits2caom2 exited with bad status')
+
                 elif debug:
-                    self.log.file("output = '%s'" % (output))
+                    logger.info('output = "%s"', output)
             finally:
                 # clean up FITS files that were not present originally
                 os.chdir(cwd)
@@ -1584,13 +1506,11 @@ class caom2ingest(object):
         """
         memberset = thisObservation['memberset']
         if 'algorithm.name' in thisPlane['plane_dict']:
-            self.log.console('replace_members: algorithm.name = ' +
-                             thisPlane['plane_dict']['algorithm.name'],
-                             logging.DEBUG)
+            logger.debug('replace_members: algorithm.name = %s',
+                         thisPlane['plane_dict']['algorithm.name'])
+            logger.debug('memberset = %s',
+                         repr([m.uri for m in list(memberset)]))
 
-            self.log.console('memberset = ' +
-                             repr([m.uri for m in list(memberset)]),
-                             logging.DEBUG)
             if (memberset and
                     thisPlane['plane_dict']['algorithm.name'] != 'exposure'):
 
@@ -1613,12 +1533,10 @@ class caom2ingest(object):
         # Need the provenance.name to create a provenance structure
         if 'provenance.name' in thisPlane['plane_dict']:
             inputset = thisPlane['inputset']
-            self.log.console('replace_inputs: provenance.name = ' +
-                             thisPlane['plane_dict']['provenance.name'],
-                             logging.DEBUG)
-            self.log.console('inputset = ' +
-                             repr([i.uri for i in list(inputset)]),
-                             logging.DEBUG)
+            logger.debug('replace_inputs: provenance.name = %s',
+                         thisPlane['plane_dict']['provenance.name'])
+            logger.debug('inputset = %s',
+                         repr([i.uri for i in list(inputset)]))
 
             if inputset:
                 thisPlane['plane_dict']['provenance.inputs'] = ' '.join(
@@ -1639,7 +1557,6 @@ class caom2ingest(object):
         """
         # Try a backoff that is much longer than usual
         repository = Repository(self.workdir,
-                                self.log,
                                 debug=self.debug,
                                 backoff=[10.0, 20.0, 40.0, 80.0])
 
@@ -1655,13 +1572,9 @@ class caom2ingest(object):
                         if productID != 'memberset':
                             thisPlane = thisObservation[productID]
 
-                            self.log.console('PROGRESS ingesting '
-                                             'collection="%s"  '
-                                             'observationID="%s" '
-                                             'productID="%s"' %
-                                             (collection,
-                                              observationID,
-                                              productID))
+                            logger.info('PROGRESS ingesting collection="%s"  '
+                                        'observationID="%s" productID="%s"',
+                                        collection, observationID, productID)
 
                             self.replace_members(thisObservation,
                                                  thisPlane)
@@ -1685,12 +1598,11 @@ class caom2ingest(object):
                                                     for u in urilist]
                                     localstring = ','.join(filepathlist)
                             else:
-                                self.log.console('for ' + collection +
-                                                 '/' + observationID +
-                                                 '/' + productID +
-                                                 ', uri_dict is empty so '
-                                                 'there is nothing to ingest',
-                                                 logging.ERROR)
+                                logger.error(
+                                    'for %s/%s/%s, uri_dict is empty so '
+                                    'there is nothing to ingest',
+                                    collection, observationID, productID)
+                                raise CAOMError('Nothing to ingest')
 
                             arg = thisPlane.get('fits2caom2_arg', '')
 
@@ -1704,9 +1616,9 @@ class caom2ingest(object):
                                                    localstring,
                                                    arg=arg,
                                                    debug=self.debug)
-                                self.log.file('INGESTED: observationID=%s '
-                                              'productID="%s"' %
-                                              (observationID, productID))
+                                logger.info(
+                                    'INGESTED: observationID=%s productID="%s"',
+                                    observationID, productID)
                             finally:
                                 if not self.debug:
                                     os.remove(override)
@@ -1732,8 +1644,7 @@ class caom2ingest(object):
                                                   collection,
                                                   observationID)
 
-                self.log.console('SUCCESS observationID="%s"' %
-                                 (observationID))
+                logger.info('SUCCESS observationID="%s"', observationID)
 
     # ***********************************************************************
     # placeholders for archive-specific customization
@@ -1802,51 +1713,46 @@ class caom2ingest(object):
         self.args = self.ap.parse_args()
         self.processCommandLineSwitches()
 
-        with logger(self.logfile,
-                    loglevel=self.loglevel).record() as self.log:
+        try:
             self.logCommandLineSwitches()
+
             # Read list of files from VOspace and do things
-            try:
-                self.data_web = data_web_client(self.workdir, self.log)
-                # It is harmless to create a database connection object if it
-                # is not going to be used, since the actual connections use
-                # lazy initialization and are not opened until a call to read
-                # or write is made.
-                with connection(self.userconfig,
-                                self.log) as self.conn, \
-                    delayed_error_warning(self.log,
-                                          self.workdir,
-                                          self.archive,
-                                          self.fileid_regex_dict,
-                                          make_file_id).gather() as self.dew:
+            self.data_web = data_web_client(self.workdir)
+            # It is harmless to create a database connection object if it
+            # is not going to be used, since the actual connections use
+            # lazy initialization and are not opened until a call to read
+            # or write is made.
+            with connection(self.userconfig) as self.conn, \
+                delayed_error_warning(self.workdir,
+                                      self.archive,
+                                      self.fileid_regex_dict,
+                                      make_file_id).gather() as self.dew:
 
-                    self.commandLineContainers()
-                    for c in self.containerlist:
-                        self.log.console('PROGRESS: container = ' + c.name)
-                        self.fillMetadict(c)
-                        self.checkMembers()
-                        self.checkProvenanceInputs()
-                        if self.dew.error_count() == 0:
-                            if self.store:
-                                self.storeFiles()
-                            if self.ingest:
-                                self.ingestPlanesFromMetadict()
-                        else:
-                            self.errors = True
-                        if self.dew.warning_count():
-                            self.warnings = True
+                self.commandLineContainers()
+                for c in self.containerlist:
+                    logger.info('PROGRESS: container = %s', c.name)
+                    self.fillMetadict(c)
+                    self.checkMembers()
+                    self.checkProvenanceInputs()
+                    if self.dew.error_count() == 0:
+                        if self.store:
+                            self.storeFiles()
+                        if self.ingest:
+                            self.ingestPlanesFromMetadict()
+                    else:
+                        self.errors = True
+                    if self.dew.warning_count():
+                        self.warnings = True
 
-                # declare we are DONE
-                self.log.console('DONE')
-            except Exception as e:
-                self.errors = True
-                if not isinstance(e, logger.LoggerError):
-                    # Log this previously uncaught error, but let it pass
-                    try:
-                        self.log.console(traceback.format_exc(),
-                                         logging.ERROR)
-                    except Exception as p:
-                        pass
+            # declare we are DONE
+            logger.info('DONE')
+
+        except Exception as e:
+            self.errors = True
+
+            # Log this previously uncaught error, but let it pass
+            logger.exception('Error during ingestion')
+
         self.cleanup()
         if self.errors:
             sys.exit(1)

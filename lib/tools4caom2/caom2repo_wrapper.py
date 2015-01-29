@@ -13,6 +13,7 @@ import tempfile
 import time
 
 from tools4caom2 import __version__
+from tools4caom2.error import CAOMError
 
 __doc__ = """
 The caom2repo_wrapper class immplements methods to collect metadata from the
@@ -20,6 +21,8 @@ CAOM-2 repository to get, put and update a CAOM-2 observation, implemented
 using the caom2repo.py script provided by caom2repoClient.
 
 Version: """ + __version__.version
+
+logger = logging.getLogger(__name__)
 
 
 class Repository(object):
@@ -69,16 +72,14 @@ class Repository(object):
     repository must be a put.
     """
 
-    def __init__(self, workdir, log, debug=True, backoff=[1.0, 2.0]):
+    def __init__(self, workdir, debug=True, backoff=[1.0, 2.0]):
         """
         Create a repository object that remembers the working directory.
 
         Arguments:
         workdir: path to a directory that will hold temporary files
-        log: a logger for progress and error messages
         """
         self.workdir = workdir
-        self.log = log
         self.debug = debug
         self.backoff = backoff
 
@@ -108,7 +109,7 @@ class Repository(object):
         Usage:
         Pseudocode illustrating the intended usage
 
-        repository = Repository('myworkdir', log)
+        repository = Repository('myworkdir')
         for observationID in mycollection:
             uri = <make uri from collection and observationID>
             with repository.process(uri) as myfile
@@ -155,7 +156,7 @@ class Repository(object):
             prefix=re.sub(r'[^A-Za-z0-9]+', r'_', myuri),
             dir=self.workdir)
         cmd = 'caom2repo.py --debug --retry=5 --get ' + myuri + ' ' + filepath
-        self.log.file(cmd)
+        logger.info(cmd)
 
         try:
             output = subprocess.check_output(cmd,
@@ -166,17 +167,16 @@ class Repository(object):
             if (not re.search(r'No such Observation found', e.output)):
                 # Recognizing that the observation does not exist is a
                 # success condition.  Otherwise, report the error.
-                self.log.console('Command "' + e.cmd +
-                                 ' " returned errno.' +
-                                 errno.errorcode[e.returncode] +
-                                 ' with output "' + e.output + '"',
-                                 logging.ERROR)
+                logger.error(
+                    'Command "%s" returned error code %s with output "%s"',
+                    e.cmd, errno.errorcode[e.returncode], e.output)
+                raise CAOMException(
+                    'CAOM-2 repository client exited with bad status')
+
         except Exception as e:
             retry = False
-            self.log.console('caom2repo.py failed with an unexpected '
-                             'exception of type ' + type(e) +
-                             ' giving reason: ' + str(e),
-                             logging.ERROR)
+            logger.exception('caom2repo.py failed with unexpected exception')
+            raise CAOMException('CAOM-2 repository client unexpected failure')
 
         # Note that by this point, one of three things will have happened
         # 1) observation does not exist and exista=False
@@ -184,10 +184,9 @@ class Repository(object):
         # 3) An exception was raised that cannot be handled internally
         # The following statements will only execute in the first two cases.
         if exists:
-            self.log.console('PROGRESS: Observation ' + myuri + ' was found')
+            logger.info('PROGRESS: Observation %s was found', myuri)
         else:
-            self.log.console(
-                'PROGRESS: Observation ' + myuri + ' was NOT found')
+            logger.info('PROGRESS: Observation %s was NOT found', myuri)
         return (filepath, exists)
 
     def put(self, uri, filepath, exists):
@@ -222,19 +221,18 @@ class Repository(object):
         else:
             cmd = 'caom2repo.py --debug --retry=5 --put ' + myuri + ' ' + \
                 filepath
-        self.log.console('PROGRESS: "' + cmd + '"',
-                         logging.DEBUG)
+        logger.debug('PROGRESS: "%s"', cmd)
 
         try:
             output = subprocess.check_output(cmd,
                                              stderr=subprocess.STDOUT,
                                              shell=True)
         except subprocess.CalledProcessError as e:
-            self.log.console('Command "' + e.cmd +
-                             ' " returned errno.' +
-                             errno.errorcode[e.returncode] +
-                             ' with output "' + e.output + '"',
-                             logging.ERROR)
+            logger.error(
+                'Command "%s" returned error code %s with output "%s"',
+                e.cmd, errno.errorcode[e.returncode], e.output)
+            raise CAOMException(
+                'CAOM-2 repository client exited with bad status')
 
     def remove(self, uri):
         """
@@ -262,8 +260,7 @@ class Repository(object):
             myuri = str(uri)
 
         cmd = 'caom2repo.py --debug --retry=5 --remove ' + myuri
-        self.log.console('PROGRESS: "' + cmd + '"',
-                         logging.DEBUG)
+        logger.debug('PROGRESS: "%s"', cmd)
 
         try:
             status = subprocess.check_output(
@@ -275,8 +272,6 @@ class Repository(object):
                     not re.search(r'No such Observation found', e.output)):
                 # It is no problem if the observation does not exist,
                 # but otherwise log the error.
-                self.log.console('Command "' + e.cmd +
-                                 ' " returned errno.' +
-                                 errno.errorcode[e.returncode] +
-                                 ' with output "' + e.output + '"',
-                                 logging.ERROR)
+                logger.error(
+                    'Command "%s" returned error code %s with output "%s"',
+                    e.cmd, errno.errorcode[e.returncode], e.output)

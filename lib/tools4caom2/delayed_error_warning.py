@@ -23,8 +23,10 @@ import traceback
 from vos.vos import Client as vosclient
 
 from tools4caom2.data_web_client import data_web_client
-from tools4caom2.logger import logger
+from tools4caom2.error import CAOMError
 from tools4caom2.__version__ import version as tools4caom2version
+
+logger = logging.getLogger(__name__)
 
 
 # *****************************************************************************
@@ -39,7 +41,6 @@ class delayed_error_warning(object):
     in dictionaries of errors and warnings.
     """
     def __init__(self,
-                 log,
                  outdir,
                  archive,
                  fileid_regex_dict,
@@ -51,7 +52,6 @@ class delayed_error_warning(object):
         in the dictionary errors.
 
         Arguments:
-        log               : a tools4caom2.logger object
         outdir            : local directory for temporary files
         fileid_regex_dict : dictionary keyed on extension containing a list
                             of compiled regex objects matching valid file_ids
@@ -59,12 +59,11 @@ class delayed_error_warning(object):
         """
         self.errors = {}
         self.warnings = {}
-        self.log = log
         self.outdir = outdir
         self.archive = archive
         self.vosclient = vosclient()
         self.fileid_regex_dict = fileid_regex_dict
-        self.data_web_client = data_web_client(outdir, log)
+        self.data_web_client = data_web_client(outdir)
         # Has fitsverify been installed on the PATH?
         self.fitsverifypath = \
             str(subprocess.check_output(['which', 'fitsverify'])).strip()
@@ -101,7 +100,7 @@ class delayed_error_warning(object):
         filename  : file name to examine
         errormsg  : error message to report
         """
-        self.log.file('delayed_error_warning: error for filename ' + filename)
+        logger.info('delayed_error_warning: error for filename %s', filename)
         if filename not in self.errors:
             self.errors[filename] = []
         if errormsg not in self.errors[filename]:
@@ -115,8 +114,7 @@ class delayed_error_warning(object):
         filename  : file name to examine
         warningmsg  : warning message to report
         """
-        self.log.file('delayed_error_warning: warning for filename ' +
-                      filename)
+        logger.info('delayed_error_warning: warning for filename %s', filename)
         if filename not in self.warnings:
             self.warnings[filename] = []
         if warningmsg not in self.warnings[filename]:
@@ -136,19 +134,17 @@ class delayed_error_warning(object):
         if self.warnings:
             filelist.extend(self.warnings.keys())
         if filelist:
-            self.log.console('ERRORS and WARNINGS')
+            logger.info('ERRORS and WARNINGS')
             filelist = sorted(filelist)
             for filename in filelist:
-                self.log.console('')
-                self.log.console(filename)
+                logger.info('')
+                logger.info(filename)
                 if filename in self.errors:
                     for errormsg in self.errors[filename]:
-                        self.log.console(errormsg,
-                                         logging.ERROR,
-                                         raise_exception=False)
+                        logger.error(errormsg)
                 if filename in self.warnings:
                     for warningmsg in self.warnings[filename]:
-                        self.log.console(warningmsg, logging.WARN)
+                        logger.warning(warningmsg)
 
     # ***********************************************************************
     # The following methods test for individual conditions.  Each test will
@@ -167,8 +163,8 @@ class delayed_error_warning(object):
 
         Returns True if the file has a non-zero length, False otherwise
         """
-        self.log.file('delayed_error_warning: sizecheck for filename ' +
-                      filename)
+        logger.info('delayed_error_warning: sizecheck for filename %s',
+                    filename)
         ok = False
         length = 0
         if re.match(r'vos:', filename):
@@ -196,8 +192,8 @@ class delayed_error_warning(object):
 
         Arguments:
         """
-        self.log.file('delayed_error_warning: namecheck for filename ' +
-                      filename)
+        logger.info('delayed_error_warning: namecheck for filename %s',
+                    filename)
         ext = os.path.splitext(filename)[1].lower()
         file_id = self.make_file_id(filename)
         ok = False
@@ -226,8 +222,8 @@ class delayed_error_warning(object):
                         acceptable for the file to be present (True) or absent
                         (False) in the archive.
         """
-        self.log.file('delayed_error_warning: in_archive for filename ' +
-                      filename)
+        logger.info('delayed_error_warning: in_archive for filename %s',
+                    filename)
         ok = False
         file_id = self.make_file_id(filename)
         if self.data_web_client.info(self.archive, file_id):
@@ -265,8 +261,8 @@ class delayed_error_warning(object):
 
         If fitsverify is not installed, the test will pass by default.
         """
-        self.log.file('delayed_error_warning: fitsverify for filename ' +
-                      filename)
+        logger.info('delayed_error_warning: fitsverify for filename %s',
+                    filename)
         ok = False
         if self.fitsverifypath:
             error_count = '1'
@@ -309,9 +305,9 @@ class delayed_error_warning(object):
         header   : FITS header from the primary HDU
         key      : mandatory keyword
         """
-        self.log.file('delayed_error_warning: expect_keyword ' + key +
-                      ' for filename ' +
-                      filename)
+        logger.info(
+            'delayed_error_warning: expect_keyword %s for filename %s',
+            key, filename)
         ok = False
         if key in header and header[key] != pyfits.card.UNDEFINED:
             ok = True
@@ -336,8 +332,9 @@ class delayed_error_warning(object):
         header     : FITS header from the primary HDU
         value_list : list of acceptable values
         """
-        self.log.file('delayed_error_warning: restricted_value for ' + key +
-                      ' in  filename ' + filename)
+        logger.info(
+            'delayed_error_warning: restricted_value for %s in filename %s',
+            key, filename)
         ok = False
         if key in header and header[key] != pyfits.card.UNDEFINED:
             if header[key] in value_list:

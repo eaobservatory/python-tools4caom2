@@ -20,10 +20,11 @@ dp_recipe_output table
 
 Version: """ + __version__.version
 
+logger = logging.getLogger(__name__)
+
 
 class dataproc_container(basecontainer):
     def __init__(self,
-                 log,
                  data_web_client,
                  identity_instance_id,
                  conn,
@@ -55,7 +56,6 @@ class dataproc_container(basecontainer):
         use will be deleted again.
 
         Arguments:
-        log: a tools4caom2.logger object
         data_web_client: a tools4caom2.data_web_client object
         identity_instance_id: a string providing the primary key for the
                               db_recipe_output table
@@ -64,19 +64,17 @@ class dataproc_container(basecontainer):
                            files can be created
         filterfunc: returns True if filename should be ingested
         """
-        basecontainer.__init__(self, log, 'dp_' + identity_instance_id)
+        basecontainer.__init__(self, 'dp_' + identity_instance_id)
 
         if os.path.isdir(working_directory):
             self.directory = os.path.abspath(working_directory)
         else:
-            self.log.console('not a directory: ' + working_directory,
-                             logging.ERROR)
+            raise CAOMError('not a directory: ' + working_directory)
 
         self.dataweb = data_web_client
 
         if not conn:
-            self.log.console('no connection to the database',
-                             logging.ERROR)
+            raise CAOMError('no connection to the database')
 
         self.archive = {}
 
@@ -89,11 +87,11 @@ class dataproc_container(basecontainer):
         if result:
             dp_state = result[0][0]
             if dp_state != 'Y':
-                self.log.console(
-                    'state of indentity_instance_id=' +
-                    str(identity_instance_id) + ' is "' + dp_state +
-                    '" but must be "Y: for ingestion to proceed',
-                    logging.ERROR)
+                logger.error(
+                    'state of indentity_instance_id=%s'
+                    ' is "%s" but must be "Y" for ingestion to proceed',
+                    identity_instance_id, dp_state)
+                raise CAOMError('recipe instance not in Y state')
 
         sqlcmd = '\n'.join([
             'SELECT dp_output',
@@ -125,14 +123,13 @@ class dataproc_container(basecontainer):
                                 self.archive[file_id] = archive
                                 filecount += 1
                         else:
-                            self.log.console('data web service cannot find ' +
-                                             archive + '/' + file_id,
-                                             logging.ERROR)
+                            raise CAOMError('data web service cannot find ' +
+                                            archive + '/' + file_id)
+
             if filecount == 0:
-                self.log.console('identity_instance_id ' +
-                                 identity_instance_id +
-                                 ' contains no valid ad URIs',
-                                 logging.ERROR)
+                raise CAOMError('identity_instance_id ' +
+                                identity_instance_id +
+                                ' contains no valid ad URIs')
 
     def get(self, file_id):
         """
@@ -142,9 +139,8 @@ class dataproc_container(basecontainer):
         file_id : The file_id to extract from the archive
         """
         if file_id not in self.archive:
-            self.log.console('requesting bad file_id: ' + file_id +
-                             ' from ' + repr(self.file_id_list()),
-                             logging.ERROR)
+            raise CAOMError('requesting bad file_id: %s from %s',
+                            file_id, repr(self.file_id_list()))
 
         # This fetches only the header from the primary HDU, which
         # should result in significant performance improvements
@@ -152,9 +148,8 @@ class dataproc_container(basecontainer):
                                     file_id,
                                     params=data_web_client.PrimaryHEADER)
         if not filepath:
-            self.log.console('could not get ' + file_id + ' from ' +
-                             self.archive[file_id],
-                             logging.ERROR)
+            raise CAOMError('could not get %s from %s',
+                            file_id, self.archive[file_id])
         self.filedict[file_id] = filepath
         return filepath
 

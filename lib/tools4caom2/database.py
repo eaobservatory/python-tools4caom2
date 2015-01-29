@@ -21,12 +21,15 @@ except ImportError:
     sybase_defined = False
 
 from tools4caom2 import __version__
+from tools4caom2.error import CAOMError
 
 __doc__ = """
 The database class immplements thread-safe methods methods to interact with
 Sybase databases.
 
 Version: """ + __version__.version
+
+logger = logging.getLogger(__name__)
 
 
 class database(object):
@@ -47,9 +50,8 @@ class database(object):
 
     Usage:
     userconfig['server'] = 'SYBASE'
-    mylog = tools4caom2.logger("mylogfile.log")
 
-    with database(userconfig, mylog) as db:
+    with database(userconfig) as db:
         cmd = 'SELECT max(utdate) from ' + jcmt_db + 'COMMON'
         max_utdate = db.read(cmd)[0][0]
 
@@ -88,13 +90,12 @@ class database(object):
         def __init__(self, value):
             self.value = value
 
-    def __init__(self, userconfig, log, use=True):
+    def __init__(self, userconfig, use=True):
         """
         Create a new connection to the Sybase server
 
         Arguments:
         userconfig: SafeConfigParser object
-        log: the instance of tools4caom2.logger.logger to use
 
         Exceptions:
         IOError: if call to dbrc_get fails
@@ -107,7 +108,6 @@ class database(object):
             self.use = use
         else:
             self.use = False
-        self.log = log
 
         # Database server to use for queries
         self.server = None
@@ -140,14 +140,14 @@ class database(object):
         else:
             self.use = False
 
-        self.log.file('sybase_defined: ' + str(sybase_defined), logging.DEBUG)
-        self.log.file('database use: ' + str(self.use), logging.DEBUG)
+        logger.debug('sybase_defined: %s', sybase_defined)
+        logger.debug('database use: %s', self.use)
         if self.server:
-            self.log.file('database server: ' + self.server, logging.DEBUG)
+            logger.debug('database server: ' + self.server)
         if self.read_db:
-            self.log.file('database read_db: ' + self.read_db, logging.DEBUG)
+            logger.debug('database read_db: ' + self.read_db)
         if self.write_db:
-            self.log.file('database write_db: ' + self.write_db, logging.DEBUG)
+            logger.debug('database write_db: ' + self.write_db)
         self.pause_queue = [1.0, 2.0, 3.0]
         # if self.cred_id:
         #     self.log.file('database cred_id: ' + self.cred_id, logging.DEBUG)
@@ -188,17 +188,15 @@ class database(object):
 
                     cred = re.split(r'\s+', credentials)
                     if len(cred) < 2:
-                        self.log.console('cred = ' + repr(cred) +
-                                         ' should contain username, password',
-                                         logging.ERROR)
+                        raise CAOMError('cred = ' + repr(cred) +
+                                        ' should contain username, password')
 
                     self.cadc_id = cred[0]
                     self.cadc_key = cred[1]
                 except subprocess.CalledProcessError as e:
-                    self.log.console(
+                    raise CAOMError(
                         'errno.' + errno.errorcode(e.returnvalue) +
-                        ': ' + credentials,
-                        logging.ERROR)
+                        ': ' + credentials)
 
     def get_read_connection(self):
         """
@@ -213,12 +211,12 @@ class database(object):
         if sybase_defined and self.use:
             if not database.read_connection:
                 # self.get_credentials()
-                self.log.file('have credentials')
+                logger.info('have credentials')
                 # Check that credentials exist
                 if not (self.cred_id and self.cred_key):
 
-                    self.log.file('No user credentials, so omit '
-                                  'opening connection to database')
+                    logger.info('No user credentials, so omit '
+                                'opening connection to database')
                 else:
                     database.read_connection = \
                         Sybase.connect(self.server,
@@ -228,14 +226,12 @@ class database(object):
                                        auto_commit=1,
                                        datetime='python')
                     if not database.read_connection:
-                        self.log.console('Could not connect to ' +
-                                         self.server + ':' +
-                                         self.read_db,
-                                         logging.ERROR)
+                        raise CAOMError('Could not connect to ' +
+                                        self.server + ':' +
+                                        self.read_db)
         else:
-            self.log.file('cannot open a read_connection to a database '
-                          'because Sybase is not available',
-                          logging.ERROR)
+            raise CAOMError('cannot open a read_connection to a database '
+                            'because Sybase is not available')
 
     def get_write_connection(self, write_db):
         """
@@ -253,8 +249,8 @@ class database(object):
                 # Check that credentials exist
                 if not (self.cred_id and self.cred_key):
 
-                    self.log.file('No user credentials, so omit '
-                                  'opening connection to database')
+                    logger.info('No user credentials, so omit '
+                                'opening connection to database')
                 else:
                     database.write_connection = \
                         Sybase.connect(self.server,
@@ -264,14 +260,12 @@ class database(object):
                                        auto_commit=0,
                                        datetime='python')
                     if not database.write_connection:
-                        self.log.console('Could not connect to ' +
-                                         self.server + ':' +
-                                         self.write_db,
-                                         logging.ERROR)
+                        raise CAOMError('Could not connect to ' +
+                                        self.server + ':' +
+                                        self.write_db)
         else:
-            self.log.file('Could not open a write_connection to a database '
-                          'because Sybase is not available',
-                          logging.ERROR)
+            raise CAOMError('Could not open a write_connection to a database '
+                            'because Sybase is not available')
 
     def read(self, query, params={}):
         """
@@ -284,33 +278,29 @@ class database(object):
         params: dictionary of parameters to pass to execute
         """
         returnList = []
-        self.log.file(query)
+        logger.info(query)
         retry = True
         number = 0
         while sybase_defined and retry:
             try:
-                self.log.file('acquiring read_mutex...', logging.DEBUG)
+                logger.debug('acquiring read_mutex...')
                 with database.read_mutex:
-                    self.log.file(
-                        'read_mutex acquired, obtaining connection...',
-                        logging.DEBUG)
+                    logger.debug(
+                        'read_mutex acquired, obtaining connection...')
                     self.get_read_connection()
-                    self.log.file(
-                        'read_connection obtained, obtaining cursor...',
-                        logging.DEBUG)
+                    logger.debug(
+                        'read_connection obtained, obtaining cursor...')
                     try:
                         cursor = database.read_connection.cursor()
-                        self.log.file('cursor obtained, exceuting query...',
-                                      logging.DEBUG)
+                        logger.debug('cursor obtained, exceuting query...')
                         cursor.execute(query, params)
-                        self.log.file('query executed, fetching results...',
-                                      logging.DEBUG)
+                        logger.debug('query executed, fetching results...')
                         returnList = cursor.fetchall()
-                        self.log.file('results fetched', logging.DEBUG)
+                        logger.debug('results fetched')
                     finally:
-                        self.log.file('closing cursor...', logging.DEBUG)
+                        logger.debug('closing cursor...')
                         cursor.close()
-                        self.log.file('cursor closed', logging.DEBUG)
+                        logger.debug('cursor closed')
                     retry = False
                     # should be a no-op
                     # database.read_connection.commit()
@@ -318,16 +308,15 @@ class database(object):
                 # Do not know what kind of error we will get back
                 # only the last one will be reported
                 if number < len(self.pause_queue):
-                    self.log.console('cursor returned error: '
-                                     'wait for %.1f seconds and retry' %
-                                     (self.pause_queue[number],),
-                                     logging.WARN)
+                    logger.warning('cursor returned error: '
+                                   'wait for %.1f seconds and retry',
+                                   self.pause_queue[number])
                     t = Event()
                     t.wait(self.pause_queue[number])
                     number += 1
                 else:
                     retry = False
-                    self.log.console(traceback.format_exc())
+                    logger.exception('database read failed')
                     raise
         return returnList
 
@@ -343,7 +332,7 @@ class database(object):
 
         The query should not return any rows of output.
         """
-        self.log.file(cmd)
+        logger.info(cmd)
         returnList = []
         number = 0
         retry = True
@@ -362,16 +351,15 @@ class database(object):
                 # Do not know what kind of error we will get back
                 # only the last one will be reported
                 if number < len(self.pause_queue):
-                    self.log.console('cursor returned error: '
-                                     'wait for %.1f seconds and retry' %
-                                     (self.pause_queue[number],),
-                                     logging.WARN)
+                    logger.warning('cursor returned error: '
+                                   'wait for %.1f seconds and retry',
+                                   self.pause_queue[number])
                     t = Event()
                     t.wait(self.pause_queue[number])
                     number += 1
                 else:
                     retry = False
-                    self.log.console(traceback.format_exc())
+                    logger.exception('database write failed')
                     raise
         return returnList
 
@@ -395,15 +383,13 @@ class database(object):
                 self.write('BEGIN TRANSACTION')
                 yield
             except database.ConnectionError as e:
-                self.log.console(
+                raise CAOMError(
                     'write_connection has failed BEGIN TRANSACTION:'
-                    + str(e),
-                    logging.ERROR)
+                    + str(e))
             except Exception as e:
                 self.write('ROLLBACK')
-                self.log.console('The write_connection has been rolled back:'
-                                 + str(e),
-                                 logging.ERROR)
+                raise CAOMError('The write_connection has been rolled back:'
+                                + str(e))
             else:
                 self.write('COMMIT')
 
@@ -426,7 +412,7 @@ class database(object):
 
 
 @contextmanager
-def connection(userconfig, log, use=True):
+def connection(userconfig, use=True):
     """
     Context manager that creates and yields a database object that
     can be used to create read and write connections, then closes the
@@ -435,9 +421,8 @@ def connection(userconfig, log, use=True):
     Arguments:
     server: one of "DEVSYBASE" or "SYBASE"
     database: database to use for credentials
-    log: the instance of tools4caom2.logger.logger to use
     """
     try:
-        yield database(userconfig, log, use=use)
+        yield database(userconfig, use=use)
     finally:
         database.close()

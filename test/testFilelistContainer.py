@@ -19,8 +19,8 @@ import unittest
 from tools4caom2.caom2ingest import make_file_id
 from tools4caom2.caom2ingest import fitsfilter
 from tools4caom2.basecontainer import basecontainer
+from tools4caom2.error import CAOMError
 from tools4caom2.filelist_container import filelist_container
-from tools4caom2.logger import logger
 
 from .write_fits import write_fits
 
@@ -38,8 +38,6 @@ class testFilelistContainer(unittest.TestCase):
 
         # set up the test envirnonment
         self.testdir = tempfile.mkdtemp()
-        self.log = logger(os.path.join(self.testdir, 'filelist.log'),
-                          console_output=False)
         # fake data
         fakedata = numpy.arange(10)
 
@@ -92,8 +90,7 @@ class testFilelistContainer(unittest.TestCase):
 
         # These files should all exist so creation of a filelist_container
         # should succeed
-        fc = filelist_container(self.log,
-                                'filelist',
+        fc = filelist_container('filelist',
                                 test_file_list,
                                 fitsfilter,
                                 make_file_id)
@@ -145,9 +142,8 @@ class testFilelistContainer(unittest.TestCase):
 
         # If we append a bogus file name, the init should throw an IOError
         test_file_list.append('bogus.file')
-        self.assertRaises(logger.LoggerError,
+        self.assertRaises(CAOMError,
                           filelist_container,
-                          self.log,
                           'filelist',
                           test_file_list,
                           None,
@@ -165,8 +161,7 @@ class testFilelistContainer(unittest.TestCase):
         # These files should all exist so creation of a filelist_container
         # should succeed.
         # This container should include file9.txt, since the filterfunc is None
-        fc = filelist_container(self.log,
-                                'filelist',
+        fc = filelist_container('filelist',
                                 test_file_list,
                                 None,
                                 make_file_id)
@@ -221,8 +216,7 @@ class testFilelistContainer(unittest.TestCase):
         # These files should all exist so creation of a filelist_container
         # should succeed.
         # This container should include file9.txt, since the filterfunc is None
-        fc = filelist_container(self.log,
-                                'filelist',
+        fc = filelist_container('filelist',
                                 test_file_list,
                                 fitsfilter,
                                 make_file_id)

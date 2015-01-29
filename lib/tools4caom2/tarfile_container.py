@@ -9,6 +9,7 @@ import tarfile
 
 from tools4caom2 import __version__
 from tools4caom2.basecontainer import basecontainer
+from tools4caom2.error import CAOMError
 
 __doc__ = """
 The tarfile_container class holds a list of files to ingest that are stored
@@ -19,7 +20,6 @@ Version: """ + __version__.version
 
 class tarfile_container(basecontainer):
     def __init__(self,
-                 log,
                  tarfilepath,
                  working_directory,
                  filterfunc,
@@ -44,14 +44,13 @@ class tarfile_container(basecontainer):
                            but ignored for tarfile_containers
         make_file_id:      function that converst a file name to a file_id
         """
-        basecontainer.__init__(self, log, os.path.basename(tarfilepath))
+        basecontainer.__init__(self, os.path.basename(tarfilepath))
 
         if os.path.isdir(working_directory):
             self.directory = os.path.abspath(working_directory)
         else:
-            self.log.console('Working directory is not a directory: ' +
-                             working_directory,
-                             logging.ERROR)
+            raise CAOMError('Working directory is not a directory: ' +
+                            working_directory)
 
         self.tarfilemember = {}
         self.tarfilepath = tarfilepath
@@ -69,15 +68,13 @@ class tarfile_container(basecontainer):
                     file_count += 1
             self.TAR.close()
         else:
-            self.log.console('tarfile is not a tar file: ' +
-                             tarfilepath,
-                             logging.ERROR)
+            raise CAOMError('tarfile is not a tar file: ' + tarfilepath)
+
         self.TAR = None
 
         if file_count == 0:
-            self.log.console('tar file ' + tarfilepath +
-                             ' contains no valid files',
-                             logging.ERROR)
+            raise CAOMError('tar file ' + tarfilepath +
+                            ' contains no valid files')
 
     def get(self, file_id):
         """
@@ -95,9 +92,8 @@ class tarfile_container(basecontainer):
                              self.directory)
             return self.filedict[file_id]
         else:
-            self.log.console(file_id + ' is not a member of the tar file ' +
-                             self.tarfilepath,
-                             logging.ERROR)
+            raise CAOMError(file_id + ' is not a member of the tar file ' +
+                            self.tarfilepath)
 
     def cleanup(self, file_id):
         """

@@ -13,16 +13,17 @@ import sys
 import time
 import traceback
 
-from tools4caom2.logger import logger
-
+from tools4caom2.error import CAOMError
 from tools4caom2.utdate_string import utdate_string
-
+from tools4caom2.util import configure_logger
 from tools4caom2.__version__ import version as tools4caom2version
 
 """
 Python implementation of the CADC data web service documented at
 http://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/data/.
 """
+
+logger = logging.getLogger(__name__)
 
 
 class data_web_client(object):
@@ -32,7 +33,6 @@ class data_web_client(object):
 
     def __init__(self,
                  workdir,
-                 log,
                  proxy='$HOME/.ssl/cadcproxy.pem'):
         """
         Access to data in the Archive Directory is supplied at the CADC through
@@ -41,16 +41,14 @@ class data_web_client(object):
 
         Arguments:
         workdir: Directory to hold files fetched through the service
-        log: an instance of a tools4caom2.logger
         proxy: (optional) path to a proxy certificate
         """
-        self.log = log
         self.workdir = os.path.abspath(
             os.path.expandvars(
                 os.path.expanduser(workdir)))
         if not os.path.isdir(self.workdir):
-            self.log.console('workdir is not a directory: ' + self.workdir,
-                             logging.ERROR)
+            raise CAOMError('workdir is not a directory: ' + self.workdir)
+
         self.cadcproxy = os.path.abspath(
             os.path.expandvars(
                 os.path.expanduser(proxy)))
@@ -68,8 +66,7 @@ class data_web_client(object):
             url = re.sub(r'http:', 'https:', file_id)
         else:
             url = '/'.join([data_web_client.CADC_URL, archive, file_id])
-        self.log.file('url = ' + url,
-                      logging.DEBUG)
+        logger.debug('url = ' + url)
 
         headerdict = {}
         try:
@@ -85,25 +82,21 @@ class data_web_client(object):
                 except:
                     retry += 1
                     if retry < 3:
-                        self.log.file('retry info: ' + traceback.format_exc(),
-                                      logging.DEBUG)
+                        logger.debug('retry info: ' + traceback.format_exc())
                     time.sleep(0.5)
             if r is None:
-                self.log.console('data_web_client.info failed after retries=' +
-                                 str(retry),
-                                 logging.ERROR)
+                raise CAOMError('data_web_client.info failed after retries=' +
+                                str(retry))
             elif r.status_code == 200:
                 # copy dictionary for usage after r is closed
                 headerdict.update(r.headers)
 
             elif r.status_code != 404:
-                self.log.console(str(r.status_code) + ' = ' +
-                                 httplib.responses[r.status_code],
-                                 logging.WARN)
+                logger.warning('%s = %s', r.status_code,
+                               httplib.responses[r.status_code])
         except Exception as e:
-            self.log.console('FAILED to get info for ' + file_id + ': ' +
-                             traceback.format_exc(),
-                             logging.WARN)
+            logger.warning('FAILED to get info for %s: %s', file_id,
+                           traceback.format_exc())
 
         return headerdict
 
@@ -151,8 +144,7 @@ class data_web_client(object):
             url = re.sub(r'http:', 'https:', file_id)
         else:
             url = '/'.join([data_web_client.CADC_URL, archive, file_id])
-        self.log.file('url = ' + url,
-                      logging.DEBUG)
+        logger.debug('url = ' + url)
 
         try:
             ok = False
@@ -169,14 +161,13 @@ class data_web_client(object):
                 except:
                     retry += 1
                     if retry < 3:
-                        self.log.file('retry info: ' + traceback.format_exc(),
-                                      logging.DEBUG)
+                        logger.debug('retry info: %s', traceback.format_exc())
                     time.sleep(0.5)
 
             if r.status_code != 200:
-                self.log.console(str(r.status_code) + ' = ' +
-                                 httplib.responses[r.status_code],
-                                 logging.ERROR)
+                logger.error('%s = %s', r.status_code,
+                             httplib.responses[r.status_code])
+                raise CAOMError('Failed to get file')
 
             # get the original filename
             myfilepath = os.path.join(self.workdir, file_id)
@@ -207,21 +198,19 @@ class data_web_client(object):
                 myfilepath = os.path.join(self.workdir, filename)
 
             if noclobber and os.path.exists(myfilepath):
-                self.log.console('No download because file exists: ' +
-                                 url,
-                                 logging.WARN)
+                logger.warning('No download because file exists: %s', url)
+
             else:
                 with open(myfilepath, 'wb') as F:
                     for chunk in r.iter_content(8192):
                         F.write(chunk)
                 # This message must match the format of the regex
                 # in run(), below
-                self.log.file('SUCCESS: got ' + file_id + ' as ' +
-                              myfilepath)
+                logger.info('SUCCESS: got %s as %s', file_id, myfilepath)
+
         except Exception as e:
-            self.log.console('FAILED to get ' + file_id + ': ' +
-                             traceback.format_exc(),
-                             logging.WARN)
+            logger.warning('FAILED to get %s: %s', file_id,
+                           traceback.format_exc())
 
         return myfilepath
 
@@ -243,8 +232,7 @@ class data_web_client(object):
             os.path.expanduser(
                 os.path.expandvars(filepath)))
         if not os.path.isfile(myfilepath):
-            self.log.console('File Not Found ' + myfilepath,
-                             logging.WARN)
+            logger.warning('File Not Found: %s', myfilepath)
             return success
 
         basename = os.path.basename(filepath)
@@ -262,9 +250,9 @@ class data_web_client(object):
             ok = False
             while retry < 3 and not ok:
                 try:
-                    self.log.file('data_web_client.put: url=' + url)
-                    self.log.file('data_web_client.put: headers=' +
-                                  repr(headers))
+                    logger.info('data_web_client.put: url=%s', url)
+                    logger.info('data_web_client.put: headers=%s',
+                                repr(headers))
                     r = requests.put(url,
                                      data=F,
                                      cert=self.cadcproxy,
@@ -275,16 +263,15 @@ class data_web_client(object):
                 except:
                     retry += 1
                     if retry < 3:
-                        self.log.file('retry info: ' + traceback.format_exc(),
-                                      logging.DEBUG)
+                        logger.debug('retry info: %s', traceback.format_exc())
                     time.sleep(0.5)
 #            if r.status_code == 201:
             if r.status_code in (200, 201):
                 success = True
             else:
-                self.log.console(str(r.status_code) + ' = ' +
-                                 httplib.responses[r.status_code],
-                                 logging.ERROR)
+                logger.error('%s = %s', r.status_code,
+                             httplib.responses[r.status_code])
+                raise CAOMError('Failed to put file')
 
         return success
 
@@ -298,6 +285,7 @@ def run():
     operations require that the CADC authorize the user's account for
     those operations on the requested archive.
     """
+
     utdate_str = utdate_string()
 
     ap = argparse.ArgumentParser('cadcdata',
@@ -306,9 +294,6 @@ def run():
                     default='$HOME/.ssl/cadcproxy.pem',
                     help='path to CADC proxy')
 
-    ap.add_argument('--log',
-                    default='cadcdata_' + utdate_str + '.log',
-                    help='(optional) name of log file')
     ap.add_argument('--debug',
                     action='store_true',
                     help='run ingestion commands in debug mode')
@@ -358,29 +343,17 @@ def run():
         os.path.expandvars(
             os.path.expanduser(a.proxy)))
 
-    loglevel = logging.INFO
-    if a.debug:
-        loglevel = logging.DEBUG
+    configure_logger(logging.DEBUG if a.debug else logging.INFO)
 
-    if os.path.dirname(a.log):
-        logpath = os.path.abspath(
-            os.path.expanduser(
-                os.path.expandvars(a.log)))
-    else:
-        logpath = os.path.join(cwd, a.log)
-
-    with logger(logpath, loglevel).record() as log:
-        log.file(sys.argv[0])
-        log.file('tools4caom2version   = ' + tools4caom2version)
-        log.console('log = ' + logpath)
+    try:
+        logger.info(sys.argv[0])
+        logger.info('tools4caom2version   = ' + tools4caom2version)
         for attr in dir(a):
             if attr != 'id' and attr[0] != '_':
-                log.file('%-15s= %s' % (attr, getattr(a, attr)),
-                         logging.DEBUG)
+                logger.debug('%-15s= %s', attr, getattr(a, attr))
 
         if a.operation == 'put' and not a.file:
-            log.console('existing file must be supplied for put',
-                        logging.ERROR)
+            raise CAOMError('existing file must be supplied for put')
 
         workdir = cwd
         if a.workdir:
@@ -388,8 +361,7 @@ def run():
                 os.path.expanduser(
                     os.path.expandvars(a.workdir)))
             if not os.path.isdir(workdir):
-                log.console('requested workdir is not a directory: ' + workdir,
-                            logging.ERROR)
+                raise CAOMError('requested workdir is not a directory: ' + workdir)
 
         fileid_list = []
         fileid_list.extend(a.fileid)
@@ -401,9 +373,8 @@ def run():
                         os.path.expanduser(retrylog)))
 
                 if not os.path.isfile(retry):
-                    log.console('retry log is not a file ' +
-                                retry,
-                                logging.ERROR)
+                    raise CAOMError('retry log is not a file: ' + retry)
+
                 with open(retry, 'r') as RETRY:
                     for line in RETRY:
                         # This must match the success message written
@@ -413,12 +384,11 @@ def run():
                             fileid = m.group(1)
                             if fileid in fileid_list:
                                 fileid_list.remove(fileid)
-                                log.file('remove ' + fileid)
+                                logger.info('remove ' + fileid)
 
         if a.file and len(a.fileid) != 1:
-            log.console('if file is given, exactly one fileid must '
-                        'be supplied',
-                        logging.ERROR)
+            raise CAOMError(
+                'if file is given, exactly one fileid must be supplied')
 
         filepath = None
         if a.file:
@@ -426,17 +396,17 @@ def run():
                 os.path.expanduser(
                     os.path.expandvars(a.file)))
 
-        log.console('create dwc', logging.DEBUG)
-        dwc = data_web_client(workdir, log, proxy=a.proxy)
+        logger.debug('create dwc')
+        dwc = data_web_client(workdir, proxy=a.proxy)
 
-        log.console('issue command', logging.DEBUG)
+        logger.debug('issue command')
         if a.operation == 'info':
             for fileid in fileid_list:
                 headerdict = dwc.info(a.archive, fileid)
                 if headerdict:
-                    log.console('fileid = ' + fileid)
+                    logger.info('fileid = ' + fileid)
                     for key in headerdict:
-                        log.console('    ' + key + ' = ' +
+                        logger.info('    ' + key + ' = ' +
                                     headerdict[key])
 
         elif a.operation == 'get':
@@ -454,3 +424,7 @@ def run():
 
         elif a.operation == 'put':
             dwc.put(filepath, a.archive, a.fileid[0], adstream=a.stream)
+
+    except CAOMError:
+        logger.exception('data web client error')
+        sys.exit(0)

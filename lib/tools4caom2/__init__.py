@@ -15,7 +15,6 @@ __all__ = ['adfile_container',
            'filelist_container',
            'geolocation',
            'caom2ingest',
-           'logger',
            'mjd',
            'tarfile_container',
            'timezone']
