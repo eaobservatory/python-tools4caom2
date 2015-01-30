@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 __author__ = "Russell O. Redman"
 
 import commands

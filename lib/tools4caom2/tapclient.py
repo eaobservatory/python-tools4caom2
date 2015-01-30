@@ -1,5 +1,3 @@
-#!/usr/bin/env python2.7
-
 import argparse
 from astropy.io.votable import parse
 import astropy.io.ascii

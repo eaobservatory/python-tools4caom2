@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 __author__ = "Russell O. Redman"
 
 from datetime import datetime, timedelta
