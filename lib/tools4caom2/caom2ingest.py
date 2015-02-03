@@ -275,6 +275,7 @@ class caom2ingest(object):
         self.workdir = None
 
         # Ingestion parameters and structures
+        self.debug = False
         self.prefix = ''         # ingestible files must start with this prefix
         self.indir = ''          # path to indir
         self.replace = False     # True if observations in JCMTLS or JCMTUSER
