@@ -169,13 +169,13 @@ class Repository(object):
                 logger.error(
                     'Command "%s" returned error code %s with output "%s"',
                     e.cmd, errno.errorcode[e.returncode], e.output)
-                raise CAOMException(
+                raise CAOMError(
                     'CAOM-2 repository client exited with bad status')
 
         except Exception as e:
             retry = False
             logger.exception('caom2repo.py failed with unexpected exception')
-            raise CAOMException('CAOM-2 repository client unexpected failure')
+            raise CAOMError('CAOM-2 repository client unexpected failure')
 
         # Note that by this point, one of three things will have happened
         # 1) observation does not exist and exista=False
@@ -230,7 +230,7 @@ class Repository(object):
             logger.error(
                 'Command "%s" returned error code %s with output "%s"',
                 e.cmd, errno.errorcode[e.returncode], e.output)
-            raise CAOMException(
+            raise CAOMError(
                 'CAOM-2 repository client exited with bad status')
 
     def remove(self, uri):
