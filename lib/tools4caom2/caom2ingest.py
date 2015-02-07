@@ -16,10 +16,8 @@ except:
 import re
 import shutil
 import subprocess
-from subprocess import CalledProcessError
 import sys
 import tempfile
-import traceback
 
 try:
     import Sybase
@@ -340,6 +338,9 @@ class caom2ingest(object):
 
         # TAP client
         self.tap = None
+
+        # Prepare CAOM-2 repository client.
+        self.repository = Repository()
 
     # ***********************************************************************
     # Define the standard command line interface.
@@ -1406,7 +1407,7 @@ class caom2ingest(object):
     def runFits2caom2(self, collection,
                       observationID,
                       productID,
-                      xmlfile,
+                      observation,
                       overrideFile,
                       uristring,
                       localstring,
@@ -1419,6 +1420,8 @@ class caom2ingest(object):
         collection    : CAOM collection for this observation
         observationID : CAOM observationID for this observation
         productID     : CAOM productID for this plane
+        observation   : CAOM-2 observation object to be updated, or None if
+                        this is to be a new observation
         overrideFile  : path to override file
         uristring     : (string) comma-separated list of file URIs
         arg           : (string) additional fits2caom2 switches
@@ -1427,46 +1430,55 @@ class caom2ingest(object):
         If fits2caom2 fails, the command will be run again with the additional
         switch --debug, to capture in the log file details necessary to
         debug the problem.
+
+        Returns:
+        The new/updated CAOM-2 observation object.
         """
 
-        # build the fits2caom2 command
+        cwd = os.getcwd()
+        tempdir = None
+        try:
+            # create a temporary working directory
+            tempdir = tempfile.mkdtemp(dir=self.workdir)
+            (xmlfile_fd, xmlfile) = tempfile.mkstemp(suffix='.xml', dir=tempdir)
+            os.close(xmlfile_fd)
+            os.chdir(tempdir)
 
-        if self.big:
-            cmd = 'java -Xmx512m -jar ${CADC_ROOT}/lib/fits2caom2.jar '
-        else:
-            cmd = 'java -Xmx128m -jar ${CADC_ROOT}/lib/fits2caom2.jar '
+            # build the fits2caom2 command
 
-        cmd += ' --collection="' + collection + '"'
-        cmd += ' --observationID="' + observationID + '"'
-        cmd += ' --productID="' + productID + '"'
-        cmd += ' --ignorePartialWCS'
+            if self.big:
+                cmd = 'java -Xmx512m -jar ${CADC_ROOT}/lib/fits2caom2.jar '
+            else:
+                cmd = 'java -Xmx128m -jar ${CADC_ROOT}/lib/fits2caom2.jar '
 
-        if os.path.exists(xmlfile):
-            cmd += ' --in="' + xmlfile + '"'
-        cmd += ' --out="' + xmlfile + '"'
+            cmd += ' --collection="' + collection + '"'
+            cmd += ' --observationID="' + observationID + '"'
+            cmd += ' --productID="' + productID + '"'
+            cmd += ' --ignorePartialWCS'
 
-        cmd += ' --config="' + self.config + '"'
-        cmd += ' --default="' + self.default + '"'
-        cmd += ' --override="' + overrideFile + '"'
-        cmd += ' --uri="' + uristring + '"'
-        if self.local:
-            cmd += ' --local="' + localstring + '"'
+            if observation is not None:
+                with open(xmlfile, 'w') as f:
+                    self.repository.writer.write(observation, f)
+                cmd += ' --in="' + xmlfile + '"'
+            cmd += ' --out="' + xmlfile + '"'
 
-        if debug:
-            cmd += ' --debug'
+            cmd += ' --config="' + self.config + '"'
+            cmd += ' --default="' + self.default + '"'
+            cmd += ' --override="' + overrideFile + '"'
+            cmd += ' --uri="' + uristring + '"'
+            if self.local:
+                cmd += ' --local="' + localstring + '"'
 
-        if arg:
-            cmd += ' ' + arg
+            if debug:
+                cmd += ' --debug'
 
-        # run the command
-        logger.info('fits2caom2Interface: cmd = "%s"', cmd)
-        if not self.test:
-            cwd = os.getcwd()
-            tempdir = None
-            try:
-                # create a temporary working directory
-                tempdir = tempfile.mkdtemp(dir=self.workdir)
-                os.chdir(tempdir)
+            if arg:
+                cmd += ' ' + arg
+
+            # run the command
+            logger.info('fits2caom2Interface: cmd = "%s"', cmd)
+
+            if not self.test:
                 status, output = commands.getstatusoutput(cmd)
 
                 # if the first attempt to run fits2caom2 fails, try again with
@@ -1483,11 +1495,16 @@ class caom2ingest(object):
 
                 elif debug:
                     logger.info('output = "%s"', output)
-            finally:
-                # clean up FITS files that were not present originally
-                os.chdir(cwd)
-                if tempdir:
-                    shutil.rmtree(tempdir)
+
+                observation = self.repository.reader.read(xmlfile)
+
+        finally:
+            # clean up FITS files that were not present originally
+            os.chdir(cwd)
+            if tempdir:
+                shutil.rmtree(tempdir)
+
+        return observation
 
     # ***********************************************************************
     # Add members to the observation xml
@@ -1554,17 +1571,13 @@ class caom2ingest(object):
         Arguments:
         <none>
         """
-        # Try a backoff that is much longer than usual
-        repository = Repository(self.workdir,
-                                debug=self.debug,
-                                backoff=[10.0, 20.0, 40.0, 80.0])
 
         for collection in self.metadict:
             thisCollection = self.metadict[collection]
             for observationID in thisCollection:
                 obsuri = self.observationURI(collection,
                                              observationID)
-                with repository.process(obsuri) as xmlfile:
+                with self.repository.process(obsuri) as wrapper:
 
                     thisObservation = thisCollection[observationID]
                     for productID in thisObservation:
@@ -1606,15 +1619,16 @@ class caom2ingest(object):
                             arg = thisPlane.get('fits2caom2_arg', '')
 
                             try:
-                                self.runFits2caom2(collection,
-                                                   observationID,
-                                                   productID,
-                                                   xmlfile,
-                                                   override,
-                                                   uristring,
-                                                   localstring,
-                                                   arg=arg,
-                                                   debug=self.debug)
+                                wrapper.observation = self.runFits2caom2(
+                                    collection,
+                                    observationID,
+                                    productID,
+                                    wrapper.observation,
+                                    override,
+                                    uristring,
+                                    localstring,
+                                    arg=arg,
+                                    debug=self.debug)
                                 logger.info(
                                     'INGESTED: observationID=%s productID="%s"',
                                     observationID, productID)
@@ -1628,18 +1642,18 @@ class caom2ingest(object):
                                                    'inputset',
                                                    'fileset'):
 
-                                    self.build_fitsuri_custom(xmlfile,
+                                    self.build_fitsuri_custom(wrapper.observation,
                                                               collection,
                                                               observationID,
                                                               productID,
                                                               fitsuri)
 
-                            self.build_plane_custom(xmlfile,
+                            self.build_plane_custom(wrapper.observation,
                                                     collection,
                                                     observationID,
                                                     productID)
 
-                    self.build_observation_custom(xmlfile,
+                    self.build_observation_custom(wrapper.observation,
                                                   collection,
                                                   observationID)
 
@@ -1649,7 +1663,7 @@ class caom2ingest(object):
     # placeholders for archive-specific customization
     # ***********************************************************************
     def build_fitsuri_custom(self,
-                             xmlfile,
+                             observation,
                              collection,
                              observationID,
                              productID,
@@ -1660,7 +1674,7 @@ class caom2ingest(object):
         pass
 
     def build_plane_custom(self,
-                           xmlfile,
+                           observation,
                            collection,
                            observationID,
                            productID,
@@ -1671,7 +1685,7 @@ class caom2ingest(object):
         pass
 
     def build_observation_custom(self,
-                                 xmlfile,
+                                 observation,
                                  collection,
                                  observationID,
                                  productID,
