@@ -3,7 +3,7 @@ __author__ = "Russell O. Redman"
 import argparse
 import commands
 from ConfigParser import SafeConfigParser
-from contextlib import contextmanager
+from contextlib import contextmanager, closing
 from collections import OrderedDict
 import datetime
 import logging
@@ -341,6 +341,12 @@ class caom2ingest(object):
 
         # Prepare CAOM-2 repository client.
         self.repository = Repository()
+
+        # A dictionary giving the number of parts which should be in each
+        # artifact.  When we read a FITS file, the part count will be written
+        # into this hash to allow us to identify and remove left-over
+        # spurious parts from the CAOM-2 records.
+        self.artifact_part_count = {}
 
     # ***********************************************************************
     # Define the standard command line interface.
@@ -770,7 +776,11 @@ class caom2ingest(object):
         # ingested along with regular FITS files.
         if self.dew.namecheck(filepath, report=False):
             try:
-                head = pyfits.getheader(filepath, 0)
+                with closing(pyfits.open(filepath, mode='readonly')) as f:
+                    head = f[0].header
+                    self.artifact_part_count[self.fitsfileURI(
+                        self.archive, file_id)] = len(f)
+
                 head.update('file_id', file_id)
                 head.update('filepath', filepath)
                 if isinstance(container, vos_container):
@@ -1578,6 +1588,7 @@ class caom2ingest(object):
                 obsuri = self.observationURI(collection,
                                              observationID)
                 with self.repository.process(obsuri) as wrapper:
+                    self.remove_excess_parts(wrapper.observation)
 
                     thisObservation = thisCollection[observationID]
                     for productID in thisObservation:
@@ -1658,6 +1669,49 @@ class caom2ingest(object):
                                                   observationID)
 
                 logger.info('SUCCESS observationID="%s"', observationID)
+
+    def remove_excess_parts(self, observation, excess_parts=50):
+        """
+        Check for artifacts with excess parts from a previous
+        ingestion run.
+
+        Takes a CAOM-2 observation object and checks for any artifacts
+        which have more parts than noted in self.artifact_part_count.
+        Any excess parts will be removed.  This is necessary because
+        fits2caom2 does not remove parts left over from previous
+        ingestions which no longer correspond to FITS extensions
+        which still exist.
+
+        A warning will be issued for artifacts not mentioned in
+        self.artifact_part_count with more than 'excess_parts'.
+        """
+
+        for plane in observation.planes.values():
+            for artifact in plane.artifacts.values():
+                uri = artifact.uri
+                # Is this an artifact we are processing?  (i.e. we have a
+                # part count for it)
+                if uri in self.artifact_part_count:
+                    part_count = self.artifact_part_count[uri]
+                    n_removed = 0
+
+                    while len(artifact.parts) > part_count:
+                        artifact.parts.popitem(last=True)
+                        n_removed += 1
+
+                    if n_removed:
+                        logger.info('Removed %i excess parts for %s',
+                                    n_removed, uri)
+
+                    else:
+                        logger.debug('No excess parts for %s', uri)
+
+                # Otherwise issue a warning if we seem to have an excessive
+                # number of parts for the artifact.
+                else:
+                    if len(artifact.parts) > 50:
+                        logger.warning('More than %i parts for %s',
+                                       excess_parts, uri)
 
     # ***********************************************************************
     # placeholders for archive-specific customization
