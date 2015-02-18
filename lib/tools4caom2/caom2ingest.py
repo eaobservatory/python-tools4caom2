@@ -1695,8 +1695,15 @@ class caom2ingest(object):
                     part_count = self.artifact_part_count[uri]
                     n_removed = 0
 
-                    while len(artifact.parts) > part_count:
-                        artifact.parts.popitem(last=True)
+                    # The JCMT archive currently only has integer part names
+                    # but these are not stored in order.  We need to sort
+                    # them (into numeric order) in order to be able to
+                    # remove those for the later FITS extensions first.
+                    part_names = list(artifact.parts.keys())
+                    part_names.sort(cmp=lambda x, y: cmp(int(x), int(y)))
+
+                    while len(part_names) > part_count:
+                        artifact.parts.pop(part_names.pop())
                         n_removed += 1
 
                     if n_removed:
