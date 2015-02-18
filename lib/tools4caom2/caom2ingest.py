@@ -143,7 +143,7 @@ archives.  By overriding this method, it is possible to add more switches
 that can be queried in the build routines.
 """
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 # ***********************************************************************
