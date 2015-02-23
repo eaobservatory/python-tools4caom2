@@ -1588,7 +1588,8 @@ class caom2ingest(object):
                 obsuri = self.observationURI(collection,
                                              observationID)
                 with self.repository.process(obsuri) as wrapper:
-                    self.remove_excess_parts(wrapper.observation)
+                    if wrapper.observation is not None:
+                        self.remove_excess_parts(wrapper.observation)
 
                     thisObservation = thisCollection[observationID]
                     for productID in thisObservation:
