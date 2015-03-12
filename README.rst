@@ -16,8 +16,6 @@ tarfile_container.py
 
 caom2repo_wrapper.py
     wrapper for CAOM-2 repository tool (get, put, update, remove)
-database.py
-    wrapper for access to a copy of the JCMT databases
 geolocation.py
     calculate X,Y,Z positions given long,lat,elev
 caom2ingest.py

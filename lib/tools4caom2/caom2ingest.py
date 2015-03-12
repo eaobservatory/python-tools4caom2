@@ -32,7 +32,6 @@ from caom2.caom2_observation_uri import ObservationURI
 from caom2.caom2_plane_uri import PlaneURI
 
 from tools4caom2.caom2repo_wrapper import Repository
-from tools4caom2.database import connection
 from tools4caom2.data_web_client import data_web_client
 from tools4caom2.delayed_error_warning import delayed_error_warning
 from tools4caom2.error import CAOMError
@@ -1793,15 +1792,11 @@ class caom2ingest(object):
 
             # Read list of files from VOspace and do things
             self.data_web = data_web_client(self.workdir)
-            # It is harmless to create a database connection object if it
-            # is not going to be used, since the actual connections use
-            # lazy initialization and are not opened until a call to read
-            # or write is made.
-            with connection(self.userconfig) as self.conn, \
-                delayed_error_warning(self.workdir,
-                                      self.archive,
-                                      self.fileid_regex_dict,
-                                      make_file_id).gather() as self.dew:
+
+            with delayed_error_warning(self.workdir,
+                                       self.archive,
+                                       self.fileid_regex_dict,
+                                       make_file_id).gather() as self.dew:
 
                 self.commandLineContainers()
                 for c in self.containerlist:

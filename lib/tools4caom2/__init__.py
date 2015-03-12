@@ -9,7 +9,6 @@ Version: """ + __version__.version
 __all__ = ['adfile_container',
            'basecontainer',
            'caom2repo_wrapper',
-           'database',
            'filelist_container',
            'geolocation',
            'caom2ingest',
