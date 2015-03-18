@@ -1,7 +1,6 @@
 __author__ = "Russell O. Redman"
 
 import argparse
-import commands
 from ConfigParser import SafeConfigParser
 from contextlib import contextmanager, closing
 from collections import OrderedDict
@@ -14,10 +13,8 @@ try:
 except:
     import pyfits
 import re
-import shutil
 import subprocess
 import sys
-import tempfile
 
 try:
     import Sybase
@@ -35,6 +32,7 @@ from tools4caom2.caom2repo_wrapper import Repository
 from tools4caom2.data_web_client import data_web_client
 from tools4caom2.delayed_error_warning import delayed_error_warning
 from tools4caom2.error import CAOMError
+from tools4caom2.fits2caom2 import run_fits2caom2
 from tools4caom2.adfile_container import adfile_container
 from tools4caom2.filelist_container import filelist_container
 from tools4caom2.tapclient import tapclient
@@ -1410,112 +1408,6 @@ class caom2ingest(object):
         return filepath
 
     # ***********************************************************************
-    # Run fits2caom2.
-    # If an error occurs, rerun in debug mode.
-    # ***********************************************************************
-    def runFits2caom2(self, collection,
-                      observationID,
-                      productID,
-                      observation,
-                      overrideFile,
-                      uristring,
-                      localstring,
-                      arg='',
-                      debug=False):
-        """
-        Generic method to format and run the fits2caom2 command.
-
-        Arguments:
-        collection    : CAOM collection for this observation
-        observationID : CAOM observationID for this observation
-        productID     : CAOM productID for this plane
-        observation   : CAOM-2 observation object to be updated, or None if
-                        this is to be a new observation
-        overrideFile  : path to override file
-        uristring     : (string) comma-separated list of file URIs
-        arg           : (string) additional fits2caom2 switches
-        debug         : (boolean) include --debug switch by default
-
-        If fits2caom2 fails, the command will be run again with the additional
-        switch --debug, to capture in the log file details necessary to
-        debug the problem.
-
-        Returns:
-        The new/updated CAOM-2 observation object.
-        """
-
-        cwd = os.getcwd()
-        tempdir = None
-        try:
-            # create a temporary working directory
-            tempdir = tempfile.mkdtemp(dir=self.workdir)
-            (xmlfile_fd, xmlfile) = tempfile.mkstemp(suffix='.xml', dir=tempdir)
-            os.close(xmlfile_fd)
-            os.chdir(tempdir)
-
-            # build the fits2caom2 command
-
-            if self.big:
-                cmd = 'java -Xmx512m -jar ${CADC_ROOT}/lib/fits2caom2.jar '
-            else:
-                cmd = 'java -Xmx128m -jar ${CADC_ROOT}/lib/fits2caom2.jar '
-
-            cmd += ' --collection="' + collection + '"'
-            cmd += ' --observationID="' + observationID + '"'
-            cmd += ' --productID="' + productID + '"'
-            cmd += ' --ignorePartialWCS'
-
-            if observation is not None:
-                with open(xmlfile, 'w') as f:
-                    self.repository.writer.write(observation, f)
-                cmd += ' --in="' + xmlfile + '"'
-            cmd += ' --out="' + xmlfile + '"'
-
-            cmd += ' --config="' + self.config + '"'
-            cmd += ' --default="' + self.default + '"'
-            cmd += ' --override="' + overrideFile + '"'
-            cmd += ' --uri="' + uristring + '"'
-            if self.local:
-                cmd += ' --local="' + localstring + '"'
-
-            if debug:
-                cmd += ' --debug'
-
-            if arg:
-                cmd += ' ' + arg
-
-            # run the command
-            logger.info('fits2caom2Interface: cmd = "%s"', cmd)
-
-            if not self.test:
-                status, output = commands.getstatusoutput(cmd)
-
-                # if the first attempt to run fits2caom2 fails, try again with
-                # --debug to capture the full error message
-                if status:
-                    self.errors = True
-                    logger.info('fits2caom2 return status %d', status)
-                    if not debug:
-                        logger.info('fits2caom2 - rerun in debug mode')
-                        cmd += ' --debug'
-                        status, output = commands.getstatusoutput(cmd)
-                    logger.error('output = "%s"', output)
-                    raise CAOMError('fits2caom2 exited with bad status')
-
-                elif debug:
-                    logger.info('output = "%s"', output)
-
-                observation = self.repository.reader.read(xmlfile)
-
-        finally:
-            # clean up FITS files that were not present originally
-            os.chdir(cwd)
-            if tempdir:
-                shutil.rmtree(tempdir)
-
-        return observation
-
-    # ***********************************************************************
     # Add members to the observation xml
     # ***********************************************************************
     def replace_members(self, thisObservation, thisPlane):
@@ -1630,19 +1522,36 @@ class caom2ingest(object):
                             arg = thisPlane.get('fits2caom2_arg', '')
 
                             try:
-                                wrapper.observation = self.runFits2caom2(
-                                    collection,
-                                    observationID,
-                                    productID,
-                                    wrapper.observation,
-                                    override,
-                                    uristring,
-                                    localstring,
+                                wrapper.observation = run_fits2caom2(
+                                    collection=collection,
+                                    observationID=observationID,
+                                    productID=productID,
+                                    observation=wrapper.observation,
+                                    override_file=override,
+                                    uristring=uristring,
+                                    localstring=localstring,
+                                    workdir=self.workdir,
+                                    config_file=self.config,
+                                    default_file=self.default,
+                                    caom2_reader=self.repository.reader,
+                                    caom2_writer=self.repository.writer,
                                     arg=arg,
-                                    debug=self.debug)
+                                    debug=self.debug,
+                                    big=self.big,
+                                    dry_run=self.test)
                                 logger.info(
                                     'INGESTED: observationID=%s productID="%s"',
                                     observationID, productID)
+
+                            except CAOMError:
+                                # Transitional code: before run_fits2caom2 was
+                                # extracted from this class, it set
+                                # self.errors and raised this exception.
+                                # TODO: remove self.errors and just use
+                                # exception handling.
+                                self.errors = True
+                                raise
+
                             finally:
                                 if not self.debug:
                                     os.remove(override)
