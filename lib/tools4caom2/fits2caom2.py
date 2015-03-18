@@ -125,3 +125,27 @@ def run_fits2caom2(collection,
             shutil.rmtree(tempdir)
 
     return observation
+
+
+def write_fits2caom2_override(pathname, general, sections):
+    """
+    Write an override file for fits2caom2.
+
+    The override file is written to the given pathname.  The general
+    parameters are written first, followed by those for particular
+    sections.  The "sections" argument can be an OrderedDict to ensure
+    that the entries are printed in the expected order.  The keys
+    become the section identifiers.
+    """
+
+    with open(pathname, 'w') as OVERRIDE:
+        for key in general:
+            print >>OVERRIDE, \
+                '%-30s = %s' % (key, general[key])
+
+        for (name, section) in sections.items():
+            print >>OVERRIDE
+            print >>OVERRIDE, '?' + name
+            for key in section:
+                print >>OVERRIDE, \
+                    '%-30s = %s' % (key, section[key])

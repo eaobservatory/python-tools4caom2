@@ -32,7 +32,7 @@ from tools4caom2.caom2repo_wrapper import Repository
 from tools4caom2.data_web_client import data_web_client
 from tools4caom2.delayed_error_warning import delayed_error_warning
 from tools4caom2.error import CAOMError
-from tools4caom2.fits2caom2 import run_fits2caom2
+from tools4caom2.fits2caom2 import run_fits2caom2, write_fits2caom2_override
 from tools4caom2.adfile_container import adfile_container
 from tools4caom2.filelist_container import filelist_container
 from tools4caom2.tapclient import tapclient
@@ -1384,27 +1384,30 @@ class caom2ingest(object):
                                 '_'.join([collection,
                                           observationID,
                                           productID]) + '.override')
-        with open(filepath, 'w') as OVERRIDE:
-            thisObservation = self.metadict[collection][observationID]
-            thisPlane = thisObservation[productID]
 
-            for key in thisPlane['plane_dict']:
-                print >>OVERRIDE, \
-                    '%-30s = %s' % (key, thisPlane['plane_dict'][key])
+        thisObservation = self.metadict[collection][observationID]
+        thisPlane = thisObservation[productID]
 
-            # Write artifact-specific overrides
-            for fitsuri in thisPlane:
-                if fitsuri not in ('uri_dict',
-                                   'inputset',
-                                   'fileset',
-                                   'plane_dict'):
-                    thisFitsuri = thisPlane[fitsuri]
-                    print >>OVERRIDE
-                    print >>OVERRIDE, '?' + fitsuri
-                    for key in thisFitsuri:
-                        if key != 'custom':
-                            print >>OVERRIDE, \
-                                '%-30s = %s' % (key, thisFitsuri[key])
+        sections = OrderedDict()
+
+        # Prepare artifact-specific overrides.  This involves filtering
+        # the data structure to remove things which don't correpsond to
+        # sections of the override file (e.g. "plane_dict") and things
+        # which shouldn't appear in individual secions (e.g. "custom").
+        for fitsuri in thisPlane:
+            if fitsuri not in ('uri_dict',
+                               'inputset',
+                               'fileset',
+                               'plane_dict'):
+                thisFitsuri = thisPlane[fitsuri].copy()
+                try:
+                    del thisFitsuri['custom']
+                except KeyError:
+                    pass
+                sections[fitsuri] = thisFitsuri
+
+        write_fits2caom2_override(filepath, thisPlane['plane_dict'], sections)
+
         return filepath
 
     # ***********************************************************************
