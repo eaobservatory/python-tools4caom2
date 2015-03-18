@@ -4,6 +4,8 @@
 #
 # Code extracted from tools4caom2.caom2ingest
 
+from __future__ import print_function
+
 import commands
 import logging
 import os
@@ -138,14 +140,12 @@ def write_fits2caom2_override(pathname, general, sections):
     become the section identifiers.
     """
 
-    with open(pathname, 'w') as OVERRIDE:
+    with open(pathname, 'w') as override:
         for key in general:
-            print >>OVERRIDE, \
-                '%-30s = %s' % (key, general[key])
+            print('%-30s = %s' % (key, general[key]), file=override)
 
         for (name, section) in sections.items():
-            print >>OVERRIDE
-            print >>OVERRIDE, '?' + name
+            print('', file=override)
+            print('?' + name, file=override)
             for key in section:
-                print >>OVERRIDE, \
-                    '%-30s = %s' % (key, section[key])
+                print('%-30s = %s' % (key, section[key]), file=override)
