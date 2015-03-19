@@ -5,12 +5,12 @@ from __future__ import absolute_import
 __author__ = "Russell O. Redman"
 __version__ = "1.0"
 
-import commands
 import numpy
 import os
 import os.path
 import re
 import string
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -95,10 +95,7 @@ class testTarfileContainer(unittest.TestCase):
         cmd = ('cd ' + self.testdir +
                '; tar cvzf file5.tar.gz ' + tarfilestring +
                '; rm ' + tarfilestring)
-        status, output = commands.getstatusoutput(cmd)
-        if status:
-            raise exceptions.RuntimeError('could not create file5.tar.gz: '
-                                          + output)
+        subprocess.check_call(cmd, shell=True)
 
     def tearDown(self):
         """
