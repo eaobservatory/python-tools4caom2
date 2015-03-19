@@ -1,6 +1,5 @@
 __author__ = "Russell O. Redman"
 
-import commands
 import logging
 import os
 import os.path

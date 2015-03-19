@@ -5,7 +5,6 @@ from __future__ import absolute_import
 __author__ = "Russell O. Redman"
 __version__ = "1.0"
 
-import commands
 import filecmp
 import numpy
 import os
