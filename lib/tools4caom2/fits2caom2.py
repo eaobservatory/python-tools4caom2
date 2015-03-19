@@ -21,9 +21,9 @@ def run_fits2caom2(collection,
                    observationID,
                    productID,
                    observation,
-                   override_file,
-                   uristring,
-                   localstring,
+                   override_info,
+                   file_uris,
+                   local_files,
                    workdir,
                    config_file,
                    default_file,
@@ -42,9 +42,9 @@ def run_fits2caom2(collection,
     productID     : CAOM productID for this plane
     observation   : CAOM-2 observation object to be updated, or None if
                     this is to be a new observation
-    override_file : path to override file
-    uristring     : (string) comma-separated list of file URIs
-    localstring   : comma-separated list of local files
+    override_info : (general, sections) override info tuple
+    file_uris     : list of file URIs
+    local_files   : list of local files
     arg           : (string) additional fits2caom2 switches
     debug         : (boolean) include --debug switch by default
     big           : True if fits2caom2 job requires extra RAM
@@ -61,6 +61,13 @@ def run_fits2caom2(collection,
     cwd = os.getcwd()
     tempdir = None
     try:
+        # write the override file
+        override_file = os.path.join(
+            workdir,
+            '_'.join([collection, observationID, productID]) + '.override')
+
+        write_fits2caom2_override(override_file, *override_info)
+
         # create a temporary working directory
         tempdir = tempfile.mkdtemp(dir=workdir)
         (xmlfile_fd, xmlfile) = tempfile.mkstemp(suffix='.xml', dir=tempdir)
@@ -88,9 +95,9 @@ def run_fits2caom2(collection,
         cmd += ' --config="' + config_file + '"'
         cmd += ' --default="' + default_file + '"'
         cmd += ' --override="' + override_file + '"'
-        cmd += ' --uri="' + uristring + '"'
-        if localstring:
-            cmd += ' --local="' + localstring + '"'
+        cmd += ' --uri="' + ','.join(file_uris) + '"'
+        if local_files:
+            cmd += ' --local="' + ','.join(local_files) + '"'
 
         if debug:
             cmd += ' --debug'
@@ -121,6 +128,9 @@ def run_fits2caom2(collection,
             observation = caom2_reader.read(xmlfile)
 
     finally:
+        if not debug:
+            os.remove(override_file)
+
         # clean up FITS files that were not present originally
         os.chdir(cwd)
         if tempdir:

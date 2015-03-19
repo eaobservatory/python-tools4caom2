@@ -32,7 +32,7 @@ from tools4caom2.caom2repo_wrapper import Repository
 from tools4caom2.data_web_client import data_web_client
 from tools4caom2.delayed_error_warning import delayed_error_warning
 from tools4caom2.error import CAOMError
-from tools4caom2.fits2caom2 import run_fits2caom2, write_fits2caom2_override
+from tools4caom2.fits2caom2 import run_fits2caom2
 from tools4caom2.adfile_container import adfile_container
 from tools4caom2.filelist_container import filelist_container
 from tools4caom2.tapclient import tapclient
@@ -1365,11 +1365,11 @@ class caom2ingest(object):
         pass
 
     # ***********************************************************************
-    # Write the override file for a plane
+    # Prepare the override file for a plane
     # ***********************************************************************
-    def writeOverrideFile(self, collection, observationID, productID):
+    def prepare_override_info(self, collection, observationID, productID):
         """
-        Generic method to write override files for a plane specified
+        Prepare the information required in override files for a plane specified
         by the collection, observationID and productID.
 
         Arguments:
@@ -1378,13 +1378,9 @@ class caom2ingest(object):
         productID : productID for this plane
 
         Returns:
-        filepath for override file
+        A tuple (general, section) containing the global and URI-specific
+        parts of the override information.
         """
-        filepath = os.path.join(self.workdir,
-                                '_'.join([collection,
-                                          observationID,
-                                          productID]) + '.override')
-
         thisObservation = self.metadict[collection][observationID]
         thisPlane = thisObservation[productID]
 
@@ -1406,9 +1402,7 @@ class caom2ingest(object):
                     pass
                 sections[fitsuri] = thisFitsuri
 
-        write_fits2caom2_override(filepath, thisPlane['plane_dict'], sections)
-
-        return filepath
+        return (thisPlane['plane_dict'], sections)
 
     # ***********************************************************************
     # Add members to the observation xml
@@ -1500,21 +1494,19 @@ class caom2ingest(object):
                             self.replace_inputs(thisObservation,
                                                 thisPlane)
 
-                            override = self.writeOverrideFile(collection,
-                                                              observationID,
-                                                              productID)
+                            override = self.prepare_override_info(
+                                collection, observationID, productID)
 
                             # *******************************************
                             # Run fits2caom2
                             # *******************************************
                             urilist = sorted(thisPlane['uri_dict'].keys())
                             if urilist:
-                                uristring = ','.join(urilist)
-                                localstring = ''
                                 if self.local:
                                     filepathlist = [thisPlane['uri_dict'][u]
                                                     for u in urilist]
-                                    localstring = ','.join(filepathlist)
+                                else:
+                                    filepathlist = None
                             else:
                                 logger.error(
                                     'for %s/%s/%s, uri_dict is empty so '
@@ -1530,9 +1522,9 @@ class caom2ingest(object):
                                     observationID=observationID,
                                     productID=productID,
                                     observation=wrapper.observation,
-                                    override_file=override,
-                                    uristring=uristring,
-                                    localstring=localstring,
+                                    override_info=override,
+                                    file_uris=urilist,
+                                    local_files=filepathlist,
                                     workdir=self.workdir,
                                     config_file=self.config,
                                     default_file=self.default,
@@ -1554,10 +1546,6 @@ class caom2ingest(object):
                                 # exception handling.
                                 self.errors = True
                                 raise
-
-                            finally:
-                                if not self.debug:
-                                    os.remove(override)
 
                             for fitsuri in thisPlane:
                                 if fitsuri not in ('plane_dict',
