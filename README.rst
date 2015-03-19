@@ -20,6 +20,8 @@ geolocation.py
     calculate X,Y,Z positions given long,lat,elev
 caom2ingest.py
     base class for code to ingest FITS files into CAOM-2
+fits2caom2.py
+    utility functions for interacting with fits2caom2
 logger.py
     class implementing an enhanced logger
 mjd.py
