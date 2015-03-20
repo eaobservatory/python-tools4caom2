@@ -6,10 +6,10 @@
 
 from __future__ import print_function
 
-import commands
 import logging
 import os
 import shutil
+import subprocess
 import tempfile
 
 from tools4caom2.error import CAOMError
@@ -29,7 +29,7 @@ def run_fits2caom2(collection,
                    default_file,
                    caom2_reader,
                    caom2_writer,
-                   arg='',
+                   arg=None,
                    debug=False,
                    big=False,
                    dry_run=False):
@@ -45,7 +45,7 @@ def run_fits2caom2(collection,
     override_info : (general, sections) override info tuple
     file_uris     : list of file URIs
     local_files   : list of local files
-    arg           : (string) additional fits2caom2 switches
+    arg           : list of additional fits2caom2 switches
     debug         : (boolean) include --debug switch by default
     big           : True if fits2caom2 job requires extra RAM
     dry_run       : True to skip actual fits2caom2 run
@@ -75,57 +75,82 @@ def run_fits2caom2(collection,
         os.chdir(tempdir)
 
         # build the fits2caom2 command
-
-        if big:
-            cmd = 'java -Xmx512m -jar ${CADC_ROOT}/lib/fits2caom2.jar '
-        else:
-            cmd = 'java -Xmx128m -jar ${CADC_ROOT}/lib/fits2caom2.jar '
-
-        cmd += ' --collection="' + collection + '"'
-        cmd += ' --observationID="' + observationID + '"'
-        cmd += ' --productID="' + productID + '"'
-        cmd += ' --ignorePartialWCS'
+        cmd = [
+            'java',
+            ('-Xmx512m' if big else '-Xmx128m'),
+            '-jar',
+            os.path.join(os.environ['CADC_ROOT'], 'lib', 'fits2caom2.jar'),
+            '--collection=' + collection,
+            '--observationID=' + observationID,
+            '--productID=' + productID,
+            '--ignorePartialWCS',
+        ]
 
         if observation is not None:
             with open(xmlfile, 'w') as f:
                 caom2_writer.write(observation, f)
-            cmd += ' --in="' + xmlfile + '"'
-        cmd += ' --out="' + xmlfile + '"'
+            cmd.append('--in=' + xmlfile)
 
-        cmd += ' --config="' + config_file + '"'
-        cmd += ' --default="' + default_file + '"'
-        cmd += ' --override="' + override_file + '"'
-        cmd += ' --uri="' + ','.join(file_uris) + '"'
+        cmd.extend([
+            '--out=' + xmlfile,
+            '--config=' + config_file,
+            '--default=' + default_file,
+            '--override=' + override_file,
+            '--uri=' + ','.join(file_uris),
+        ])
+
         if local_files:
-            cmd += ' --local="' + ','.join(local_files) + '"'
+            cmd.append('--local=' + ','.join(local_files))
 
         if debug:
-            cmd += ' --debug'
+            cmd.append('--debug')
 
-        if arg:
-            cmd += ' ' + arg
+        if arg is not None:
+            cmd.extend(arg)
 
         # run the command
-        logger.info('fits2caom2Interface: cmd = "%s"', cmd)
+        logger.info('fits2caom2: cmd = "%s"', ' '.join(cmd))
 
         if not dry_run:
-            status, output = commands.getstatusoutput(cmd)
+            output = None
 
-            # if the first attempt to run fits2caom2 fails, try again with
-            # --debug to capture the full error message
-            if status:
-                logger.info('fits2caom2 return status %d', status)
+            try:
+                output = subprocess.check_output(
+                    cmd, shell=False, stderr=subprocess.STDOUT)
+
+                if debug:
+                    logger.info('output = "%s"', output)
+
+                observation = caom2_reader.read(xmlfile)
+
+            except subprocess.CalledProcessError as e:
+                # if the first attempt to run fits2caom2 fails, try again with
+                # --debug to capture the full error message
+
+                logger.error('fits2caom2 return code %d', e.returncode)
+
                 if not debug:
                     logger.info('fits2caom2 - rerun in debug mode')
-                    cmd += ' --debug'
-                    status, output = commands.getstatusoutput(cmd)
+                    cmd.append('--debug')
+                    try:
+                        subprocess.check_output(
+                            cmd, shell=False, stderr=subprocess.STDOUT)
+                    except subprocess.CalledProcessError as ee:
+                        output = ee.output
+                    else:
+                        logger.warning(
+                            'fits2caom2 did not fail when rerun with --debug')
+                        # Should still raise an error because rerunning with
+                        # --debug shouldn't have fixed it.  Retrieve the
+                        # output from the original run which did fail.
+                        output = e.output
+
                 logger.error('output = "%s"', output)
+
                 raise CAOMError('fits2caom2 exited with bad status')
 
-            elif debug:
-                logger.info('output = "%s"', output)
-
-            observation = caom2_reader.read(xmlfile)
+            else:
+                logger.info('fits2caom2 run successful')
 
     finally:
         if not debug:

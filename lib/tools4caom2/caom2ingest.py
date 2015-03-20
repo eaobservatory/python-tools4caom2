@@ -1514,7 +1514,7 @@ class caom2ingest(object):
                                     collection, observationID, productID)
                                 raise CAOMError('Nothing to ingest')
 
-                            arg = thisPlane.get('fits2caom2_arg', '')
+                            arg = thisPlane.get('fits2caom2_arg', None)
 
                             try:
                                 wrapper.observation = run_fits2caom2(
