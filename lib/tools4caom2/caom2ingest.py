@@ -16,12 +16,6 @@ import re
 import subprocess
 import sys
 
-try:
-    import Sybase
-    sybase_defined = True
-except:
-    sybase_defined = False
-
 from vos.vos import Client
 
 from caom2.caom2_composite_observation import CompositeObservation
@@ -255,10 +249,8 @@ class caom2ingest(object):
         self.args = None
 
         # Database defaults, normally filled from userconfig
-        self.sybase_defined = sybase_defined
         self.archive = None
         self.stream = None
-        self.schema = 'dbo'
         self.collection_choices = ['SANDBOX']
         self.external_collections = ['SANDBOX']
 
