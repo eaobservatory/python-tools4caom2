@@ -147,19 +147,19 @@ def run():
     if a.verbose:
         logger.info(adqlquery)
 
-    if a.votable:
-        votable = tap.query(adqlquery)
-        astropy.io.votable.table.writeto(votable, a.out)
+    table = tap.query(adqlquery)
+
+    if a.out:
+        OUTFILE = open(a.out, 'w')
     else:
-        table = tap.query(adqlquery)
-        if a.out:
-            OUTFILE = open(a.out, 'w')
+        OUTFILE = sys.stdout
+    try:
+        if a.votable:
+            astropy.io.votable.table.writeto(table, a.out)
         else:
-            OUTFILE = sys.stdout
-        try:
             astropy.io.ascii.write(table,
                                    OUTFILE,
                                    Writer=astropy.io.ascii.FixedWidth)
-        finally:
-            if a.out:
-                OUTFILE.close()
+    finally:
+        if a.out:
+            OUTFILE.close()
