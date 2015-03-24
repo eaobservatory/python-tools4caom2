@@ -49,15 +49,13 @@ class tapclient(object):
             os.path.expandvars(
                 os.path.expanduser(proxy)))
 
-    def query(self, adql, format='table'):
+    def query(self, adql):
         """
         Send an adql query to the service and store the response in a file-like
         object.
 
         Arguments:
         adql: a text string containing and ADQL query
-        format: text string indicating whether the desired output format
-                should be an astropy.table.Table (default) or the raw votable
         """
         logger.debug('ADQL: %s', adql)
         query = re.sub(r'\s+', ' ', adql.strip())
@@ -95,11 +93,10 @@ class tapclient(object):
 
                 # Get here if the table is valid, so process the contents...
                 # copy dictionary for usage after r is closed
-                if format == 'table':
-                    try:
-                        table = vot.get_first_table().to_table()
-                    except:
-                        table = None
+                try:
+                    table = vot.get_first_table().to_table()
+                except:
+                    table = None
 
             elif r.status_code != 404:
                 logger.warning('%s = %s: %s', r.status_code,
@@ -150,7 +147,7 @@ def run():
         logger.info(adqlquery)
 
     if a.votable:
-        votable = tap.query(adqlquery, 'votable')
+        votable = tap.query(adqlquery)
         if votable:
             astropy.io.votable.table.writeto(votable, a.out)
     else:
