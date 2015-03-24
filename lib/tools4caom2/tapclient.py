@@ -63,8 +63,6 @@ class tapclient(object):
                   'LANG': 'ADQL',
                   'QUERY': query}
 
-        table = None
-
         try:
             r = requests.get(tapclient.CADC_TAP_SERVICE,
                              params=params,
@@ -93,20 +91,23 @@ class tapclient(object):
 
                 # Get here if the table is valid, so process the contents...
                 # copy dictionary for usage after r is closed
-                try:
-                    table = vot.get_first_table().to_table()
-                except:
-                    table = None
+                return vot.get_first_table().to_table()
 
-            elif r.status_code != 404:
-                logger.warning('%s = %s: %s', r.status_code,
-                               httplib.responses[r.status_code],
-                               r.content)
+            else:
+                logger.error('%s = %s: %s', r.status_code,
+                             httplib.responses[r.status_code],
+                             r.content)
+                raise CAOMError('TAP query received HTTP response: {0}'.format(
+                    httplib.responses[r.status_code]))
+
+        except CAOMError:
+            # Pass on any errors which were raised explicitly.
+            raise
+
         except Exception as e:
-            logger.warning('FAILED to get reply for "%s": %s', adql,
-                           traceback.format_exc())
-
-        return table
+            # Raise CAOMError for any other exception.
+            logger.exception('FAILED to get reply for "%s": %s', adql)
+            raise CAOMError('Error occurred  during TAP query')
 
 
 def run():
@@ -148,8 +149,7 @@ def run():
 
     if a.votable:
         votable = tap.query(adqlquery)
-        if votable:
-            astropy.io.votable.table.writeto(votable, a.out)
+        astropy.io.votable.table.writeto(votable, a.out)
     else:
         table = tap.query(adqlquery)
         if a.out:
@@ -157,10 +157,9 @@ def run():
         else:
             OUTFILE = sys.stdout
         try:
-            if table:
-                astropy.io.ascii.write(table,
-                                       OUTFILE,
-                                       Writer=astropy.io.ascii.FixedWidth)
+            astropy.io.ascii.write(table,
+                                   OUTFILE,
+                                   Writer=astropy.io.ascii.FixedWidth)
         finally:
             if a.out:
                 OUTFILE.close()
