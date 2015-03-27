@@ -35,7 +35,6 @@ import unittest
 import vos
 
 from tools4caom2.caom2ingest import make_file_id
-from tools4caom2.caom2ingest import fitsfilter
 from tools4caom2.container.vos import vos_container
 from tools4caom2.data_web_client import data_web_client
 from tools4caom2.delayed_error_warning import delayed_error_warning

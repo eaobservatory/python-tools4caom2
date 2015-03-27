@@ -16,7 +16,7 @@ import tempfile
 import unittest
 
 from tools4caom2.caom2ingest import make_file_id
-from tools4caom2.caom2ingest import fitsfilter
+from tools4caom2.container.util import fitsfilter
 from tools4caom2.error import CAOMError
 from tools4caom2.container.filelist import filelist_container
 

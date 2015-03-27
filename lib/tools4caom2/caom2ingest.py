@@ -112,7 +112,7 @@ the class):
                                             False otherwise
 
 This can be used to initialize the field filterfunc in the __init__ method of
-the derived class.  This module supplies examples of
+the derived class.  The tools4caom.container.util module supplies examples of
 these functions that are adequate for mamny purposes:
  - fitsfilter(f)                   : return True if f is a FITS file,
                                             False otherwise
@@ -149,32 +149,6 @@ def make_file_id(filepath):
     This is a static method taking exactly one argument.
     """
     return os.path.splitext(os.path.basename(filepath))[0].lower()
-
-
-def fitsfilter(filename):
-    """
-    Return True if this file should be ingested, False otherwise.
-    By default, only ingest FITS files.  The filter will only be applied
-    to files in a directory, tar file or file list, not to file_id's in
-    an AD file.
-
-    Arguments:
-    filename : the file name to check for validity
-    This is a static method taking exactly one argument.
-    """
-    return (os.path.splitext(filename)[1].lower() in
-            ['.fits', '.fit'])
-
-
-def nofilter(filename):
-    """
-    Return True always, so no files are filered out.
-
-    Arguments:
-    filename : the file name to check for validity
-    This is a static method taking exactly one argument.
-    """
-    return True
 
 
 # ******************************************************************************

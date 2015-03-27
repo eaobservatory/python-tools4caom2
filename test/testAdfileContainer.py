@@ -16,7 +16,7 @@ import tempfile
 import unittest
 
 from tools4caom2.caom2ingest import make_file_id
-from tools4caom2.caom2ingest import fitsfilter
+from tools4caom2.container.util import fitsfilter
 from tools4caom2.container.adfile import adfile_container
 from tools4caom2.data_web_client import data_web_client
 from tools4caom2.error import CAOMError
@@ -192,7 +192,7 @@ class testAdfileContainer(unittest.TestCase):
 
         # These files should all exist in ad so creation of an
         #  adfile_container should succeed.
-        # the filterfunc in this test is tools4caom2.caom2ingest.fitsfilter
+        # the filterfunc in this test is tools4caom2.container.util.fitsfilter
         fc = adfile_container(adfilepath,
                               workdir,
                               fitsfilter)
@@ -251,7 +251,7 @@ class testAdfileContainer(unittest.TestCase):
 
         # These files should all exist in ad so creation of an
         #  adfile_container should succeed.
-        # the filterfunc in this test is tools4caom2.caom2ingest.fitsfilter
+        # the filterfunc in this test is tools4caom2.container.util.fitsfilter
         fc = adfile_container(adfilepath,
                               workdir,
                               fitsfilter)
