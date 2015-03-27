@@ -1647,7 +1647,3 @@ class caom2ingest(object):
             sys.exit(1)
         else:
             sys.exit(0)
-
-if __name__ == '__main__':
-    vc = caom2ingest()
-    vc.run()
