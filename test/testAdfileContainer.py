@@ -15,7 +15,7 @@ import sys
 import tempfile
 import unittest
 
-from tools4caom2.caom2ingest import make_file_id
+from tools4caom2.util import make_file_id_no_ext as make_file_id
 from tools4caom2.container.util import fitsfilter
 from tools4caom2.container.adfile import adfile_container
 from tools4caom2.data_web_client import data_web_client

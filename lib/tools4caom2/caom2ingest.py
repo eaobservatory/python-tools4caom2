@@ -31,6 +31,7 @@ from tools4caom2.container.adfile import adfile_container
 from tools4caom2.container.filelist import filelist_container
 from tools4caom2.tapclient import tapclient
 from tools4caom2.utdate_string import utdate_string
+from tools4caom2.util import make_file_id_no_ext
 from tools4caom2.container.vos import vos_container
 
 from tools4caom2.__version__ import version as tools4caom2version
@@ -130,30 +131,6 @@ that can be queried in the build routines.
 logger = logging.getLogger(__name__)
 
 
-# ***********************************************************************
-#  Utility routines
-# ***********************************************************************
-def make_file_id(filepath):
-    """
-    An archive-specific routine to convert a filename to the corressponding
-    file_id used to identify the file in CADC storage.  The default routine
-    provided here picks out the basename from the path, which can therefore
-    be a path to a file on disk, a VOspace urL, or a vos uri, then strips off
-    the extension and forces the name into lower case.
-
-    Arguments:
-    filepath: path to the file
-
-    Returns:
-    file_id: string used to identify the file in storage
-    This is a static method taking exactly one argument.
-    """
-    return os.path.splitext(os.path.basename(filepath))[0].lower()
-
-
-# ******************************************************************************
-# Base class for ingestions from VOspace
-# ******************************************************************************
 class caom2ingest(object):
     """
     Base class to copy and ingest files from a VOspace into a CADC archive
@@ -206,7 +183,7 @@ class caom2ingest(object):
 
         # routine to convert filepaths into file_ids
         # The default routine supplied here should work for most archives.
-        self.make_file_id = make_file_id
+        self.make_file_id = make_file_id_no_ext
 
         # temporary disk space for working files
         self.workdir = None
