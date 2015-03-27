@@ -1638,7 +1638,7 @@ class caom2ingest(object):
             with delayed_error_warning(self.workdir,
                                        self.archive,
                                        self.fileid_regex_dict,
-                                       make_file_id).gather() as self.dew:
+                                       self.make_file_id).gather() as self.dew:
 
                 self.commandLineContainers()
                 for c in self.containerlist:
