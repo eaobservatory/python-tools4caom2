@@ -110,20 +110,13 @@ It might also be useful to define filter and comparison functions (outside
 the class):
  - archivefilter(f)                : return True if f is a file to ingest,
                                             False otherwise
- - archivegt(f1, f2)               : return True if f1 should come after f2,
-                                            False otherwise
- - archivecompare(f1,f2)           : return 1 if f1 should come after f2,
-                                           -1 if f1 should come before f2, and
-                                            0 if the order is not significant
-These can be used to initialize the fields filterfunc and either gtfunc
-or cmpfunc in the __init__ method of the derived class.  The ingest2caom2
-module supplies examples of these functions that are adequate for mamny
-purposes:
+
+This can be used to initialize the field filterfunc in the __init__ method of
+the derived class.  This module supplies examples of
+these functions that are adequate for mamny purposes:
  - fitsfilter(f)                   : return True if f is a FITS file,
                                             False otherwise
  - nofilter(f)                     : return True always, i.e. no filtering
- - nosort(f1, f2)                  : returns False always, i.e. no sorting
-The defaults for the filterfunc and cmpfunc use fitsfilter and nosort.
 
 It is sometimes also useful to supply a custom function
  - make_file_id(f)                 : given a file name, return an AD file_id
@@ -182,23 +175,6 @@ def nofilter(filename):
     This is a static method taking exactly one argument.
     """
     return True
-
-
-def nosort(file_id1, file_id2):
-    """
-    Compare two file_ids, returning True if file_id1 should appear after
-    file_id2 (analogous to a > operator).  See cgps2caom2 and
-    blast2caom2 for examples. Note that file_id's do not generally include
-    extensions.
-
-    Always returning False will leave the file_id's unsorted.
-
-    Arguments:
-    file_id1 : the first file_id
-    file_id2 : the second file_id
-    This is a static method taking exactly two arguments.
-    """
-    return False
 
 
 # ******************************************************************************
