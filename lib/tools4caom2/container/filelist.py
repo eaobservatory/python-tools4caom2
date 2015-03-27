@@ -5,7 +5,7 @@ import os.path
 
 from tools4caom2 import __version__
 from tools4caom2.error import CAOMError
-from tools4caom2.basecontainer import basecontainer
+from tools4caom2.container.base import basecontainer
 
 __doc__ = """
 The file_container class is holds a list of files to ingest referenced by

@@ -7,7 +7,7 @@ import stat
 import tarfile
 
 from tools4caom2 import __version__
-from tools4caom2.basecontainer import basecontainer
+from tools4caom2.container.base import basecontainer
 from tools4caom2.error import CAOMError
 
 __doc__ = """

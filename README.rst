@@ -5,13 +5,13 @@ A set of Python tools useful when developing ingestion code for CAOM-2 archives
 at the CADC (and more generally as well).  These are contained in the package
 tools4caom2/
 
-basecontainer.py
+container/container.py
     base class for "containers" describing sets of files
-adfile_container.py
+container/adfile.py
     class for sets of files in CADC AD (archive directory)
-filelist_container.py
+container/filelist.py
     class for set of files on disk (including in a directory)
-tarfile_container.py
+container/tarfile.py
     class for set of files in a tarfile
 
 caom2repo_wrapper.py

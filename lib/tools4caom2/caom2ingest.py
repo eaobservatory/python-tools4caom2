@@ -27,11 +27,11 @@ from tools4caom2.data_web_client import data_web_client
 from tools4caom2.delayed_error_warning import delayed_error_warning
 from tools4caom2.error import CAOMError
 from tools4caom2.fits2caom2 import run_fits2caom2
-from tools4caom2.adfile_container import adfile_container
-from tools4caom2.filelist_container import filelist_container
+from tools4caom2.container.adfile import adfile_container
+from tools4caom2.container.filelist import filelist_container
 from tools4caom2.tapclient import tapclient
 from tools4caom2.utdate_string import utdate_string
-from tools4caom2.vos_container import vos_container
+from tools4caom2.container.vos import vos_container
 
 from tools4caom2.__version__ import version as tools4caom2version
 

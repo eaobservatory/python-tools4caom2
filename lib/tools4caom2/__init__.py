@@ -6,12 +6,10 @@ tools needed to ingest FITS files into CAOM-2 using fits2caom2.
 
 Version: """ + __version__.version
 
-__all__ = ['adfile_container',
-           'basecontainer',
-           'caom2repo_wrapper',
-           'filelist_container',
-           'geolocation',
-           'caom2ingest',
-           'mjd',
-           'tarfile_container',
-           'timezone']
+__all__ = [
+    'caom2repo_wrapper',
+    'geolocation',
+    'caom2ingest',
+    'mjd',
+    'timezone',
+]
