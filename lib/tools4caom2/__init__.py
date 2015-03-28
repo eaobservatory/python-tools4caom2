@@ -9,7 +9,6 @@ Version: """ + __version__.version
 __all__ = [
     'caom2repo_wrapper',
     'geolocation',
-    'caom2ingest',
     'mjd',
     'timezone',
 ]
