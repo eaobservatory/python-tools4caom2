@@ -7,21 +7,11 @@ import datetime
 import logging
 import os
 import os.path
-try:
-    from astropy.io import fits as pyfits
-except:
-    import pyfits
-import re
-import shutil
-import subprocess
-from subprocess import CalledProcessError
-import sys
-import traceback
 
-from vos.vos import Client as vosclient
 
 from tools4caom2.data_web_client import data_web_client
 from tools4caom2.error import CAOMError
+from tools4caom2.validation import CAOMValidation, CAOMValidationError
 from tools4caom2.__version__ import version as tools4caom2version
 
 logger = logging.getLogger(__name__)
@@ -48,25 +38,12 @@ class delayed_error_warning(object):
         A delayed_error_warning is a class that examines files for possible
         problems.  If problems are found, the offending filename is recorded
         in the dictionary errors.
-
-        Arguments:
-        outdir            : local directory for temporary files
-        fileid_regex_dict : dictionary keyed on extension containing a list
-                            of compiled regex objects matching valid file_ids
-        make_file_id      : function returning a file_id from a filename
         """
         self.errors = {}
         self.warnings = {}
-        self.outdir = outdir
-        self.archive = archive
-        self.vosclient = vosclient()
-        self.fileid_regex_dict = fileid_regex_dict
-        self.data_web_client = data_web_client(outdir)
-        # Has fitsverify been installed on the PATH?
-        self.fitsverifypath = \
-            str(subprocess.check_output(['which', 'fitsverify'])).strip()
-        self.make_file_id = make_file_id
-        self.debug = debug
+
+        self.validation = CAOMValidation(outdir, archive, fileid_regex_dict,
+                                         make_file_id)
 
     @contextmanager
     def gather(self):
@@ -163,18 +140,15 @@ class delayed_error_warning(object):
         """
         logger.info('delayed_error_warning: sizecheck for filename %s',
                     filename)
-        ok = False
-        length = 0
-        if re.match(r'vos:', filename):
-            length = int(self.vosclient.getNode(filename).getInfo()['size'])
-        elif os.path.isfile(filename):
-            length = os.path.getsize(filename)
 
-        if length:
-            ok = True
-        else:
+        try:
+            self.validation.check_size(filename)
+
+        except CAOMValidationError:
             self.error(filename, 'file has length = 0')
-        return ok
+            return False
+
+        return True
 
     def namecheck(self, filename, report=True):
         """
@@ -192,23 +166,16 @@ class delayed_error_warning(object):
         """
         logger.info('delayed_error_warning: namecheck for filename %s',
                     filename)
-        ext = os.path.splitext(filename)[1].lower()
-        file_id = self.make_file_id(filename)
-        ok = False
-        if ext in self.fileid_regex_dict:
-            # Only files that are candidates for ingestion are tested by
-            # namecheck
-            for regex in self.fileid_regex_dict[ext]:
-                if regex.match(file_id):
-                    ok = True
-                    break
-            else:
-                if report:
-                    self.error(filename, 'namecheck: should match (one of) ' +
-                               repr([r.pattern for r
-                                     in self.fileid_regex_dict[ext]]))
 
-        return ok
+        try:
+            self.validation.check_name(filename)
+
+        except CAOMValidationError:
+            if report:
+                self.error(filename, 'namecheck failed')
+            return False
+
+        return True
 
     def in_archive(self, filename, severity_dict):
         """
@@ -223,26 +190,24 @@ class delayed_error_warning(object):
         logger.info('delayed_error_warning: in_archive for filename %s',
                     filename)
         ok = False
-        file_id = self.make_file_id(filename)
-        if self.data_web_client.info(self.archive, file_id):
+        if self.validation._is_in_archive(filename):
             if severity_dict[True] == 'error':
                 self.error(filename,
-                           'name conflict with existing file in ' +
-                           self.archive)
+                           'name conflict with existing file in the archive')
             elif severity_dict[True] == 'warning':
                 ok = True
                 self.warning(filename,
-                             'existing file has this name in ' + self.archive)
+                             'existing file has this name in the archive')
             else:
                 ok = True
         else:
             if severity_dict[False] == 'error':
                 self.error(filename,
-                           'expected file not found in ' + self.archive)
+                           'expected file not found in the archive')
             elif severity_dict[False] == 'warning':
                 ok = True
                 self.warning(filename,
-                             'file is not present in ' + self.archive)
+                             'file is not present in the archive')
             else:
                 ok = True
         return ok
@@ -261,38 +226,14 @@ class delayed_error_warning(object):
         """
         logger.info('delayed_error_warning: fitsverify for filename %s',
                     filename)
-        ok = False
-        if self.fitsverifypath:
-            error_count = '1'
-            output = ''
-            try:
-                # fitsverify will return a non-zero exit code if there were
-                # errors or warnings, but can fail for other reasons as well
-                output = subprocess.check_output([self.fitsverifypath,
-                                                  '-q',
-                                                  filename])
-            except subprocess.CalledProcessError as e:
-                # absorb all exceptions, but such files are recorded as
-                # causing errors
-                output = str(e.output)
-            except:
-                output = type(e) + ': 1 errors'
 
-            if re.search(r'\s*verification OK', output):
-                error_count = '0'
-            else:
-                error_count = re.sub(r'.*?\s(\d+) errors.*', r'\1', output)
+        try:
+            self.validation.verify_fits(filename)
+        except CAOMValidationError:
+            self.error(filename, 'fitsverify reported errors')
+            return False
 
-            if int(error_count):
-                self.error(filename,
-                           'fitsverify reported ' + error_count + ' errors')
-            else:
-                ok = True
-        else:
-            # if fitsverify is not installed, return True
-            ok = True
-
-        return ok
+        return True
 
     def expect_keyword(self, filename, key, header, mandatory=False):
         """
@@ -306,10 +247,11 @@ class delayed_error_warning(object):
         logger.info(
             'delayed_error_warning: expect_keyword %s for filename %s',
             key, filename)
-        ok = False
-        if key in header and header[key] != pyfits.card.UNDEFINED:
-            ok = True
-        else:
+
+        try:
+            self.validation.expect_keyword(filename, key, header)
+
+        except CAOMValidationError:
             if mandatory:
                 self.error(filename,
                            'mandatory keyword "' + key +
@@ -318,7 +260,10 @@ class delayed_error_warning(object):
                 self.warning(filename,
                              'expected keyword "' + key +
                              '" is missing or undefined')
-        return ok
+
+            return False
+
+        return True
 
     def restricted_value(self, filename, key, header, value_list):
         """
@@ -334,16 +279,15 @@ class delayed_error_warning(object):
             'delayed_error_warning: restricted_value for %s in filename %s',
             key, filename)
         ok = False
-        if key in header and header[key] != pyfits.card.UNDEFINED:
-            if header[key] in value_list:
-                ok = True
-            else:
-                self.error(filename,
-                           'header[' + key + '] = "' + header[key] +
-                           '" must be in' + repr(value_list))
-        else:
+
+        try:
+            self.validation.restricted_value(filename, key, header, value_list)
+
+        except CAOMValidationError:
             self.error(filename,
                        'keyword "' + key + '" with a restricted set of values '
-                       'is missing or undefined')
+                       'is missing, undefined or not in ' + repr(value_list))
 
-        return ok
+            return False
+
+        return True

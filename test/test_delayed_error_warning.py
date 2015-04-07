@@ -126,7 +126,7 @@ class test_delayed_error_warning(unittest.TestCase):
                         str(len(self.dew.warnings)))
 
         self.assertEqual(self.dew.errors.keys(), [self.bogus_file])
-        self.assertTrue(re.match(r'namecheck:',
+        self.assertTrue(re.match(r'namecheck failed',
                                  self.dew.errors[self.bogus_file][0]))
 
     def testInArchiveErrorWarning(self):
