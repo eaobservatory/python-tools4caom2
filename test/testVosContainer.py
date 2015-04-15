@@ -37,7 +37,7 @@ import vos
 from tools4caom2.util import make_file_id_no_ext as make_file_id
 from tools4caom2.container.vos import vos_container
 from tools4caom2.data_web_client import data_web_client
-from tools4caom2.delayed_error_warning import delayed_error_warning
+from tools4caom2.validation import CAOMValidation
 from tools4caom2.error import CAOMError
 
 from .write_fits import write_fits
@@ -124,7 +124,7 @@ class testVosContainer(unittest.TestCase):
         """
         fileid_regex = re.compile(r'file.*')
         fileid_regex_dict = {'.fits': [fileid_regex]}
-        self.dew = delayed_error_warning(self.testdir,
+        self.validation = CAOMValidation(self.testdir,
                                          'JCMT',
                                          fileid_regex_dict,
                                          make_file_id)
@@ -134,7 +134,7 @@ class testVosContainer(unittest.TestCase):
                                      False,   # do not fetch files from
                                               # AD by default
                                      self.testdir,
-                                     self.dew,
+                                     self.validation,
                                      self.vosclient,
                                      self.dataweb,
                                      make_file_id)
@@ -172,7 +172,7 @@ class testVosContainer(unittest.TestCase):
         """
         fileid_regex = re.compile(r'file.*')
         fileid_regex_dict = {'.fits': [fileid_regex]}
-        self.dew = delayed_error_warning(self.testdir,
+        self.validation = CAOMValidation(self.testdir,
                                          'JCMT',
                                          fileid_regex_dict,
                                          make_file_id)
@@ -182,7 +182,7 @@ class testVosContainer(unittest.TestCase):
                                      False,  # do not fetch files from
                                              # AD by default
                                      self.testdir,
-                                     self.dew,
+                                     self.validation,
                                      self.vosclient,
                                      self.dataweb,
                                      make_file_id)
@@ -206,7 +206,7 @@ class testVosContainer(unittest.TestCase):
         """
         fileid_regex = re.compile(r'file.*')
         fileid_regex_dict = {'.fits': [fileid_regex]}
-        self.dew = delayed_error_warning(self.testdir,
+        self.validation = CAOMValidation(self.testdir,
                                          'JCMT',
                                          fileid_regex_dict,
                                          make_file_id)
@@ -219,7 +219,7 @@ class testVosContainer(unittest.TestCase):
                           False,   # do not fetch files from
                                    # AD by default
                           self.testdir,
-                          self.dew,
+                          self.validation,
                           self.vosclient,
                           self.dataweb,
                           make_file_id)
@@ -234,7 +234,7 @@ class testVosContainer(unittest.TestCase):
                           False,   # do not fetch files from
                                    # AD by default
                           bogusdir,
-                          self.dew,
+                          self.validation,
                           self.vosclient,
                           self.dataweb,
                           make_file_id)
@@ -245,7 +245,7 @@ class testVosContainer(unittest.TestCase):
         """
         fileid_regex = re.compile(r'jcmt.*')
         fileid_regex_dict = {'.fits': [fileid_regex]}
-        self.dew = delayed_error_warning(self.testdir,
+        self.validation = CAOMValidation(self.testdir,
                                          'JCMT',
                                          fileid_regex_dict,
                                          make_file_id)
@@ -255,7 +255,7 @@ class testVosContainer(unittest.TestCase):
                                      True,    # do not fetch files from
                                               # AD by default
                                      self.testdir,
-                                     self.dew,
+                                     self.validation,
                                      self.vosclient,
                                      self.dataweb,
                                      make_file_id)

@@ -13,6 +13,7 @@ from tools4caom2 import __version__
 from tools4caom2.container.base import basecontainer
 from tools4caom2.data_web_client import data_web_client
 from tools4caom2.error import CAOMError
+from tools4caom2.validation import CAOMValidationError
 
 __doc__ = """
 The vos_container class reads from a text file a list of AD URIs that
@@ -29,7 +30,7 @@ class vos_container(basecontainer):
                  archive_name,
                  ingest,
                  working_directory,
-                 delayed_error_warning,
+                 validation,
                  vosclient,
                  dataweb,
                  make_file_id):
@@ -46,7 +47,7 @@ class vos_container(basecontainer):
         vosroot:           a uri pointing to a VOspace directory
         archive_name:      archive that will contain copies of the files
         ingest:            True if ingesting files from AD, False otherwise
-        delayed_error_warning: error and warning reporting interface
+        validation:        validation object
         working_directory: directory to hold files from AD
         make_file_id:      function that turns a file uri/url/path into a
                            file_id
@@ -55,7 +56,7 @@ class vos_container(basecontainer):
         self.dataweb = dataweb
         self.archive_name = archive_name
         self.ingest = ingest
-        self.dew = delayed_error_warning
+        self.validation = validation
         self.working_directory = working_directory
         self.make_file_id = make_file_id
         self.vosclient = vosclient
@@ -86,10 +87,7 @@ class vos_container(basecontainer):
         logger.debug('pathlist = %s', repr(pathlist))
         dirlist = sorted([f for f in pathlist if self.vosclient.isdir(f)])
         logger.debug('dirlist = %s', repr(dirlist))
-        filelist = sorted([f for f in pathlist
-                           if self.vosclient.isfile(f)
-                           and self.dew.sizecheck(f)
-                           and self.dew.namecheck(f, report=False)])
+        filelist = sorted([f for f in pathlist if self._is_valid_file(f)])
         logger.debug('filelist = %s', repr(filelist))
 
         filecount = 0
@@ -97,8 +95,9 @@ class vos_container(basecontainer):
             file_id = self.make_file_id(f)
             filename = os.path.basename(f)
             if file_id in self.vospath:
-                self.dew.error(f, 'Duplicate file_id = ' + file_id +
-                                  ' for ' + self.vospath[file_id])
+                logger.error('%s: duplicate file_id = %s for %s',
+                             f, file_id, self.vospath[file_id])
+                raise CAOMError('Duplicate file in VOS container')
             else:
                 filecount += 1
                 self.vospath[file_id] = f
@@ -109,6 +108,24 @@ class vos_container(basecontainer):
             filecount += self.readvos(d)
 
         return filecount
+
+    def _is_valid_file(self, pathname):
+        """
+        Determine whether a given file should be included in the
+        results from readvos or not.  Returns True if so, False
+        otherwise.
+        """
+
+        if not self.vosclient.isfile(pathname):
+            return False
+
+        try:
+            self.validation.check_size(pathname)
+            self.validation.check_name(pathname)
+        except CAOMValidationError:
+            return False
+        else:
+            return True
 
     def get(self, file_id):
         """
