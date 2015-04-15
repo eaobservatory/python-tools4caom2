@@ -7,7 +7,7 @@ __author__ = "Russell O. Redman"
 import numpy
 import os
 import os.path
-import pyfits
+from astropy.io import fits
 import re
 import subprocess
 import tempfile
@@ -238,7 +238,7 @@ class test_delayed_error_warning(unittest.TestCase):
         self.assertTrue(self.dew.errors == {},
                         'start in_archive_replace - errors is not empty')
 
-        header = pyfits.getheader(self.test_file, 0)
+        header = fits.getheader(self.test_file, 0)
         self.dew.expect_keyword(self.test_file, 'ASN_ID', header, True)
         self.dew.expect_keyword(self.test_file, 'PRODID', header, True)
         self.dew.expect_keyword(self.test_file, 'DPDATE', header, True)
@@ -260,7 +260,7 @@ class test_delayed_error_warning(unittest.TestCase):
         self.assertTrue(self.dew.errors == {},
                         'start in_archive_replace - errors is not empty')
 
-        header = pyfits.getheader(self.test_file, 0)
+        header = fits.getheader(self.test_file, 0)
         self.dew.restricted_value(self.test_file, 'COLLECT', header,
                                   ['TEST', 'JCMT'])
         self.dew.restricted_value(self.test_file, 'PRODUCT', header,
@@ -276,7 +276,7 @@ class test_delayed_error_warning(unittest.TestCase):
         """
         Verify that report does not crash
         """
-        header = pyfits.getheader(self.test_file, 0)
+        header = fits.getheader(self.test_file, 0)
         self.dew.expect_keyword(self.test_file, 'ASN_ID', header, True)
         self.dew.expect_keyword(self.test_file, 'PRODID', header, True)
         self.dew.expect_keyword(self.test_file, 'DPDATE', header, True)
@@ -291,7 +291,7 @@ class test_delayed_error_warning(unittest.TestCase):
         Verify that report does not crash
         """
         with self.dew.gather() as dew:
-            header = pyfits.getheader(self.test_file, 0)
+            header = fits.getheader(self.test_file, 0)
             dew.expect_keyword(self.test_file, 'ASN_ID', header, True)
             dew.expect_keyword(self.test_file, 'PRODID', header, True)
             dew.expect_keyword(self.test_file, 'DPDATE', header, True)

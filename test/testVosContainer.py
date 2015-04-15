@@ -25,7 +25,6 @@ import filecmp
 import numpy
 import os
 import os.path
-import pyfits
 import re
 import string
 import sys

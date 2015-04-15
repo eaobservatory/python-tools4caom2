@@ -2,7 +2,7 @@ from datetime import datetime
 import os.path
 
 import numpy
-import pyfits
+from astropy.io import fits
 
 
 def write_fits(filepath,
@@ -26,7 +26,7 @@ def write_fits(filepath,
     """
     data = numpy.arange(10)
     datestring = datetime.utcnow().isoformat()
-    hdu = pyfits.PrimaryHDU(data)
+    hdu = fits.PrimaryHDU(data)
     # parse the filepath
     filebase = os.path.basename(filepath)
     file_id, ext = os.path.splitext(filebase)
@@ -75,11 +75,11 @@ def write_fits(filepath,
         hdu.header.update('PRVCNT', '1')
         hdu.header.update('PRV1', provenance)
 
-    hdulist = pyfits.HDUList(hdu)
+    hdulist = fits.HDUList(hdu)
 
     # Optionally add extensions
     for extension in range(1, numexts + 1):
-        hdu = pyfits.ImageHDU(data)
+        hdu = fits.ImageHDU(data)
         hdu.header.update('EXTNAME', 'EXTENSION%d' % (extension))
         hdu.header.update('OBSID', obsid)
         hdu.header.update('PRODUCT', '%s%d' % (product, extension))

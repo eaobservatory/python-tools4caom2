@@ -6,7 +6,7 @@ import logging
 import numpy as np
 import os
 import os.path
-import pyfits
+from astropy.io import fits
 import re
 import tempfile
 import unittest
@@ -70,8 +70,8 @@ class testDataWebService(unittest.TestCase):
 
         # Create a test with unique metadata
         data = np.arange(100)
-        hdu = pyfits.PrimaryHDU(data)
-        hdulist = pyfits.HDUList([hdu])
+        hdu = fits.PrimaryHDU(data)
+        hdulist = fits.HDUList([hdu])
         hdulist.writeto(filepath)
 
         s = self.web_service.put(filepath, 'TEST', file_id, adstream='test')
@@ -94,9 +94,9 @@ class testDataWebService(unittest.TestCase):
 
         # Create a test with unique metadata
         data = np.arange(100)
-        hdu = pyfits.PrimaryHDU(data)
+        hdu = fits.PrimaryHDU(data)
         hdu.header['DATE'] = mydate
-        hdulist = pyfits.HDUList([hdu])
+        hdulist = fits.HDUList([hdu])
         hdulist.writeto(filepath)
 
         s = self.web_service.put(filepath, 'TEST', file_id, adstream='test')
@@ -106,7 +106,7 @@ class testDataWebService(unittest.TestCase):
         d = self.web_service.get('TEST',
                                  file_id,
                                  params=data_web_client.PrimaryHEADER)
-        header_copy = pyfits.getheader(d, 0)
+        header_copy = fits.getheader(d, 0)
         self.assertTrue('DATE' in header_copy,
                         'The DATE header is missing from ' + d)
         self.assertEqual(mydate, header_copy['DATE'],
