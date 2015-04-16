@@ -24,5 +24,3 @@ logger.py
     class implementing an enhanced logger
 mjd.py
     function for MJD conversions
-timezone.py
-    trivial classes for UTC

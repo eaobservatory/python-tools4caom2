@@ -10,5 +10,4 @@ __all__ = [
     'caom2repo_wrapper',
     'geolocation',
     'mjd',
-    'timezone',
 ]

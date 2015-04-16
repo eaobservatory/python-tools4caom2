@@ -1,32 +1,30 @@
 #!/usr/bin/env python
 from datetime import datetime, timedelta
 import os.path
+from pytz import UTC
 import sys
 import unittest
 
 from tools4caom2.mjd import utc2mjd, mjd2utc, str2mjd, mjd2str
-from tools4caom2.timezone import UTC
 
 
 class testMJDConversions(unittest.TestCase):
     def testUTC_StartOfYear(self):
-        utc = UTC()
         for (year, value) in ((2000, 51544.0),
                               (2005, 53371.0),
                               (2010, 55197.0),
                               (2015, 57023.0),
                               (2020, 58849.0)):
-            self.assertEqual(utc2mjd(datetime(year, 1, 1, tzinfo=utc)), value)
+            self.assertEqual(utc2mjd(datetime(year, 1, 1, tzinfo=UTC)), value)
 
     def testUTC_DOY(self):
-        utc = UTC()
-        start2010 = datetime(2010, 1, 1, tzinfo=utc)
+        start2010 = datetime(2010, 1, 1, tzinfo=UTC)
         for doy in range(365):
             self.assertEqual(utc2mjd(start2010 + timedelta(days=doy)),
                              55197.0 + doy)
 
     def testUTC_ToFrom(self):
-        start2010 = datetime(2010, 1, 1, tzinfo=UTC())
+        start2010 = datetime(2010, 1, 1, tzinfo=UTC)
         for doy in range(365):
             utin = start2010 + timedelta(days=doy)
             mjd = utc2mjd(utin)
@@ -34,7 +32,7 @@ class testMJDConversions(unittest.TestCase):
             self.assertEqual(utin, utout)
 
     def testUTC_FractionsOfDays(self):
-        start2010 = datetime(2010, 1, 1, tzinfo=UTC())
+        start2010 = datetime(2010, 1, 1, tzinfo=UTC)
         for minutes in range(24 * 60):
             utin = start2010 + timedelta(minutes=minutes)
             mjd = utc2mjd(utin)
@@ -42,7 +40,6 @@ class testMJDConversions(unittest.TestCase):
             self.assertEqual(utin, utout)
 
     def testSTR_StartOfYear(self):
-        utc = UTC()
         for (year, value) in (('2000-01-01T00:00:00', 51544.0),
                               ('2005-01-01T00:00:00', 53371.0),
                               ('2010-01-01T00:00:00', 55197.0),

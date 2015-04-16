@@ -1,10 +1,10 @@
 __author__ = "Russell O. Redman"
 
 from datetime import datetime, timedelta
+from pytz import UTC
 import re
 
 from tools4caom2 import __version__
-from tools4caom2.timezone import UTC
 
 __doc__ = """
 Conversion routines to and from Modified Julian Dates for UTC and strings.
@@ -16,7 +16,7 @@ Like most system time libraries, this routine ignores leap seconds.
 
 version: """ + __version__.version
 
-ORIGIN = datetime(1858, 11, 17, 0, 0, 0, 0, tzinfo=UTC())
+ORIGIN = datetime(1858, 11, 17, 0, 0, 0, 0, tzinfo=UTC)
 OFFSET = 2400000.5
 
 
@@ -29,7 +29,7 @@ def utc2mjd(dt):
     dt:      a Python datetime
     """
     if dt.tzinfo is None:
-        dtdelta = dt.replace(tzinfo=UTC()) - ORIGIN
+        dtdelta = dt.replace(tzinfo=UTC) - ORIGIN
     else:
         dtdelta = dt - ORIGIN
 
@@ -67,7 +67,7 @@ def str2mjd(dt_string, format='%Y-%m-%dT%H:%M:%S'):
         raise ValueError('the string "%s" does not match a date'
                          'or datetime format' % (dt_string))
 
-    dtc = datetime.strptime(dt, format).replace(tzinfo=UTC())
+    dtc = datetime.strptime(dt, format).replace(tzinfo=UTC)
 
     dtdiff = dtc - ORIGIN
     mjd = (dtdiff.days * 1.0 +
