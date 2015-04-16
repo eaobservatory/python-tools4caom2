@@ -98,16 +98,18 @@ class test_validation(TestCase):
         with self.assertRaises(CAOMValidationError):
             self.validation.check_name(self.bogus_file)
 
-    def testInArchiveErrorWarning(self):
+    def testIsInArchive(self):
         """
-        Verify that _is_in_archive identifies files that are/are not in the
+        Verify that is_in_archive identifies files that are/are not in the
         archive.
         """
 
         real_file = 's8a20131001_00003_0001'
 
-        self.assertTrue(self.validation._is_in_archive(real_file))
-        self.assertFalse(self.validation._is_in_archive(self.test_file))
+        self.validation.is_in_archive(real_file)
+
+        with self.assertRaises(CAOMValidationError):
+            self.validation.is_in_archive(self.test_file)
 
     def testVerifyFits(self):
         """

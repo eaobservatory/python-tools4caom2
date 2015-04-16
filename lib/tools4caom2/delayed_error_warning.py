@@ -190,17 +190,9 @@ class delayed_error_warning(object):
         logger.info('delayed_error_warning: in_archive for filename %s',
                     filename)
         ok = False
-        if self.validation._is_in_archive(filename):
-            if severity_dict[True] == 'error':
-                self.error(filename,
-                           'name conflict with existing file in the archive')
-            elif severity_dict[True] == 'warning':
-                ok = True
-                self.warning(filename,
-                             'existing file has this name in the archive')
-            else:
-                ok = True
-        else:
+        try:
+            self.validation.is_in_archive(filename)
+        except CAOMValidationError:
             if severity_dict[False] == 'error':
                 self.error(filename,
                            'expected file not found in the archive')
@@ -208,6 +200,16 @@ class delayed_error_warning(object):
                 ok = True
                 self.warning(filename,
                              'file is not present in the archive')
+            else:
+                ok = True
+        else:
+            if severity_dict[True] == 'error':
+                self.error(filename,
+                           'name conflict with existing file in the archive')
+            elif severity_dict[True] == 'warning':
+                ok = True
+                self.warning(filename,
+                             'existing file has this name in the archive')
             else:
                 ok = True
         return ok

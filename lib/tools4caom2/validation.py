@@ -78,7 +78,7 @@ class CAOMValidation:
 
         raise CAOMValidationError('file {0} failed namecheck'.format(filename))
 
-    def _is_in_archive(self, filename):
+    def is_in_archive(self, filename):
         """
         Return true if the file is in the archive.
         """
@@ -86,9 +86,10 @@ class CAOMValidation:
         file_id = self.make_file_id(filename)
 
         if self.data_web_client.info(self.archive, file_id):
-            return True
+            return
 
-        return False
+        raise CAOMValidationError(
+            'file {0} is not in the archive'.format(filename))
 
     def verify_fits(self, filename):
         """
