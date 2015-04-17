@@ -28,13 +28,6 @@ set of container classes that hold lists of files to ingest.
 Version: """ + __version__.version
 
 
-# ***********************************************************************
-#  Container classes to hold lists of files to be ingested
-#  basecontainer - base class for all such containers
-#  filelist_container - container for a list of files (from the command line)
-#  tarfile_container - container for a tar file of files to ingest
-#  adfile_container - container for a text file of ad URIs
-# ***********************************************************************
 class basecontainer(object):
     """
     Base class for a file container, which is intended to be used in a with
