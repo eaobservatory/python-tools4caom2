@@ -127,7 +127,3 @@ class testDataWebService(unittest.TestCase):
         self.assertEqual(mydate, header_copy['DATE'],
                          'The DATE header ' + header_copy['DATE'] +
                          ' does not equal mydate=' + mydate)
-
-
-if __name__ == '__main__':
-    unittest.main()

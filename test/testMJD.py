@@ -108,7 +108,3 @@ class testMJDConversions(unittest.TestCase):
                'bogus_string')
         for s in bad:
             self.assertRaises(ValueError, str2mjd, s)
-
-
-if __name__ == '__main__':
-    unittest.main()

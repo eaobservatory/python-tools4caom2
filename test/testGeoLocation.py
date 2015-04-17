@@ -30,7 +30,3 @@ class testGeoLocation(unittest.TestCase):
                     (float(JCMT[2]) - JCMTreal[2])**2)
         allowed_error = 10000.0
         self.assertTrue(diff < allowed_error)
-
-
-if __name__ == '__main__':
-    unittest.main()
