@@ -1,19 +1,18 @@
-#!/usr/bin/env python
-# ***********************************************************************
+# Copyright (C) 2014-2015 Science and Technology Facilities Council.
+# Copryight (C) 2015 East Asian Observatory.
 #
-#    Script Name:    testVosContainer.py
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
 #
-#    Purpose:
-#     Unit test module for tools4caom2.vos_container
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 #
-#    Classes:
-#
-#    Functions:
-#
-#    Modification History:
-#
-# ***  C A N A D I A N   A S T R O N O M Y   D A T A   C E N T R E  *****
-# ***********************************************************************
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import absolute_import
 
