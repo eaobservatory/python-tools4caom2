@@ -82,12 +82,13 @@ class Repository(object):
         self.writer = ObservationWriter(True)
 
     @contextmanager
-    def process(self, uri):
+    def process(self, uri, dry_run=False):
         """
         Context manager to fetch and store a CAOM-2 observation.
 
         Arguments:
         uri: a CAOM-2 URI identifing an observation that may or may not exist
+        dry_run: disable putting the replacement observation if true
 
         Yields:
         An ObservationWrapper either containing the observation, if it already
@@ -117,7 +118,7 @@ class Repository(object):
 
         yield wrapper
 
-        if wrapper.observation is not None:
+        if (wrapper.observation is not None) and (not dry_run):
             self.put(uri, wrapper.observation, exists)
 
     def get(self, uri):
