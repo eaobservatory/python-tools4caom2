@@ -40,7 +40,8 @@ def run_fits2caom2(collection,
                    caom2_reader,
                    caom2_writer,
                    arg=None,
-                   debug=False,
+                   verbose=False,
+                   retain=False,
                    big=False,
                    dry_run=False):
     """
@@ -56,7 +57,8 @@ def run_fits2caom2(collection,
     file_uris     : list of file URIs
     local_files   : list of local files
     arg           : list of additional fits2caom2 switches
-    debug         : (boolean) include --debug switch by default
+    verbose       : (boolean) include --debug switch by default
+    retain        : retain temporary files
     big           : True if fits2caom2 job requires extra RAM
     dry_run       : True to skip actual fits2caom2 run
 
@@ -112,7 +114,7 @@ def run_fits2caom2(collection,
         if local_files:
             cmd.append('--local=' + ','.join(local_files))
 
-        if debug:
+        if verbose:
             cmd.append('--debug')
 
         if arg is not None:
@@ -128,7 +130,7 @@ def run_fits2caom2(collection,
                 output = subprocess.check_output(
                     cmd, shell=False, stderr=subprocess.STDOUT)
 
-                if debug:
+                if verbose:
                     logger.info('output = "%s"', output)
 
                 observation = caom2_reader.read(xmlfile)
@@ -139,7 +141,7 @@ def run_fits2caom2(collection,
 
                 logger.error('fits2caom2 return code %d', e.returncode)
 
-                if not debug:
+                if not verbose:
                     logger.info('fits2caom2 - rerun in debug mode')
                     cmd.append('--debug')
                     try:
@@ -163,13 +165,13 @@ def run_fits2caom2(collection,
                 logger.info('fits2caom2 run successful')
 
     finally:
-        if not debug:
+        if not retain:
             os.remove(override_file)
 
-        # clean up FITS files that were not present originally
-        os.chdir(cwd)
-        if tempdir:
-            shutil.rmtree(tempdir)
+            # Clean up FITS files that were not present originally.
+            os.chdir(cwd)
+            if tempdir:
+                shutil.rmtree(tempdir)
 
     return observation
 
