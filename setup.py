@@ -42,7 +42,7 @@ setup(
              'scripts/tapquery'],
     test_suite='tools4caom2.test',
     install_requires=['distribute',
-                      'requests==2.3.0',
+                      'requests>=2.3.0',
                       'vos',
-                      'astropy==0.4.1']
+                      'astropy>=0.4.1']
 )
