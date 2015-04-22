@@ -123,6 +123,9 @@ class tapclient(object):
             # Pass on any errors which were raised explicitly.
             raise
 
+        except requests.exceptions.Timeout:
+            raise CAOMError('TAP query timed out')
+
         except Exception as e:
             # Raise CAOMError for any other exception.
             logger.exception('FAILED to get reply for "%s"', adql)
