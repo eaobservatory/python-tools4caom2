@@ -66,13 +66,14 @@ class tapclient(object):
             os.path.expandvars(
                 os.path.expanduser(proxy)))
 
-    def query(self, adql):
+    def query(self, adql, timeout=60):
         """
         Send an adql query to the service and store the response in a file-like
         object.
 
         Arguments:
         adql: a text string containing and ADQL query
+        timeout: timeout (for start of response) in seconds [default 60]
         """
         logger.debug('ADQL: %s', adql)
         query = re.sub(r'\s+', ' ', adql.strip())
@@ -83,7 +84,8 @@ class tapclient(object):
         try:
             r = requests.get(tapclient.CADC_TAP_SERVICE,
                              params=params,
-                             cert=self.cadcproxy)
+                             cert=self.cadcproxy,
+                             timeout=timeout)
             if r.status_code == 200:
                 # The TAP service handled the query and returned a VOTable,
                 # but may not have run the query successfully.  Check for
