@@ -125,7 +125,7 @@ class tapclient(object):
 
         except Exception as e:
             # Raise CAOMError for any other exception.
-            logger.exception('FAILED to get reply for "%s": %s', adql)
+            logger.exception('FAILED to get reply for "%s"', adql)
             raise CAOMError('Error occurred  during TAP query')
 
 
