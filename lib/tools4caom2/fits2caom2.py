@@ -72,6 +72,8 @@ def run_fits2caom2(collection,
 
     cwd = os.getcwd()
     tempdir = None
+    override_file = None
+
     try:
         # write the override file
         override_file = os.path.join(
@@ -166,11 +168,12 @@ def run_fits2caom2(collection,
 
     finally:
         if not retain:
-            os.remove(override_file)
+            if override_file is not None:
+                os.remove(override_file)
 
             # Clean up FITS files that were not present originally.
             os.chdir(cwd)
-            if tempdir:
+            if tempdir is not None:
                 shutil.rmtree(tempdir)
 
     return observation
