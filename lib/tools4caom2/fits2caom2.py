@@ -73,6 +73,7 @@ def run_fits2caom2(collection,
     cwd = os.getcwd()
     tempdir = None
     override_file = None
+    original = {}
 
     try:
         # write the override file
@@ -104,6 +105,9 @@ def run_fits2caom2(collection,
             with open(xmlfile, 'w') as f:
                 caom2_writer.write(observation, f)
             cmd.append('--in=' + xmlfile)
+
+            # Save some information from the original observation.
+            original['obs.metaRelease'] = observation.meta_release
 
         cmd.extend([
             '--out=' + xmlfile,
@@ -165,6 +169,13 @@ def run_fits2caom2(collection,
 
             else:
                 logger.info('fits2caom2 run successful')
+
+        # fits2caom2 clears some observation data, if it is not specified,
+        # which we might not want cleared.  Re-set those attributes now.
+        if ('obs.metaRelease' not in override_info[0] and
+                observation.meta_release is None and
+                original['obs.metaRelease'] is not None):
+            observation.meta_release = original['obs.metaRelease']
 
     finally:
         if not retain:
