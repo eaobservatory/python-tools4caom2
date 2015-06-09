@@ -82,12 +82,14 @@ class Repository(object):
         self.writer = ObservationWriter(True)
 
     @contextmanager
-    def process(self, uri, dry_run=False):
+    def process(self, uri, allow_remove=False, dry_run=False):
         """
         Context manager to fetch and store a CAOM-2 observation.
 
         Arguments:
         uri: a CAOM-2 URI identifing an observation that may or may not exist
+        allow_remove: if the updated observation is empty (contains no planes)
+        then the observation is removed.  Otherwise this is an error.
         dry_run: disable putting the replacement observation if true
 
         Yields:
@@ -118,8 +120,27 @@ class Repository(object):
 
         yield wrapper
 
-        if (wrapper.observation is not None) and (not dry_run):
-            self.put(uri, wrapper.observation, exists)
+        if wrapper.observation is not None:
+            if len(wrapper.observation.planes) == 0:
+                # All planes have been removed from the observation: can
+                # we remove it?
+                if allow_remove:
+                    # Only need to remove it if it already existed.
+                    if exists:
+                        logger.info('No planes left: removing record %s', uri)
+
+                        if not dry_run:
+                            self.remove(uri)
+
+                else:
+                    # If removal wasn't allowed, raise an error.
+                    raise CAOMError(
+                        'processed CAOM-2 record contains no planes')
+
+            else:
+                # There are planes: put/update the observation.
+                if not dry_run:
+                    self.put(uri, wrapper.observation, exists)
 
     def get(self, uri):
         """
