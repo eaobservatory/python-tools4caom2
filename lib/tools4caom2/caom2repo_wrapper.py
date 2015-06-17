@@ -118,6 +118,12 @@ class Repository(object):
         wrapper = ObservationWrapper(self.get(uri))
         exists = wrapper.observation is not None
 
+        # If the observation already exists, make a note of the planes
+        # present.
+        existing_planes = None
+        if exists:
+            existing_planes = set(wrapper.observation.planes.keys())
+
         yield wrapper
 
         if wrapper.observation is not None:
@@ -139,6 +145,24 @@ class Repository(object):
 
             else:
                 # There are planes: put/update the observation.
+                if exists:
+                    # First check whether planes have been removed.
+                    if existing_planes.issubset(
+                            set(wrapper.observation.planes.keys())):
+                        logger.debug('No planes have been removed: updating')
+
+                    else:
+                        # It seems that the CAOM-2 repository service does not
+                        # always notice the removal of planes.  CADC therefore
+                        # recommend removing and re-putting the observation
+                        # in this case.
+                        logger.info('Planes removed: deleting and re-putting')
+
+                        if not dry_run:
+                            self.remove(uri)
+
+                        exists = False
+
                 if not dry_run:
                     self.put(uri, wrapper.observation, exists)
 
