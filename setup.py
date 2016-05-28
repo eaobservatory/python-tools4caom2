@@ -41,7 +41,8 @@ setup(
              'scripts/cadcdata',
              'scripts/tapquery'],
     test_suite='tools4caom2.test',
-    install_requires=['distribute',
+    install_requires=['caom2',
+                      'caom2repoClient',
                       'requests>=2.3.0',
                       'vos',
                       'astropy>=0.4.1']
