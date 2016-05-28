@@ -21,11 +21,7 @@ import os
 import re
 import subprocess
 
-try:
-    from astropy.io import fits
-except:
-    import pyfits as fits
-
+from astropy.io import fits
 from vos.vos import Client as vosclient
 
 from tools4caom2.data_web_client import data_web_client

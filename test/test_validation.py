@@ -22,10 +22,7 @@ import shutil
 import tempfile
 from unittest import TestCase
 
-try:
-    from astropy.io import fits
-except ImportError:
-    import pyfits as fits
+from astropy.io import fits
 import numpy
 
 from tools4caom2.validation import CAOMValidation, CAOMValidationError
