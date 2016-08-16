@@ -1,4 +1,5 @@
 # Copyright (C) 2014-2015 Science and Technology Facilities Council.
+# Copyright (C) 2016 East Asian Observatory.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -13,37 +14,40 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""
-Distutils setup script for tools4caom2
-"""
-from setuptools import setup, find_packages
-from distutils import debug
+from distutils.core import setup
 import sys
+
+sys.path.insert(0, 'lib')
+from tools4caom2.__version__ import version
 
 if sys.version_info[0] > 2:
     print 'The tools4caom2 package is only compatible with Python version 2.7'
     sys.exit(1)
 
-# Uncomment the next line for debugging output
-# debug.DEBUG=1
-
 setup(
-    name="tools4caom2",
-    version='1.2.4',
-    description='Python tools to assist ingestions into CAOM-2, ' +
+    name='tools4caom2',
+    version=version,
+    description='Python tools to assist ingestions into CAOM-2, '
                 'especially when using fits2caom2',
     author='Russell Redman',
     author_email='russell.o.redman@gmail.com',
-    provides=['tools4caom2'],
+    url='https://github.com/eaobservatory/python-tools4caom2',
     package_dir={'': 'lib'},
-    packages=find_packages(where='lib'),
-    scripts=['scripts/autoCert',
-             'scripts/cadcdata',
-             'scripts/tapquery'],
-    test_suite='tools4caom2.test',
-    install_requires=['caom2',
-                      'caom2repoClient',
-                      'requests>=2.3.0',
-                      'vos',
-                      'astropy>=0.4.1']
+    packages=[
+        'tools4caom2',
+        'tools4caom2.container',
+    ],
+    scripts=[
+        'scripts/autoCert',
+        'scripts/cadcdata',
+        'scripts/tapquery',
+    ],
+    provides=['tools4caom2'],
+    requires=[
+        'caom2',
+        'caom2repoClient',
+        'requests (>=2.3.0)',
+        'vos',
+        'astropy (>=0.4.1)',
+    ]
 )
