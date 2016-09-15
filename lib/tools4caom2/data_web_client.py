@@ -160,15 +160,14 @@ class data_web_client(object):
         logger.debug('url = ' + url)
 
         try:
-            ok = False
             retry = 0
-            while retry < 3 and not ok:
+            r = None
+            while retry < 3:
                 try:
                     r = requests.get(url,
                                      params=params,
                                      cert=self.cadcproxy,
                                      stream=True)
-                    ok = True
                 except KeyboardInterrupt:
                     sys.exit(0)
                 except:
@@ -176,8 +175,14 @@ class data_web_client(object):
                     if retry < 3:
                         logger.debug('retry info: %s', traceback.format_exc())
                     time.sleep(0.5)
+                else:
+                    break
 
-            if r.status_code != 200:
+            if r is None:
+                logger.error('Failed to request file')
+                raise CAOMError('Failed to request file')
+
+            elif r.status_code != 200:
                 logger.error('%s = %s', r.status_code,
                              httplib.responses[r.status_code])
                 raise CAOMError('Failed to get file')
