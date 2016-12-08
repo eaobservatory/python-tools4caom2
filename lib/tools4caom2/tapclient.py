@@ -37,7 +37,7 @@ from tools4caom2.__version__ import version as tools4caom2version
 logger = logging.getLogger(__name__)
 
 
-class tapclient(object):
+class tapclient_cadc(object):
     """
     Query the CADC TAP (Table Access Protocol) service using ADQL to
     request data from the database.
@@ -52,9 +52,7 @@ class tapclient(object):
     count = table[0]['count']
     """
 
-    CADC_TAP_SERVICE = 'https://www1.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/tap/sync'
-
-    def __init__(self,
+    def __init__(self, service_url,
                  proxy='$HOME/.ssl/cadcproxy.pem'):
         """
         TAP queries using ADQL return a VOtable or an astropy Table
@@ -62,6 +60,9 @@ class tapclient(object):
         Arguments:
         proxy: (optional) path to a proxy certificate
         """
+
+        self.service_url = service_url
+
         self.cadcproxy = os.path.abspath(
             os.path.expandvars(
                 os.path.expanduser(proxy)))
@@ -82,7 +83,7 @@ class tapclient(object):
                   'QUERY': query}
 
         try:
-            r = requests.get(tapclient.CADC_TAP_SERVICE,
+            r = requests.get(self.service_url,
                              params=params,
                              cert=self.cadcproxy,
                              timeout=timeout)
@@ -132,6 +133,20 @@ class tapclient(object):
             raise CAOMError('Error occurred  during TAP query')
 
 
+class tapclient(tapclient_cadc):
+    def __init__(self, *args, **kwargs):
+        super(tapclient, self).__init__(
+            'https://www1.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/tap/sync',
+            *args, **kwargs)
+
+
+class tapclient_ad(tapclient_cadc):
+    def __init__(self, *args, **kwargs):
+        super(tapclient_ad, self).__init__(
+            'https://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/ad/sync',
+            *args, **kwargs)
+
+
 def run():
     """
     do a simple test
@@ -146,6 +161,9 @@ def run():
     ap.add_argument('--votable',
                     action='store_true',
                     help='output the response as a VOtable, else as text')
+    ap.add_argument('--ad',
+                    action='store_true',
+                    help='use CADC AD TAP service')
     ap.add_argument('-v', '--verbose',
                     action='store_true',
                     help='output extra information')
@@ -156,7 +174,10 @@ def run():
 
     configure_logger()
 
-    tap = tapclient()
+    if a.ad:
+        tap = tapclient_ad()
+    else:
+        tap = tapclient()
 
     if os.path.isfile(a.adql):
         with open(a.adql, 'r') as ADQL:
