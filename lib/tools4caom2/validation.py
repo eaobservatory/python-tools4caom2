@@ -22,7 +22,6 @@ import re
 import subprocess
 
 from astropy.io import fits
-from vos.vos import Client as vosclient
 
 from tools4caom2.data_web_client import data_web_client
 from tools4caom2.error import CAOMError
@@ -55,17 +54,17 @@ class CAOMValidation:
         self.make_file_id = make_file_id
 
         self.data_web_client = data_web_client(outdir)
-        self.vosclient = vosclient()
 
     def check_size(self, filename):
         """
         Raise an error if the file is empty.
         """
 
-        if re.match(r'vos:', filename):
-            length = int(self.vosclient.getNode(filename).getInfo()['size'])
-        elif os.path.isfile(filename):
-            length = os.path.getsize(filename)
+        if not os.path.isfile(filename):
+            raise CAOMValidationError('file {0} does not exist'.format(
+                filename))
+
+        length = os.path.getsize(filename)
 
         if not length:
             raise CAOMValidationError('file {0} has zero length'.format(

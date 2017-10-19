@@ -46,7 +46,6 @@ setup(
         'caom2',
         'caom2repoClient',
         'requests (>=2.3.0)',
-        'vos',
         'astropy (>=0.4.1)',
     ]
 )
