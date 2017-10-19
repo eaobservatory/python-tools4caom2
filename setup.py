@@ -38,7 +38,6 @@ setup(
     ],
     scripts=[
         'scripts/autoCert',
-        'scripts/cadcdata',
         'scripts/tapquery',
     ],
     provides=['tools4caom2'],
