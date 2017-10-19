@@ -35,7 +35,6 @@ setup(
     package_dir={'': 'lib'},
     packages=[
         'tools4caom2',
-        'tools4caom2.container',
     ],
     scripts=[
         'scripts/autoCert',
