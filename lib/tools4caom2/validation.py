@@ -23,8 +23,8 @@ import subprocess
 
 from astropy.io import fits
 
-from tools4caom2.data_web_client import data_web_client
 from tools4caom2.error import CAOMError
+from tools4caom2.tapclient import tapclient_ad
 
 logger = logging.getLogger(__name__)
 
@@ -38,11 +38,10 @@ class CAOMValidationError(CAOMError):
 
 
 class CAOMValidation:
-    def __init__(self, outdir, archive, fileid_regex_dict, make_file_id):
+    def __init__(self, archive, fileid_regex_dict, make_file_id):
         """Construct CAOM validation object.
 
         Arguments:
-        outdir            : local directory for temporary files
         archive           : name of archive
         fileid_regex_dict : dictionary keyed on extension containing a list
                             of compiled regex objects matching valid file_ids
@@ -53,7 +52,8 @@ class CAOMValidation:
         self.fileid_regex_dict = fileid_regex_dict
         self.make_file_id = make_file_id
 
-        self.data_web_client = data_web_client(outdir)
+        self.tap_client = tapclient_ad()
+        self.archive_cache = {}
 
     def check_size(self, filename):
         """
@@ -92,7 +92,26 @@ class CAOMValidation:
 
         file_id = self.make_file_id(filename)
 
-        if self.data_web_client.info(self.archive, file_id):
+        # Generalize file_id to a pattern to search for multiple files at once.
+        pattern = file_id
+        pattern = re.sub('_(reduced|rimg|rsp|healpix)\d*', '_%', pattern)
+        pattern = re.sub('_preview_\d+', '_preview_%', pattern)
+
+        if pattern in self.archive_cache:
+            archive_result = self.archive_cache[pattern]
+
+        else:
+            table = self.tap_client.query(
+                'SELECT fileID FROM archive_files WHERE (archiveName = \'{}\' '
+                'AND fileID LIKE \'{}\')'.format(self.archive, pattern))
+            if table is None:
+                raise CAOMError('AD TAP query failed')
+
+            self.archive_cache[pattern] = archive_result = []
+            for (id_,) in table:
+                archive_result.append(id_)
+
+        if file_id in archive_result:
             return
 
         raise CAOMValidationError(
