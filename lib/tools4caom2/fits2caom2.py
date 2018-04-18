@@ -172,10 +172,11 @@ def run_fits2caom2(collection,
 
         # fits2caom2 clears some observation data, if it is not specified,
         # which we might not want cleared.  Re-set those attributes now.
+        original_meta_release = original.get('obs.metaRelease')
         if ('obs.metaRelease' not in override_info[0] and
                 observation.meta_release is None and
-                original['obs.metaRelease'] is not None):
-            observation.meta_release = original['obs.metaRelease']
+                original_meta_release is not None):
+            observation.meta_release = original_meta_release
 
     finally:
         if not retain:
