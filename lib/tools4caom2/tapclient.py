@@ -22,7 +22,6 @@ import httplib
 import logging
 import os
 import os.path
-import re
 import requests
 import StringIO
 import sys
@@ -77,7 +76,7 @@ class tapclient_cadc(object):
         timeout: timeout (for start of response) in seconds [default 60]
         """
         logger.debug('ADQL: %s', adql)
-        query = re.sub(r'\s+', ' ', adql.strip())
+        query = adql.strip()
         params = {'REQUEST': 'doQuery',
                   'LANG': 'ADQL',
                   'QUERY': query}
