@@ -199,9 +199,10 @@ def run():
         if a.votable:
             astropy.io.votable.table.writeto(table, a.out)
         else:
-            astropy.io.ascii.write(table,
-                                   OUTFILE,
-                                   Writer=astropy.io.ascii.FixedWidth)
+            if len(table):
+                astropy.io.ascii.write(table,
+                                       OUTFILE,
+                                       Writer=astropy.io.ascii.FixedWidth)
     finally:
         if a.out:
             OUTFILE.close()
