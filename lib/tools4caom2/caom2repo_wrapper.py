@@ -20,9 +20,9 @@ from contextlib import contextmanager
 from io import BytesIO
 import logging
 
-from caom2.xml.caom2_observation_reader import ObservationReader
-from caom2.xml.caom2_observation_writer import ObservationWriter
-from caom2.caom2_observation_uri import ObservationURI
+from caom2.obs_reader_writer import ObservationReader
+from caom2.obs_reader_writer import ObservationWriter
+from caom2.common import ObservationURI
 from caom2repoClient import CAOM2RepoClient, CAOM2RepoError, CAOM2RepoNotFound
 
 from tools4caom2 import __version__
