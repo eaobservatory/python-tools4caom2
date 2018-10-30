@@ -91,15 +91,14 @@ def run_fits2caom2(collection,
 
         # build the fits2caom2 command
         cmd = [
-            'java',
-            ('-Xmx512m' if big else '-Xmx128m'),
-            '-jar',
-            os.path.join(os.environ['CADC_ROOT'], 'lib', 'fits2caom2.jar'),
+            os.path.join(os.environ['CADC_ROOT'], 'bin', 'fits2caom2'),
             '--collection=' + collection,
             '--observationID=' + observationID,
             '--productID=' + productID,
             '--ignorePartialWCS',
         ]
+
+        env = {'FITS2CAOM2_OPTS': ('-Xmx512m' if big else '-Xmx128m')}
 
         if observation is not None:
             with open(xmlfile, 'w') as f:
@@ -129,12 +128,14 @@ def run_fits2caom2(collection,
         # run the command
         logger.info('fits2caom2: cmd = "%s"', ' '.join(cmd))
 
+        env.update(os.environ)
+
         if not dry_run:
             output = None
 
             try:
                 output = subprocess.check_output(
-                    cmd, shell=False, stderr=subprocess.STDOUT)
+                    cmd, shell=False, stderr=subprocess.STDOUT, env=env)
 
                 if verbose:
                     logger.info('output = "%s"', output)
@@ -152,7 +153,8 @@ def run_fits2caom2(collection,
                     cmd.append('--debug')
                     try:
                         subprocess.check_output(
-                            cmd, shell=False, stderr=subprocess.STDOUT)
+                            cmd, shell=False, stderr=subprocess.STDOUT,
+                            env=env)
                     except subprocess.CalledProcessError as ee:
                         output = ee.output
                     else:
