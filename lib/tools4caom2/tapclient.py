@@ -28,7 +28,6 @@ import sys
 import traceback
 
 from tools4caom2.error import CAOMError
-from tools4caom2.utdate_string import utdate_string
 from tools4caom2.util import configure_logger
 
 from tools4caom2.__version__ import version as tools4caom2version
