@@ -38,18 +38,17 @@ class CAOMValidationError(CAOMError):
 
 
 class CAOMValidation:
-    def __init__(self, archive, fileid_regex_dict, make_file_id):
+    def __init__(self, archive, file_id_regexes, make_file_id):
         """Construct CAOM validation object.
 
         Arguments:
         archive           : name of archive
-        fileid_regex_dict : dictionary keyed on extension containing a list
-                            of compiled regex objects matching valid file_ids
+        file_id_regexes   : list of compiled regex objects matching valid file_ids
         make_file_id      : function returning a file_id from a filename
         """
 
         self.archive = archive
-        self.fileid_regex_dict = fileid_regex_dict
+        self.file_id_regexes = file_id_regexes
         self.make_file_id = make_file_id
 
         self.tap_client = tapclient_ad()
@@ -75,13 +74,11 @@ class CAOMValidation:
         Raise an error if the filename is unacceptable.
         """
 
-        ext = os.path.splitext(filename)[1].lower()
         file_id = self.make_file_id(filename)
 
-        if ext in self.fileid_regex_dict:
-            for regex in self.fileid_regex_dict[ext]:
-                if regex.match(file_id):
-                    return
+        for regex in self.file_id_regexes:
+            if regex.match(file_id):
+                return
 
         raise CAOMValidationError('file {0} failed namecheck'.format(filename))
 

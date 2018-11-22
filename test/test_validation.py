@@ -26,12 +26,9 @@ from astropy.io import fits
 import numpy
 
 from tools4caom2.validation import CAOMValidation, CAOMValidationError
+from tools4caom2.util import make_file_id
 
 from .write_fits import write_fits
-
-
-def make_file_id(filename):
-    return os.path.basename(os.path.splitext(filename)[0]).lower()
 
 
 class test_validation(TestCase):
@@ -44,12 +41,14 @@ class test_validation(TestCase):
         self.tmpdir = tempfile.mktemp(dir='/tmp')
         os.mkdir(self.tmpdir)
 
-        fileid_regex_dict = {'.fits': [re.compile(r'test_.*'),
-                                       re.compile(r'archive_.*')],
-                             '.png': [re.compile(r'TEST_.*')]}
+        fileid_regexes = [
+            re.compile(r'^test_.*\.fits$'),
+            re.compile(r'^archive_.*\.fits$'),
+            re.compile(r'^TEST_.*\.png$'),
+        ]
 
         self.validation = CAOMValidation(
-            self.tmpdir, 'JCMT', fileid_regex_dict, make_file_id)
+            'JCMT', fileid_regexes, make_file_id)
 
         # Create fits files with suitable test headers
         self.test_file = os.path.join(self.tmpdir, 'test_file.fits')
@@ -113,7 +112,7 @@ class test_validation(TestCase):
         archive.
         """
 
-        real_file = 's8a20131001_00003_0001'
+        real_file = 's8a20131001_00003_0001.sdf'
 
         self.validation.is_in_archive(real_file)
 

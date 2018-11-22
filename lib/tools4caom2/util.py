@@ -24,19 +24,17 @@ def configure_logger(level=logging.DEBUG):
         level=level)
 
 
-def make_file_id_no_ext(filepath):
+def make_file_id(filepath):
     """
-    An archive-specific routine to convert a filename to the corressponding
-    file_id used to identify the file in CADC storage.  The default routine
-    provided here picks out the basename from the path, which can therefore
-    be a path to a file on disk, a VOspace urL, or a vos uri, then strips off
-    the extension and forces the name into lower case.
+    A routine to convert a filename to the corresponding file_id used to
+    identify the file in CADC storage.  This picks out the basename from
+    the path and forces the name into lower case.
 
     Arguments:
     filepath: path to the file
 
     Returns:
     file_id: string used to identify the file in storage
-    This is a static method taking exactly one argument.
     """
-    return os.path.splitext(os.path.basename(filepath))[0].lower()
+
+    return os.path.basename(filepath).lower()
