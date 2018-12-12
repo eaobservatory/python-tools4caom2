@@ -162,6 +162,9 @@ def run():
     ap.add_argument('--ad',
                     action='store_true',
                     help='use CADC AD TAP service')
+    ap.add_argument('--timeout',
+                    type=int, default=60,
+                    help='timeout (seconds, default: 60)')
     ap.add_argument('-v', '--verbose',
                     action='store_true',
                     help='output extra information')
@@ -188,7 +191,7 @@ def run():
     if a.verbose:
         logger.info(adqlquery)
 
-    table = tap.query(adqlquery)
+    table = tap.query(adqlquery, timeout=a.timeout)
 
     if a.out:
         OUTFILE = open(a.out, 'w')
