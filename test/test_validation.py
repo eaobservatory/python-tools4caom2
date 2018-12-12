@@ -112,7 +112,7 @@ class test_validation(TestCase):
         archive.
         """
 
-        real_file = 's8a20131001_00003_0001.sdf'
+        real_file = 's8a20131001_00003_0001.sdf.gz'
 
         self.validation.is_in_archive(real_file)
 

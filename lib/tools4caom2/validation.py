@@ -99,8 +99,8 @@ class CAOMValidation:
 
         else:
             table = self.tap_client.query(
-                'SELECT fileID FROM archive_files WHERE (archiveName = \'{}\' '
-                'AND fileID LIKE \'{}\')'.format(self.archive, pattern))
+                'SELECT fileName FROM archive_files WHERE (archiveName = \'{}\' '
+                'AND fileName LIKE \'{}\')'.format(self.archive, pattern))
             if table is None:
                 raise CAOMError('AD TAP query failed')
 
