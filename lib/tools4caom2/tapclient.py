@@ -18,12 +18,19 @@
 import argparse
 from astropy.io.votable import parse
 import astropy.io.ascii
-import httplib
+try:
+    import httplib
+except ImportError:
+    import http.client as httplib
+
 import logging
 import os
 import os.path
 import requests
-import StringIO
+try:
+    import StringIO
+except ImportError:
+    import io as StringIO
 import sys
 import traceback
 
@@ -89,7 +96,11 @@ class tapclient_cadc(object):
                 # The TAP service handled the query and returned a VOTable,
                 # but may not have run the query successfully.  Check for
                 # error messages.
-                vot = parse(StringIO.StringIO(r.content))
+                import sys
+                if sys.version_info[0]==3:
+                    vot = parse(StringIO.BytesIO(initial_bytes=r.content))
+                else:
+                    vot = parse(StringIO.StringIO(r.content))
                 query_status = None
                 query_content = None
                 if vot.resources and vot.resources[0].type == 'results':
