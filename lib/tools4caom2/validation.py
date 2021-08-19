@@ -16,6 +16,7 @@
 
 from __future__ import absolute_import, division, print_function
 
+from codecs import latin_1_decode
 import logging
 import os
 import re
@@ -122,15 +123,15 @@ class CAOMValidation:
         try:
             # fitsverify will return a non-zero exit code if there were
             # errors or warnings, but can fail for other reasons as well
-            output = subprocess.check_output(['fitsverify',
-                                              '-q',
-                                              filename])
+            output = latin_1_decode(
+                subprocess.check_output(['fitsverify', '-q', filename]),
+                'replace')[0]
         except subprocess.CalledProcessError as e:
             # absorb all exceptions, but such files are recorded as
             # causing errors
-            output = str(e.output)
+            output = latin_1_decode(e.output, 'replace')[0]
         except:
-            output = type(e) + ': 1 errors'
+            output = 'unexpected exception: 1 errors'
 
         if re.search(r'\s*verification OK', output):
             error_count = '0'
