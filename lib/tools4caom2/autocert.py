@@ -16,12 +16,18 @@
 __author__ = "Russell O. Redman"
 
 import argparse
-from ConfigParser import SafeConfigParser
+try:
+    from ConfigParser import SafeConfigParser
+except ImportError:
+    from configparser import ConfigParser as SafeConfigParser
 import netrc
 import os.path
 import subprocess
 import sys
-import urllib2
+try:
+    from urllib2 import HTTPPasswordMgrWithDefaultRealm, HTTPBasicAuthHandler, build_opener, install_opener, urlopen
+except ImportError:
+    from urllib.request import HTTPPasswordMgrWithDefaultRealm, HTTPBasicAuthHandler, build_opener, install_opener, urlopen
 
 
 def renew(proxypath, username, passwd, daysvalid):
@@ -37,24 +43,24 @@ def renew(proxypath, username, passwd, daysvalid):
 
     # Example taken from voidspace.org.uk
     # create a password manager
-    password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
+    password_mgr = HTTPPasswordMgrWithDefaultRealm()
 
     # Add the username and password.
     # If we knew the realm, we could use it instead of ``None``.
     password_mgr.add_password(None, certHost, username, passwd)
 
-    handler = urllib2.HTTPBasicAuthHandler(password_mgr)
+    handler = HTTPBasicAuthHandler(password_mgr)
 
     # create "opener" (OpenerDirector instance)
-    opener = urllib2.build_opener(handler)
+    opener = build_opener(handler)
 
     # Install the opener.
-    urllib2.install_opener(opener)
+    install_opener(opener)
 
-    # Now all calls to urllib2.urlopen use our opener.
+    # Now all calls to urlopen use our opener.
     url = ''.join([certHost, certQuery, str(daysvalid)])
-    r = urllib2.urlopen(url)
-    with open(proxypath, 'w') as w:
+    r = urlopen(url)
+    with open(proxypath, 'wb') as w:
         while True:
             buf = r.read()
             if not buf:
@@ -114,12 +120,14 @@ def run():
         username = auth[0]
         passwd = auth[2]
 
-    needsupdate = subprocess.call(['openssl',
-                                   'x509',
-                                   '-in',
-                                   cadcproxy,
-                                   '-noout',
-                                   '-checkend',
-                                   secvalid])
+    needsupdate = True
+    if os.path.exists(cadcproxy):
+        needsupdate = subprocess.call(['/usr/bin/openssl',
+                                       'x509',
+                                       '-in',
+                                       cadcproxy,
+                                       '-noout',
+                                       '-checkend',
+                                       secvalid])
     if needsupdate:
         renew(cadcproxy, username, passwd, a.daysvalid)
