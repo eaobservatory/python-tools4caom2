@@ -40,7 +40,7 @@ def renew(proxypath, username, passwd, daysvalid):
     proxypath: path to the proxy certificate (pem) file
     username:  username to use for
     """
-    certHost = 'http://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca'
+    certHost = 'https://ws.cadc-ccda.hia-iha.nrc-cnrc.gc.ca'
     certQuery = "/cred/proxyCert?daysValid="
 
     # Example taken from voidspace.org.uk
