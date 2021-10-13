@@ -20,10 +20,6 @@ import sys
 sys.path.insert(0, 'lib')
 from tools4caom2.__version__ import version
 
-if sys.version_info[0] > 2:
-    print 'The tools4caom2 package is only compatible with Python version 2.7'
-    sys.exit(1)
-
 setup(
     name='tools4caom2',
     version=version,
