@@ -145,7 +145,7 @@ class tapclient_cadc(object):
 class tapclient(tapclient_cadc):
     def __init__(self, *args, **kwargs):
         super(tapclient, self).__init__(
-            'https://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/tap/sync',
+            'https://ws.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/argus/sync',
             *args, **kwargs)
 
 
