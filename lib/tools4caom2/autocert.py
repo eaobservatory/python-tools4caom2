@@ -20,6 +20,7 @@ try:
     from ConfigParser import SafeConfigParser
 except ImportError:
     from configparser import ConfigParser as SafeConfigParser
+import logging
 import netrc
 import os.path
 import subprocess
@@ -29,6 +30,7 @@ try:
 except ImportError:
     from urllib.request import HTTPPasswordMgrWithDefaultRealm, HTTPBasicAuthHandler, build_opener, install_opener, urlopen
 
+logger = logging.getLogger(__name__)
 
 def renew(proxypath, username, passwd, daysvalid):
     """
@@ -59,6 +61,7 @@ def renew(proxypath, username, passwd, daysvalid):
 
     # Now all calls to urlopen use our opener.
     url = ''.join([certHost, certQuery, str(daysvalid)])
+    logger.debug('Request URL: %s', url)
     r = urlopen(url)
     with open(proxypath, 'wb') as w:
         while True:
@@ -92,7 +95,12 @@ def run():
                     type=int,
                     help='minimum days for which the certificate should '
                          'remain valid')
+    ap.add_argument('-v', '--verbose',
+                    action='store_true',
+                    help='output extra information')
     a = ap.parse_args()
+
+    logging.basicConfig(level=(logging.DEBUG if a.verbose else logging.INFO))
 
     minvalid = min(a.minvalid, a.daysvalid)
     secvalid = str(86400*minvalid)
@@ -131,3 +139,5 @@ def run():
                                        secvalid])
     if needsupdate:
         renew(cadcproxy, username, passwd, a.daysvalid)
+    else:
+        logger.debug('Certificate is still valid')
