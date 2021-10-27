@@ -16,6 +16,7 @@
 
 from __future__ import print_function
 
+from codecs import ascii_decode
 import logging
 import os
 import shutil
@@ -138,7 +139,7 @@ def run_fits2caom2(collection,
                     cmd, shell=False, stderr=subprocess.STDOUT, env=env)
 
                 if verbose:
-                    logger.info('output = "%s"', output)
+                    logger.info('output = "%s"', ascii_decode(output)[0])
 
                 observation = caom2_reader.read(xmlfile)
 
@@ -165,7 +166,7 @@ def run_fits2caom2(collection,
                         # output from the original run which did fail.
                         output = e.output
 
-                logger.error('output = "%s"', output)
+                logger.error('output = "%s"', ascii_decode(output)[0])
 
                 raise CAOMError('fits2caom2 exited with bad status')
 
