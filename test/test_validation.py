@@ -92,9 +92,6 @@ class test_validation(TestCase):
         with self.assertRaises(CAOMValidationError):
             self.validation.check_size(self.empty_file)
 
-        with self.assertRaises(CAOMValidationError):
-            self.validation.check_size('vos:jsaops/unittest/empty_file.txt')
-
     def testCheckName(self):
         """
         Verify that the name-check test rejects only badly named files.
