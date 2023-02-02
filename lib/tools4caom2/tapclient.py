@@ -72,7 +72,7 @@ class tapclient_cadc(object):
             os.path.expandvars(
                 os.path.expanduser(proxy)))
 
-    def query(self, adql, timeout=60):
+    def query(self, adql, timeout=60, cookies=None):
         """
         Send an adql query to the service and store the response in a file-like
         object.
@@ -83,15 +83,24 @@ class tapclient_cadc(object):
         """
         logger.debug('ADQL: %s', adql)
         query = adql.strip()
-        params = {'REQUEST': 'doQuery',
-                  'LANG': 'ADQL',
-                  'QUERY': query}
+
+        kwargs = {
+            'params': {
+                'REQUEST': 'doQuery',
+                'LANG': 'ADQL',
+                'QUERY': query,
+            },
+            'timeout': timeout,
+        }
+
+        if cookies is not None:
+            kwargs['cookies'] = cookies
+        else:
+            kwargs['cert'] = self.cadcproxy
 
         try:
-            r = requests.get(self.service_url,
-                             params=params,
-                             cert=self.cadcproxy,
-                             timeout=timeout)
+            r = requests.get(self.service_url, **kwargs)
+
             if r.status_code == 200:
                 # The TAP service handled the query and returned a VOTable,
                 # but may not have run the query successfully.  Check for
@@ -189,6 +198,9 @@ def run():
     ap.add_argument('-v', '--verbose',
                     action='store_true',
                     help='output extra information')
+    ap.add_argument('--cookie',
+                    action='store_true',
+                    help='use CADC log in session cookie')
     ap.add_argument('values',
                     nargs='*',
                     help='values to be substituted in the format codes')
@@ -214,7 +226,12 @@ def run():
     if a.verbose:
         logger.info(adqlquery)
 
-    table = tap.query(adqlquery, timeout=a.timeout)
+    cookies = None
+    if a.cookie:
+        from tools4caom2.login import cadc_log_in
+        cookies = cadc_log_in()
+
+    table = tap.query(adqlquery, timeout=a.timeout, cookies=cookies)
 
     if a.out:
         OUTFILE = open(a.out, 'w')
