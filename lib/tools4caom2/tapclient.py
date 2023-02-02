@@ -156,6 +156,13 @@ class tapclient_ad(tapclient_cadc):
             *args, **kwargs)
 
 
+class tapclient_luskan(tapclient_cadc):
+    def __init__(self, *args, **kwargs):
+        super(tapclient_luskan, self).__init__(
+            'https://ws-cadc.canfar.net/luskan/sync',
+            *args, **kwargs)
+
+
 def run():
     """
     do a simple test
@@ -173,6 +180,9 @@ def run():
     ap.add_argument('--ad',
                     action='store_true',
                     help='use CADC AD TAP service')
+    ap.add_argument('--luskan',
+                    action='store_true',
+                    help='use CADC luskan TAP service')
     ap.add_argument('--timeout',
                     type=int, default=60,
                     help='timeout (seconds, default: 60)')
@@ -188,6 +198,8 @@ def run():
 
     if a.ad:
         tap = tapclient_ad()
+    elif a.luskan:
+        tap = tapclient_luskan()
     else:
         tap = tapclient()
 
