@@ -24,8 +24,10 @@ import subprocess
 
 from astropy.io import fits
 
+from tools4caom2.artifact_uri import extract_artifact_uri_filename, \
+    make_artifact_uri
 from tools4caom2.error import CAOMError
-from tools4caom2.tapclient import tapclient_ad
+from tools4caom2.tapclient import tapclient_luskan
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +54,7 @@ class CAOMValidation:
         self.file_id_regexes = file_id_regexes
         self.make_file_id = make_file_id
 
-        self.tap_client = tapclient_ad()
+        self.tap_client = tapclient_luskan()
         self.archive_cache = {}
 
     def check_size(self, filename):
@@ -100,14 +102,16 @@ class CAOMValidation:
 
         else:
             table = self.tap_client.query(
-                'SELECT fileName FROM archive_files WHERE (archiveName = \'{}\' '
-                'AND fileName LIKE \'{}\')'.format(self.archive, pattern))
+                'SELECT uri FROM inventory.Artifact '
+                'WHERE uri LIKE \'{}\''.format(
+                    make_artifact_uri(pattern, archive=self.archive)))
             if table is None:
                 raise CAOMError('AD TAP query failed')
 
             self.archive_cache[pattern] = archive_result = []
-            for (id_,) in table:
-                archive_result.append(id_)
+            for (uri,) in table:
+                archive_result.append(extract_artifact_uri_filename(
+                    uri, archive=self.archive))
 
         if file_id in archive_result:
             return
