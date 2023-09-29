@@ -25,12 +25,14 @@ import netrc
 import os.path
 import subprocess
 import sys
-try:
-    from urllib2 import HTTPPasswordMgrWithDefaultRealm, HTTPBasicAuthHandler, build_opener, install_opener, urlopen
-except ImportError:
-    from urllib.request import HTTPPasswordMgrWithDefaultRealm, HTTPBasicAuthHandler, build_opener, install_opener, urlopen
+
+import requests
+from requests import HTTPError
+from requests.auth import HTTPBasicAuth
+
 
 logger = logging.getLogger(__name__)
+
 
 def renew(proxypath, username, passwd, daysvalid):
     """
@@ -43,34 +45,30 @@ def renew(proxypath, username, passwd, daysvalid):
     certHost = 'https://ws.cadc-ccda.hia-iha.nrc-cnrc.gc.ca'
     certQuery = "/cred/proxyCert?daysValid="
 
-    # Example taken from voidspace.org.uk
-    # create a password manager
-    password_mgr = HTTPPasswordMgrWithDefaultRealm()
-
-    # Add the username and password.
-    # If we knew the realm, we could use it instead of ``None``.
-    password_mgr.add_password(None, certHost, username, passwd)
-
-    handler = HTTPBasicAuthHandler(password_mgr)
-
-    # create "opener" (OpenerDirector instance)
-    opener = build_opener(handler)
-
-    # Install the opener.
-    install_opener(opener)
-
-    # Now all calls to urlopen use our opener.
     url = ''.join([certHost, certQuery, str(daysvalid)])
     logger.debug('Request URL: %s', url)
-    r = urlopen(url)
-    with open(proxypath, 'wb') as w:
-        while True:
-            buf = r.read()
-            if not buf:
-                break
-            w.write(buf)
-    r.close()
-    return
+
+    try:
+        r = requests.get(
+            url,
+            auth=HTTPBasicAuth(username, passwd))
+
+        r.raise_for_status()
+
+        with open(proxypath, 'wb') as w:
+            for buf in r.iter_content(chunk_size=128):
+                w.write(buf)
+
+        r.close()
+
+    except HTTPError as e:
+        logger.exception('HTTP error getting certificate')
+        # logger.error('Request headers: %r', e.request.headers)
+        logger.error('Response: %r', e.response.content)
+        logger.error('Response headers: %r', e.response.headers)
+
+    except:
+        logger.exception('Failed to get certificate')
 
 
 def run():
