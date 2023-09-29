@@ -114,7 +114,7 @@ def run():
             os.path.expanduser(a.userconfig)))
 
     if os.path.isfile(configpath):
-        config_parser = SafeConfigParser()
+        config_parser = SafeConfigParser(interpolation=None)
         with open(configpath) as UC:
             config_parser.readfp(UC)
 
