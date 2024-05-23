@@ -1,5 +1,5 @@
 # Copyright (C) 2014-2015 Science and Technology Facilities Council.
-# Copyright (C) 2015 East Asian Observatory.
+# Copyright (C) 2015-2024 East Asian Observatory.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -156,6 +156,13 @@ class tapclient(tapclient_cadc):
         super(tapclient, self).__init__(
             'https://ws.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/argus/sync',
             *args, **kwargs)
+
+
+class tapclient_ams(tapclient_cadc):
+    def __init__(self, archive='eao', **kwargs):
+        super(tapclient_ams, self).__init__(
+            'https://ws.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/ams/{}/sync'.format(archive),
+            **kwargs)
 
 
 class tapclient_ad(tapclient_cadc):
