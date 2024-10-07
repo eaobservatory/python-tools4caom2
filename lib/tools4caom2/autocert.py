@@ -43,7 +43,7 @@ def renew(proxypath, username, passwd, daysvalid):
     username:  username to use for
     """
     certHost = 'https://ws.cadc-ccda.hia-iha.nrc-cnrc.gc.ca'
-    certQuery = "/cred/proxyCert?daysValid="
+    certQuery = "/cred/generate?daysValid="
 
     url = ''.join([certHost, certQuery, str(daysvalid)])
     logger.debug('Request URL: %s', url)
