@@ -166,7 +166,7 @@ def run_fits2caom2(collection,
                         # output from the original run which did fail.
                         output = e.output
 
-                logger.error('output = "%s"', ascii_decode(output)[0])
+                logger.error('output = "%s"', '<none>' if output is None else ascii_decode(output)[0])
 
                 raise CAOMError('fits2caom2 exited with bad status')
 
