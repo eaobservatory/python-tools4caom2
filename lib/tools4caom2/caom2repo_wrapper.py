@@ -130,7 +130,7 @@ class Repository(object):
             existing_planes = set(wrapper.observation.planes.keys())
 
             if not self.can_update:
-                original_clone = self.clone(observation)
+                original_clone = self.clone(wrapper.observation)
 
         yield wrapper
 
