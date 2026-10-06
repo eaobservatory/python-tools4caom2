@@ -81,6 +81,10 @@ class Repository(object):
         self.reader = ObservationReader(True)
         self.writer = ObservationWriter(True)
 
+        # Can we perform updates, or do we need to instead delete and re-put
+        # in order to work around repository issues with updates?
+        self.can_update = False
+
     @contextmanager
     def process(self, uri, allow_remove=False, dry_run=False):
         """
@@ -121,8 +125,12 @@ class Repository(object):
         # If the observation already exists, make a note of the planes
         # present.
         existing_planes = None
+        original_clone = None
         if exists:
             existing_planes = set(wrapper.observation.planes.keys())
+
+            if not self.can_update:
+                original_clone = self.clone(observation)
 
         yield wrapper
 
@@ -147,7 +155,7 @@ class Repository(object):
                 # There are planes: put/update the observation.
                 if exists:
                     # First check whether planes have been removed.
-                    if existing_planes.issubset(
+                    if self.can_update and existing_planes.issubset(
                             set(wrapper.observation.planes.keys())):
                         logger.debug('No planes have been removed: updating')
 
@@ -164,7 +172,20 @@ class Repository(object):
                         exists = False
 
                 if not dry_run:
-                    self.put(uri, wrapper.observation, exists)
+                    try:
+                        self.put(uri, wrapper.observation, exists)
+
+                    except:
+                        if original_clone and not exists:
+                            # If we failed to do an update as a delete and put,
+                            # try to restore the original record.
+                            try:
+                                self.put(uri, original_clone, False)
+
+                            except:
+                                pass
+
+                        raise
 
     def get(self, uri):
         """
@@ -248,6 +269,18 @@ class Repository(object):
         except CAOM2RepoError:
             logger.exception('error putting/updating observation in CAOM-2')
             raise CAOMError('failed to put/update observation in CAOM-2')
+
+    def clone(self, observation):
+        """
+        Clone a CAOM-2 observation by writing to XML and parsing again.
+        """
+
+        with BytesIO() as f:
+            self.writer.write(observation, f)
+
+            f.seek(0)
+
+            return self.reader.read(f)
 
     def remove(self, uri):
         """
