@@ -193,6 +193,9 @@ def run():
     ap.add_argument('--votable',
                     action='store_true',
                     help='output the response as a VOtable, else as text')
+    ap.add_argument('--ams',
+                    action='store_true',
+                    help='use CADC AMS')
     ap.add_argument('--ad',
                     action='store_true',
                     help='use CADC AD TAP service')
@@ -219,6 +222,8 @@ def run():
         tap = tapclient_ad()
     elif a.luskan:
         tap = tapclient_luskan()
+    elif a.ams:
+        tap = tapclient_ams()
     else:
         tap = tapclient()
 
