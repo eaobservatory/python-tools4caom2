@@ -58,7 +58,8 @@ class tapclient_cadc(object):
     """
 
     def __init__(self, service_url,
-                 proxy='$HOME/.ssl/cadcproxy.pem'):
+                 proxy='$HOME/.ssl/cadcproxy.pem',
+                 cookies=None):
         """
         TAP queries using ADQL return a VOtable or an astropy Table
 
@@ -72,7 +73,9 @@ class tapclient_cadc(object):
             os.path.expandvars(
                 os.path.expanduser(proxy)))
 
-    def query(self, adql, timeout=60, cookies=None):
+        self.cookies = cookies
+
+    def query(self, adql, timeout=60, cookies=()):
         """
         Send an adql query to the service and store the response in a file-like
         object.
@@ -92,6 +95,9 @@ class tapclient_cadc(object):
             },
             'timeout': timeout,
         }
+
+        if cookies == ():
+            cookies = self.cookies
 
         if cookies is not None:
             kwargs['cookies'] = cookies
