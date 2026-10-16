@@ -72,12 +72,12 @@ class Repository(object):
       push the observation into the repository must be a put.
     """
 
-    def __init__(self):
+    def __init__(self, cookies=None):
         """
         Create a repository object.
         """
 
-        self.client = CAOM2RepoClient()
+        self.client = CAOM2RepoClient(cookies=cookies)
         self.reader = ObservationReader(True)
         self.writer = ObservationWriter(True)
 
