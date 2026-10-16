@@ -177,12 +177,19 @@ class Repository(object):
 
                     except:
                         if original_clone and not exists:
+                            logger.exception(
+                                'Failed to put updated record, '
+                                'attempting to restore original')
+
                             # If we failed to do an update as a delete and put,
                             # try to restore the original record.
                             try:
                                 self.put(uri, original_clone, False)
 
                             except:
+                                logger.exception(
+                                    'Failed to restore original record')
+
                                 pass
 
                         raise
