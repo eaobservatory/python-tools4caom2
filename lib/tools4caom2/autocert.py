@@ -41,6 +41,8 @@ def renew(proxypath, username, passwd, daysvalid):
     Arguments:
     proxypath: path to the proxy certificate (pem) file
     username:  username to use for
+
+    Return: true on success
     """
     certHost = 'https://ws.cadc-ccda.hia-iha.nrc-cnrc.gc.ca'
     certQuery = "/cred/generate?daysValid="
@@ -61,6 +63,8 @@ def renew(proxypath, username, passwd, daysvalid):
 
         r.close()
 
+        return True
+
     except HTTPError as e:
         logger.exception('HTTP error getting certificate')
         # logger.error('Request headers: %r', e.request.headers)
@@ -69,6 +73,8 @@ def renew(proxypath, username, passwd, daysvalid):
 
     except:
         logger.exception('Failed to get certificate')
+
+    return False
 
 
 def run():
@@ -136,6 +142,7 @@ def run():
                                        '-checkend',
                                        secvalid])
     if needsupdate:
-        renew(cadcproxy, username, passwd, a.daysvalid)
+        return renew(cadcproxy, username, passwd, a.daysvalid)
     else:
         logger.debug('Certificate is still valid')
+        return True
