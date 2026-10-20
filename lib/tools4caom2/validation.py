@@ -41,7 +41,7 @@ class CAOMValidationError(CAOMError):
 
 
 class CAOMValidation:
-    def __init__(self, archive, file_id_regexes, make_file_id):
+    def __init__(self, archive, file_id_regexes, make_file_id, cookies=None):
         """Construct CAOM validation object.
 
         Arguments:
@@ -54,7 +54,7 @@ class CAOMValidation:
         self.file_id_regexes = file_id_regexes
         self.make_file_id = make_file_id
 
-        self.tap_client = tapclient_luskan()
+        self.tap_client = tapclient_luskan(cookies=cookies)
         self.archive_cache = {}
 
     def check_size(self, filename):
