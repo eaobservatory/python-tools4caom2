@@ -30,6 +30,7 @@ import requests
 from requests import HTTPError
 from requests.auth import HTTPBasicAuth
 
+from tools4caom2.resources import resources
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +45,8 @@ def renew(proxypath, username, passwd, daysvalid):
 
     Return: true on success
     """
-    certHost = 'https://ws.cadc-ccda.hia-iha.nrc-cnrc.gc.ca'
-    certQuery = "/cred/generate?daysValid="
 
-    url = ''.join([certHost, certQuery, str(daysvalid)])
+    url = ''.join([resources['cred'], '?daysValid=', str(daysvalid)])
     logger.debug('Request URL: %s', url)
 
     try:

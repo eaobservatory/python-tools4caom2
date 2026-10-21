@@ -23,14 +23,19 @@ import os.path
 
 import requests
 
+from tools4caom2.resources import resources
+
+
 def cadc_log_in():
-    config_file ='~/.tools4caom2/tools4caom2.config'
+    config_file = '~/.tools4caom2/tools4caom2.config'
 
     config_parser = SafeConfigParser()
     with open(os.path.expanduser(config_file)) as file_:
         config_parser.read_file(file_)
 
-    r = requests.post('https://ws-cadc.canfar.net/ac/login', data={
+    url = resources['ac']
+
+    r = requests.post(url, data={
         'username': config_parser.get('cadc', 'cadc_id'),
         'password': config_parser.get('cadc', 'cadc_key'),
     })

@@ -35,6 +35,7 @@ import sys
 import traceback
 
 from tools4caom2.error import CAOMError
+from tools4caom2.resources import resources
 from tools4caom2.util import configure_logger
 
 from tools4caom2.__version__ import version as tools4caom2version
@@ -160,14 +161,14 @@ class tapclient_cadc(object):
 class tapclient(tapclient_cadc):
     def __init__(self, *args, **kwargs):
         super(tapclient, self).__init__(
-            'https://ws.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/argus/sync',
+            '/'.join((resources['argus'], 'sync')),
             *args, **kwargs)
 
 
 class tapclient_ams(tapclient_cadc):
     def __init__(self, archive='eao', **kwargs):
         super(tapclient_ams, self).__init__(
-            'https://ws.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/ams/{}/sync'.format(archive),
+            '/'.join((resources['ams/{}'.format(archive)], 'sync')),
             **kwargs)
 
 
@@ -181,7 +182,7 @@ class tapclient_ad(tapclient_cadc):
 class tapclient_luskan(tapclient_cadc):
     def __init__(self, *args, **kwargs):
         super(tapclient_luskan, self).__init__(
-            'https://ws-cadc.canfar.net/luskan/sync',
+            '/'.join((resources['luskan'], 'sync')),
             *args, **kwargs)
 
 
