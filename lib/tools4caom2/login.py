@@ -28,7 +28,7 @@ def cadc_log_in():
 
     config_parser = SafeConfigParser()
     with open(os.path.expanduser(config_file)) as file_:
-        config_parser.readfp(file_)
+        config_parser.read_file(file_)
 
     r = requests.post('https://ws-cadc.canfar.net/ac/login', data={
         'username': config_parser.get('cadc', 'cadc_id'),

@@ -120,7 +120,7 @@ def run():
     if os.path.isfile(configpath):
         config_parser = SafeConfigParser(interpolation=None)
         with open(configpath) as UC:
-            config_parser.readfp(UC)
+            config_parser.read_file(UC)
 
         if config_parser.has_section('cadc'):
             username = config_parser.get('cadc', 'cadc_id')
