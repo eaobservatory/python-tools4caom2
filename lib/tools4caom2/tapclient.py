@@ -172,13 +172,6 @@ class tapclient_ams(tapclient_cadc):
             **kwargs)
 
 
-class tapclient_ad(tapclient_cadc):
-    def __init__(self, *args, **kwargs):
-        super(tapclient_ad, self).__init__(
-            'https://ws.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/ad/sync',
-            *args, **kwargs)
-
-
 class tapclient_luskan(tapclient_cadc):
     def __init__(self, *args, **kwargs):
         super(tapclient_luskan, self).__init__(
@@ -203,9 +196,6 @@ def run():
     ap.add_argument('--ams',
                     action='store_true',
                     help='use CADC AMS')
-    ap.add_argument('--ad',
-                    action='store_true',
-                    help='use CADC AD TAP service')
     ap.add_argument('--luskan',
                     action='store_true',
                     help='use CADC luskan TAP service')
@@ -225,9 +215,7 @@ def run():
 
     configure_logger()
 
-    if a.ad:
-        tap = tapclient_ad()
-    elif a.luskan:
+    if a.luskan:
         tap = tapclient_luskan()
     elif a.ams:
         tap = tapclient_ams()
